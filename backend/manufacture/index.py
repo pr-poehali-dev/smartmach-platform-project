@@ -91,27 +91,40 @@ def handler(event: dict, context) -> dict:
         # ─── PARTS (CAD) ─────────────────────────────────────────────────────
         if resource == "parts":
             if method == "GET":
+                only_templates = qs.get("templates") == "1"
+                only_mine = qs.get("templates") == "0"
+                where = ""
+                if only_templates:
+                    where = "WHERE p.is_template = TRUE"
+                elif only_mine:
+                    where = "WHERE p.is_template = FALSE"
                 cur.execute(f"""
                     SELECT p.id, p.code, p.name, p.material, p.version, p.status,
-                           p.collisions, p.notes, p.created_at, p.updated_at,
+                           p.collisions, p.notes, p.category, p.is_template,
+                           p.dimensions, p.weight_kg, p.standard,
+                           p.created_at, p.updated_at,
                            u.name AS author_name,
                            pr.name AS product_name, pr.code AS product_code
                     FROM {S}.parts p
                     LEFT JOIN {S}.users u ON u.id = p.author_id
                     LEFT JOIN {S}.products pr ON pr.id = p.product_id
-                    ORDER BY p.updated_at DESC
+                    {where}
+                    ORDER BY p.category, p.name
                 """)
                 return ok(list(cur.fetchall()))
 
             if method == "POST":
                 cur.execute(f"""
-                    INSERT INTO {S}.parts (product_id, code, name, material, version, status, collisions, author_id, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                    INSERT INTO {S}.parts (product_id, code, name, material, version, status, collisions,
+                                           author_id, notes, category, is_template, dimensions, weight_kg, standard)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """, (
                     body.get("product_id"), body["code"], body["name"],
                     body.get("material"), body.get("version", "v1.0"),
                     body.get("status", "ok"), body.get("collisions", 0),
                     body.get("author_id"), body.get("notes"),
+                    body.get("category", "Прочее"), body.get("is_template", False),
+                    body.get("dimensions"), body.get("weight_kg"), body.get("standard"),
                 ))
                 new_id = cur.fetchone()["id"]
                 conn.commit()
@@ -119,7 +132,8 @@ def handler(event: dict, context) -> dict:
 
             if method == "PUT" and rid:
                 fields, vals = [], []
-                for f in ("code", "name", "material", "version", "status", "collisions", "notes", "product_id"):
+                for f in ("code", "name", "material", "version", "status", "collisions", "notes",
+                          "product_id", "category", "dimensions", "weight_kg", "standard"):
                     if f in body:
                         fields.append(f"{f} = %s")
                         vals.append(body[f])

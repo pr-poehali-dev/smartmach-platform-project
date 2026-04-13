@@ -1,7 +1,7 @@
 const BASE = "https://functions.poehali.dev/57502842-91ce-445e-baba-dbedb1afa234";
 
-export async function mGet<T>(resource: string): Promise<T> {
-  const res = await fetch(`${BASE}/?resource=${resource}`);
+export async function mGet<T>(resource: string, extra?: string): Promise<T> {
+  const res = await fetch(`${BASE}/?resource=${resource}${extra ? `&${extra}` : ""}`);
   if (!res.ok) throw new Error(`Ошибка загрузки ${resource}`);
   return res.json();
 }
@@ -29,6 +29,8 @@ export interface User { id: number; name: string; email: string; role: string }
 export interface Part {
   id: number; code: string; name: string; material: string | null;
   version: string; status: string; collisions: number; notes: string | null;
+  category: string; is_template: boolean;
+  dimensions: string | null; weight_kg: number | null; standard: string | null;
   author_name: string | null; product_name: string | null; product_code: string | null;
   created_at: string; updated_at: string;
 }

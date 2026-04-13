@@ -93,7 +93,26 @@ export const EMPTY = {
   code: "", name: "", category: "Прочее", material: "", version: "v1.0",
   dimensions: "", weight_kg: "", standard: "", notes: "", author_id: "",
   roughness: "", fit_type: "", tolerance: "", drawing_number: "",
+  dim_length: "", dim_width: "", dim_height: "",
 };
+
+// Тип для передачи данных детали в редакторы
+export interface PartInfo {
+  id: number;
+  code: string;
+  name: string;
+  material: string | null;
+  dimensions: string | null;
+  dim_length: number | null;
+  dim_width: number | null;
+  dim_height: number | null;
+  standard: string | null;
+  drawing_number: string | null;
+  tolerance: string | null;
+  roughness: string | null;
+  weight_kg: number | null;
+  category: string;
+}
 
 export function catIcon(cat: string) {
   return (CAT_ICONS[cat] ?? "Box") as Parameters<typeof Icon>[0]["name"];

@@ -6,7 +6,7 @@ import { PartCard, DetailPanel } from "@/components/smartmach/CadPartCard";
 import CadForm from "@/components/smartmach/CadForm";
 import {
   CATEGORIES, EMPTY, catIcon, catColor,
-  AI_SYSTEM, AI_SUGGESTIONS,
+  AI_SYSTEM, AI_SUGGESTIONS, type PartInfo,
 } from "@/components/smartmach/cad.data";
 
 const CadEditor2D = lazy(() => import("@/components/smartmach/CadEditor2D"));
@@ -119,6 +119,11 @@ export default function ModuleCAD() {
     return ["Все", ...CATEGORIES.filter((c) => cats.has(c))];
   }, [list]);
 
+  // Открыть выбранную деталь в редакторе
+  const openInEditor = (tab: "2d" | "3d") => {
+    setMainTab(tab);
+  };
+
   return (
     <div className="p-6 space-y-5">
 
@@ -154,18 +159,18 @@ export default function ModuleCAD() {
 
       {/* 2D редактор */}
       {mainTab === "2d" && (
-        <div style={{ height: 620 }}>
+        <div style={{ height: 660 }}>
           <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground"><Icon name="Loader2" size={22} className="animate-spin mr-2" />Загрузка редактора…</div>}>
-            <CadEditor2D />
+            <CadEditor2D part={selected ? partInfoFromPart(selected, form) : null} />
           </Suspense>
         </div>
       )}
 
       {/* 3D редактор */}
       {mainTab === "3d" && (
-        <div style={{ height: 620 }}>
+        <div style={{ height: 660 }}>
           <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground"><Icon name="Loader2" size={22} className="animate-spin mr-2" />Загрузка 3D…</div>}>
-            <CadEditor3D />
+            <CadEditor3D part={selected ? partInfoFromPart(selected, form) : null} />
           </Suspense>
         </div>
       )}
@@ -259,9 +264,23 @@ export default function ModuleCAD() {
           <div className="xl:col-span-1">
             <div className="sticky top-4 bg-white rounded-xl border border-border shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-secondary/40">
-                <span className="text-sm font-semibold text-foreground">
-                  {selected ? selected.name : "Карточка детали"}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {selected ? selected.name : "Карточка детали"}
+                  </span>
+                  {selected && (
+                    <div className="flex gap-1">
+                      <button onClick={() => openInEditor("2d")} title="Открыть в 2D чертёж"
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-medium">
+                        <Icon name="PenLine" size={12} />2D
+                      </button>
+                      <button onClick={() => openInEditor("3d")} title="Открыть в 3D модель"
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-medium">
+                        <Icon name="Box" size={12} />3D
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="p-4">
                 {selected ? (
@@ -289,4 +308,27 @@ export default function ModuleCAD() {
       />
     </div>
   );
+}
+
+function partInfoFromPart(part: Part, form: typeof EMPTY): PartInfo {
+  const extra = part as Part & {
+    dim_length?: string | number; dim_width?: string | number; dim_height?: string | number;
+    roughness?: string; fit_type?: string; tolerance?: string; drawing_number?: string;
+  };
+  return {
+    id: part.id,
+    code: part.code,
+    name: part.name,
+    material: part.material,
+    dimensions: part.dimensions,
+    dim_length: extra.dim_length ? Number(extra.dim_length) : (form.dim_length ? Number(form.dim_length) : null),
+    dim_width:  extra.dim_width  ? Number(extra.dim_width)  : (form.dim_width  ? Number(form.dim_width)  : null),
+    dim_height: extra.dim_height ? Number(extra.dim_height) : (form.dim_height ? Number(form.dim_height) : null),
+    standard: part.standard,
+    drawing_number: extra.drawing_number ?? null,
+    tolerance: extra.tolerance ?? null,
+    roughness: extra.roughness ?? null,
+    weight_kg: part.weight_kg ?? null,
+    category: part.category,
+  };
 }

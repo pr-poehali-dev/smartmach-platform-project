@@ -70,8 +70,29 @@ export default function CadForm({ form, saving, users, onClose, onSubmit, onFiel
             Геометрия и масса
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Линейные размеры */}
+            <div className="sm:col-span-3">
+              <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Линейные размеры (мм) — для 2D/3D</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "dim_length" as const, label: "Длина L", placeholder: "200" },
+                  { key: "dim_width"  as const, label: "Ширина W", placeholder: "80" },
+                  { key: "dim_height" as const, label: "Высота H", placeholder: "40" },
+                ].map(({ key, label, placeholder }) => (
+                  <div key={key}>
+                    <label className="text-[11px] text-muted-foreground mb-1 block">{label}</label>
+                    <div className="relative">
+                      <input type="number" min="0" step="0.1" value={form[key]} onChange={(e) => f(key, e.target.value)}
+                        placeholder={placeholder}
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 pr-8" />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">мм</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Габариты</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Габариты (текст)</label>
               <input value={form.dimensions} onChange={(e) => f("dimensions", e.target.value)} placeholder="Ø40×200 мм"
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>

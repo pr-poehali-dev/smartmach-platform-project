@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Icon from "@/components/ui/icon";
+import { type PartInfo } from "@/components/smartmach/cad.data";
 
 /* ─── типы ───────────────────────────────────────────────────── */
 type ShapeType = "box" | "cylinder" | "sphere" | "cone" | "torus" | "tube" | "wedge" | "prism";
@@ -96,8 +97,25 @@ function makeMaterial(matType: MatType, color: string): THREE.MeshStandardMateri
   });
 }
 
+function makeTextSprite(text: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "rgba(0,0,0,0)";
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.font = "bold 28px Inter, sans-serif";
+  ctx.fillStyle = "#60a5fa";
+  ctx.textAlign = "center";
+  ctx.fillText(text, 128, 40);
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.8, 0.2, 1);
+  return sprite;
+}
+
 /* ─── компонент ──────────────────────────────────────────────── */
-export default function CadEditor3D() {
+export default function CadEditor3D({ part }: { part?: PartInfo | null }) {
   const mountRef  = useRef<HTMLDivElement>(null);
   const rendRef   = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef  = useRef<THREE.Scene | null>(null);
@@ -267,6 +285,89 @@ export default function CadEditor3D() {
     setObjects([...objectsRef.current]);
   }, [shapeType, matType, color, dims]);
 
+  /* ── загрузка детали из библиотеки с реальными размерами ── */
+  const loadPartModel = useCallback(() => {
+    const scene = sceneRef.current; if (!scene || !part) return;
+    // Размеры в мм → метры (масштаб 1:100)
+    const SCALE = 0.01;
+    const L = (part.dim_length ?? 200) * SCALE;
+    const W = (part.dim_width  ?? 100) * SCALE;
+    const H = (part.dim_height ?? 50)  * SCALE;
+
+    // Определяем тип примитива по категории
+    const typeMap: Record<string, ShapeType> = {
+      "Валы и оси": "cylinder", "Зубчатые колёса": "cylinder",
+      "Корпуса": "box", "Крепёж": "cylinder", "Подшипниковые узлы": "torus",
+      "Фланцы": "cylinder", "Пружины": "torus", "Муфты": "cylinder",
+    };
+    const pType: ShapeType = typeMap[part.category] ?? "box";
+
+    // Материал по марке
+    const matMap: Record<string, MatType> = {
+      "Сталь 45": "metal", "Сталь 40Х": "metal", "Сталь 12Х18Н10Т": "metal",
+      "Алюминий": "metal", "Чугун": "metal",
+      "Пластик": "plastic", "Резина": "rubber",
+    };
+    const detectedMat: MatType = Object.entries(matMap).find(([k]) => part.material?.includes(k))?.[1] as MatType ?? "metal";
+
+    const geo = makeGeometry(pType, L, H, W);
+    const mat = makeMaterial(detectedMat, "#8899aa");
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.position.set(0, H / 2, 0);
+    scene.add(mesh);
+
+    // Добавляем размерные линии (3D helpers)
+    const addDimLine = (from: THREE.Vector3, to: THREE.Vector3, label: string) => {
+      const points = [from, to];
+      const geo2 = new THREE.BufferGeometry().setFromPoints(points);
+      const mat2 = new THREE.LineBasicMaterial({ color: 0x1e40af });
+      const line = new THREE.Line(geo2, mat2);
+      scene.add(line);
+      // Подпись
+      const mid = from.clone().add(to).multiplyScalar(0.5);
+      const sprite = makeTextSprite(label);
+      sprite.position.copy(mid);
+      scene.add(sprite);
+    };
+
+    addDimLine(
+      new THREE.Vector3(-L/2 - 0.1, 0, -W/2),
+      new THREE.Vector3(-L/2 - 0.1, H, -W/2),
+      `H=${part.dim_height ?? "?"}мм`
+    );
+    addDimLine(
+      new THREE.Vector3(-L/2, -0.1, -W/2),
+      new THREE.Vector3(L/2, -0.1, -W/2),
+      `L=${part.dim_length ?? "?"}мм`
+    );
+    addDimLine(
+      new THREE.Vector3(L/2 + 0.1, -0.1, -W/2),
+      new THREE.Vector3(L/2 + 0.1, -0.1, W/2),
+      `W=${part.dim_width ?? "?"}мм`
+    );
+
+    const id = `part-${Date.now()}`;
+    const obj: SceneObject = {
+      id, type: pType,
+      label: `${part.code} ${part.name}`,
+      color: "#8899aa", matType: detectedMat,
+      mesh, dims: { w: L, h: H, d: W }, visible: true,
+    };
+    (mesh as any).__id = id;
+    objectsRef.current = [...objectsRef.current, obj];
+    setObjects([...objectsRef.current]);
+    setSelected(id);
+
+    // Настраиваем камеру
+    const maxDim = Math.max(L, W, H);
+    if (camRef.current) {
+      camRef.current.position.set(maxDim * 3, maxDim * 2, maxDim * 3);
+      ctrlRef.current?.target.set(0, H / 2, 0);
+      ctrlRef.current?.update();
+    }
+  }, [part]);
+
   const removeObject = useCallback((id: string) => {
     const scene = sceneRef.current; if (!scene) return;
     const obj = objectsRef.current.find((o) => o.id === id);
@@ -403,7 +504,30 @@ export default function CadEditor3D() {
   const selectedObj = objects.find((o) => o.id === selected);
 
   return (
-    <div className="flex h-full bg-[#1a1a2e] rounded-xl border border-gray-700 overflow-hidden" style={{ minHeight: 600 }}>
+    <div className="flex flex-col h-full bg-[#1a1a2e] rounded-xl border border-gray-700 overflow-hidden" style={{ minHeight: 600 }}>
+
+      {/* ── Панель активной детали ── */}
+      {part && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-950 border-b border-blue-800 flex-wrap">
+          <div className="flex items-center gap-2 text-xs">
+            <Icon name="Box" size={14} className="text-blue-400" />
+            <span className="text-blue-300 font-medium">{part.code}</span>
+            <span className="text-white font-semibold">{part.name}</span>
+            {part.material && <span className="text-blue-300">· {part.material}</span>}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-blue-300 ml-2">
+            {part.dim_length && <span>L: <b className="text-white">{part.dim_length} мм</b></span>}
+            {part.dim_width  && <span>W: <b className="text-white">{part.dim_width} мм</b></span>}
+            {part.dim_height && <span>H: <b className="text-white">{part.dim_height} мм</b></span>}
+          </div>
+          <button onClick={loadPartModel}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium ml-auto">
+            <Icon name="Download" size={12} />Загрузить модель детали
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 560 }}>
 
       {/* ── Левая панель ── */}
       <div className="w-52 shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-y-auto">
@@ -643,6 +767,7 @@ export default function CadEditor3D() {
           <span className="ml-auto text-gray-600">ЛКМ — выбрать · ПКМ/колесо — камера</span>
           {measureMode && <span className="text-yellow-300">Режим измерения: кликни 2 точки</span>}
         </div>
+      </div>
       </div>
     </div>
   );

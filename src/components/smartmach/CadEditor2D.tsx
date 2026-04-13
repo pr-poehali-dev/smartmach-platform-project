@@ -5,6 +5,7 @@ import {
   type TPointerEventInfo,
 } from "fabric";
 import Icon from "@/components/ui/icon";
+import { type PartInfo } from "@/components/smartmach/cad.data";
 
 /* ─── типы ───────────────────────────────────────────────────── */
 type Tool = "select" | "line" | "polyline" | "rect" | "circle" | "ellipse"
@@ -47,7 +48,7 @@ const PAPER_SIZES: Record<string, [number, number]> = {
 function snapToGrid(v: number, size = GRID) { return Math.round(v / size) * size; }
 
 /* ─── компонент ──────────────────────────────────────────────── */
-export default function CadEditor2D() {
+export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const fabricRef    = useRef<Canvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +81,7 @@ export default function CadEditor2D() {
   const [showLayers,  setShowLayers]  = useState(false);
   const [showProps,   setShowProps]   = useState(false);
   const [selectedObj, setSelectedObj] = useState<any>(null);
+  const [showPartPanel, setShowPartPanel] = useState(!!part);
 
   /* ── helpers ─── */
   const getColor = useCallback(() => {
@@ -120,6 +122,86 @@ export default function CadEditor2D() {
     setHistIdx(next.length - 1);
     setHistLen(next.length);
   }, []);
+
+  /* ── вставка детали из библиотеки с авторазмерами ─── */
+  const insertPartDrawing = useCallback(() => {
+    const fc = fabricRef.current; if (!fc || !part) return;
+    const L = part.dim_length ?? 200;
+    const W = part.dim_width  ?? 100;
+    const H = part.dim_height ?? 50;
+    const SCALE = 1; // 1 мм = 1 px в редакторе
+    const ox = 80, oy = 80; // начало вставки
+
+    // Вид спереди (L × H)
+    const frontRect = new Rect({
+      left: ox, top: oy,
+      width: L * SCALE, height: H * SCALE,
+      stroke: "#000", strokeWidth: 1.5, fill: "transparent",
+    });
+    (frontRect as any).__layer = "layer-0";
+
+    // Вид сверху (L × W)
+    const topRect = new Rect({
+      left: ox, top: oy + H * SCALE + 40,
+      width: L * SCALE, height: W * SCALE,
+      stroke: "#000", strokeWidth: 1.5, fill: "transparent",
+    });
+    (topRect as any).__layer = "layer-0";
+
+    // Вид сбоку (W × H)
+    const sideRect = new Rect({
+      left: ox + L * SCALE + 40, top: oy,
+      width: W * SCALE, height: H * SCALE,
+      stroke: "#000", strokeWidth: 1.5, fill: "transparent",
+    });
+    (sideRect as any).__layer = "layer-0";
+
+    // Осевые линии
+    const axH = new Line([ox - 10, oy + H * SCALE / 2, ox + L * SCALE + 10, oy + H * SCALE / 2], { stroke: "#dc2626", strokeWidth: 0.5, strokeDashArray: [6, 4] });
+    const axV = new Line([ox + L * SCALE / 2, oy - 10, ox + L * SCALE / 2, oy + H * SCALE + 10], { stroke: "#dc2626", strokeWidth: 0.5, strokeDashArray: [6, 4] });
+    (axH as any).__layer = "layer-2"; (axV as any).__layer = "layer-2";
+
+    // Размерная линия: длина (горизонталь)
+    const dimY = oy - 25;
+    const dimLineL = new Line([ox, dimY, ox + L * SCALE, dimY], { stroke: "#1e40af", strokeWidth: 0.8 });
+    const dimTextL = new IText(`${L}`, { left: ox + L * SCALE / 2 - 15, top: dimY - 14, fontSize: 11, fill: "#1e40af", fontFamily: "Inter, sans-serif" });
+    const tickL1 = new Line([ox, dimY - 4, ox, dimY + 4], { stroke: "#1e40af", strokeWidth: 0.8 });
+    const tickL2 = new Line([ox + L * SCALE, dimY - 4, ox + L * SCALE, dimY + 4], { stroke: "#1e40af", strokeWidth: 0.8 });
+
+    // Размерная линия: высота (вертикаль)
+    const dimX = ox - 25;
+    const dimLineH = new Line([dimX, oy, dimX, oy + H * SCALE], { stroke: "#1e40af", strokeWidth: 0.8 });
+    const dimTextH = new IText(`${H}`, { left: dimX - 22, top: oy + H * SCALE / 2 - 7, fontSize: 11, fill: "#1e40af", fontFamily: "Inter, sans-serif" });
+    const tickH1 = new Line([dimX - 4, oy, dimX + 4, oy], { stroke: "#1e40af", strokeWidth: 0.8 });
+    const tickH2 = new Line([dimX - 4, oy + H * SCALE, dimX + 4, oy + H * SCALE], { stroke: "#1e40af", strokeWidth: 0.8 });
+
+    // Размерная линия: ширина (вид сверху)
+    const dimYW = oy + H * SCALE + 40 - 20;
+    const dimLineW = new Line([ox, dimYW, ox + W * SCALE, dimYW], { stroke: "#1e40af", strokeWidth: 0.8 });
+    const dimTextW = new IText(`${W}`, { left: ox + W * SCALE / 2 - 10, top: dimYW - 14, fontSize: 11, fill: "#1e40af", fontFamily: "Inter, sans-serif" });
+    const tickW1 = new Line([ox, dimYW - 4, ox, dimYW + 4], { stroke: "#1e40af", strokeWidth: 0.8 });
+    const tickW2 = new Line([ox + W * SCALE, dimYW - 4, ox + W * SCALE, dimYW + 4], { stroke: "#1e40af", strokeWidth: 0.8 });
+
+    // Подписи видов
+    const lblFront = new IText("Вид спереди", { left: ox, top: oy + H * SCALE + 4, fontSize: 9, fill: "#666", fontFamily: "Inter, sans-serif" });
+    const lblTop   = new IText("Вид сверху",  { left: ox, top: oy + H * SCALE + 40 + W * SCALE + 4, fontSize: 9, fill: "#666", fontFamily: "Inter, sans-serif" });
+    const lblSide  = new IText("Вид сбоку",   { left: ox + L * SCALE + 40, top: oy + H * SCALE + 4, fontSize: 9, fill: "#666", fontFamily: "Inter, sans-serif" });
+
+    // Штамп с данными детали
+    const stamp = new IText(
+      `${part.code}  ${part.name}\nМатериал: ${part.material ?? "—"}  Стандарт: ${part.standard ?? "—"}`,
+      { left: ox, top: oy + H * SCALE + 40 + W * SCALE + 20, fontSize: 10, fill: "#000", fontFamily: "Inter, sans-serif", lineHeight: 1.4 }
+    );
+
+    [frontRect, topRect, sideRect, axH, axV,
+     dimLineL, dimTextL, tickL1, tickL2,
+     dimLineH, dimTextH, tickH1, tickH2,
+     dimLineW, dimTextW, tickW1, tickW2,
+     lblFront, lblTop, lblSide, stamp].forEach((o) => fc.add(o));
+
+    fc.renderAll();
+    saveHistory(fc);
+  }, [part, saveHistory]);
 
   /* ── инициализация ─── */
   useEffect(() => {
@@ -509,8 +591,57 @@ export default function CadEditor2D() {
   ];
 
   return (
-    <div className="flex h-full bg-[#1a1a2e] rounded-xl border border-gray-700 overflow-hidden" style={{ minHeight: 640 }}>
+    <div className="flex flex-col h-full bg-[#1a1a2e] rounded-xl border border-gray-700 overflow-hidden" style={{ minHeight: 640 }}>
 
+      {/* ── Панель активной детали ── */}
+      {part && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-950 border-b border-blue-800 flex-wrap">
+          <div className="flex items-center gap-2 text-xs">
+            <Icon name="Box" size={14} className="text-blue-400" />
+            <span className="text-blue-300 font-medium">{part.code}</span>
+            <span className="text-white font-semibold">{part.name}</span>
+            {part.material && <span className="text-blue-300">· {part.material}</span>}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-blue-300 ml-2">
+            {part.dim_length && <span>L: <b className="text-white">{part.dim_length} мм</b></span>}
+            {part.dim_width  && <span>W: <b className="text-white">{part.dim_width} мм</b></span>}
+            {part.dim_height && <span>H: <b className="text-white">{part.dim_height} мм</b></span>}
+            {!part.dim_length && !part.dim_width && !part.dim_height && part.dimensions && (
+              <span className="text-blue-400">{part.dimensions}</span>
+            )}
+          </div>
+          <div className="flex gap-2 ml-auto">
+            <button onClick={insertPartDrawing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">
+              <Icon name="Download" size={12} />Вставить проекции с размерами
+            </button>
+            <button onClick={() => setShowPartPanel((v) => !v)}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs ${showPartPanel ? "bg-blue-700 text-white" : "text-blue-400 hover:bg-blue-900"}`}>
+              <Icon name="SlidersHorizontal" size={12} />Данные
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Дополнительная панель данных детали ── */}
+      {part && showPartPanel && (
+        <div className="flex gap-6 px-4 py-2.5 bg-gray-900 border-b border-gray-700 text-xs flex-wrap">
+          {[
+            { label: "Стандарт",    value: part.standard },
+            { label: "Допуск",      value: part.tolerance },
+            { label: "Шероховатость",value: part.roughness },
+            { label: "№ чертежа",   value: part.drawing_number },
+            { label: "Масса",       value: part.weight_kg ? `${part.weight_kg} кг` : null },
+          ].filter((r) => r.value).map((r) => (
+            <div key={r.label}>
+              <span className="text-gray-500">{r.label}: </span>
+              <span className="text-gray-200 font-medium">{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
       {/* ── Левая панель инструментов ── */}
       <div className="w-12 flex flex-col items-center py-2 gap-1 bg-gray-900 border-r border-gray-700 overflow-y-auto">
         {toolGroups.map((grp, gi) => (
@@ -733,6 +864,7 @@ export default function CadEditor2D() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

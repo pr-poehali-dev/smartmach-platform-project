@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "Stats",
+      "method": "GET",
+      "path": "/?action=stats",
+      "expectedStatus": 200,
+      "expectedBody": {"total": 5},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List products",
+      "method": "GET",
+      "path": "/?action=list",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "type"
+    },
+    {
+      "name": "Get product 1",
+      "method": "GET",
+      "path": "/?action=get&id=1",
+      "expectedStatus": 200,
+      "expectedBody": {"id": 1},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get versions of product 1",
+      "method": "GET",
+      "path": "/?action=versions&id=1",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "type"
+    },
+    {
+      "name": "Get events of product 1",
+      "method": "GET",
+      "path": "/?action=events&id=1",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "type"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "List users",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"id": 1},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

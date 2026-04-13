@@ -60,7 +60,7 @@ export default function ModuleAnalytics() {
     try {
       const [s, j, pr, pa, m, u] = await Promise.all([
         mGet<Stats>("stats"), mGet<Job[]>("jobs"),
-        fetch("https://functions.poehali.dev/cefa07dc-7ab3-4dc3-9fc9-31d458b0af27/products").then((r) => r.json()),
+        fetch("https://functions.poehali.dev/cefa07dc-7ab3-4dc3-9fc9-31d458b0af27?resource=products").then((r) => r.json()),
         mGet<{ id: number; name: string; code: string }[]>("parts"),
         mGet<{ id: number; name: string }[]>("machines"),
         mGet<{ id: number; name: string }[]>("users"),

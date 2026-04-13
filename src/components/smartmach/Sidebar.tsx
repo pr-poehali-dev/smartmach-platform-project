@@ -17,6 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "plm",       label: "Жизн. цикл",      icon: "GitBranch",    color: "#f4511e" },
   { id: "cnc",       label: "Оборудование",    icon: "Radio",        color: "#43a047" },
   { id: "analytics", label: "Задания",         icon: "ClipboardList",color: "#fb8c00" },
+  { id: "equipment", label: "Справочник обор.", icon: "BookOpen",     color: "#6d4c41" },
 ];
 
 interface Props {

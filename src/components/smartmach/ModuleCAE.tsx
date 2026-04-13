@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Simulation, Part, User } from "@/lib/manufacture";
+import AiAssistant from "@/components/smartmach/AiAssistant";
+
+const AI_SYSTEM = `Ты — инженер-расчётчик (МКЭ, FEA) в системе SmartMach. 
+Помогаешь с интерпретацией результатов МКЭ, тепловых и динамических расчётов, 
+выбором граничных условий, анализом запасов прочности, усталостным анализом. 
+Отвечай с конкретными формулами, коэффициентами запаса и рекомендациями по улучшению конструкции.`;
+
+const AI_SUGGESTIONS = [
+  "Как трактовать результаты МКЭ — что такое von Mises stress?",
+  "Какой коэффициент запаса прочности считается нормой?",
+  "Как выбрать граничные условия для расчёта вала?",
+  "Что такое усталостное разрушение и как его предотвратить?",
+  "Как интерпретировать тепловой расчёт подшипника?",
+];
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: string }> = {
   queue:   { label: "Ожидает",  color: "text-gray-500   bg-gray-50   border-gray-200",  icon: "Clock" },
@@ -185,6 +199,12 @@ export default function ModuleCAE() {
           </div>
         )}
       </div>
+
+      <AiAssistant
+        title="CAE-помощник"
+        systemPrompt={AI_SYSTEM}
+        suggestions={AI_SUGGESTIONS}
+      />
     </div>
   );
 }

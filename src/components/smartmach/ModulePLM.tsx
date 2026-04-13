@@ -1,7 +1,21 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
+import AiAssistant from "@/components/smartmach/AiAssistant";
 
 const API = "https://functions.poehali.dev/cefa07dc-7ab3-4dc3-9fc9-31d458b0af27";
+
+const AI_SYSTEM = `Ты — менеджер по управлению жизненным циклом изделий (PLM) в системе SmartMach. 
+Помогаешь с процессами согласования конструкторской документации, управлением версиями изделий, 
+переходами между стадиями (черновик → разработка → согласование → производство), 
+интеграцией с ERP, управлением изменениями (ECO/ECR). Отвечай чётко, с указанием ответственных ролей.`;
+
+const AI_SUGGESTIONS = [
+  "Каковы критерии перевода изделия в стадию 'Согласование'?",
+  "Как правильно оформить извещение об изменении (ИИ)?",
+  "Что входит в состав конструкторской документации?",
+  "Как управлять версиями сборочного чертежа?",
+  "Чем PLM отличается от ERP?",
+];
 
 const STAGES = [
   { value: "draft",       label: "Черновик",      color: "text-gray-500   bg-gray-50   border-gray-200" },
@@ -302,6 +316,12 @@ export default function ModulePLM() {
           )}
         </div>
       </div>
+
+      <AiAssistant
+        title="PLM-помощник"
+        systemPrompt={AI_SYSTEM}
+        suggestions={AI_SUGGESTIONS}
+      />
     </div>
   );
 }

@@ -1,6 +1,19 @@
 import { useEffect, useState, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Part, User } from "@/lib/manufacture";
+import AiAssistant from "@/components/smartmach/AiAssistant";
+
+const AI_SYSTEM = `Ты — инженер-конструктор и эксперт по CAD-моделированию в системе SmartMach. 
+Помогаешь с выбором материалов, расчётом допусков, проверкой коллизий, стандартами (ГОСТ, DIN, ISO), 
+выбором типовых деталей из библиотеки. Отвечай кратко, по существу, с конкретными цифрами и ссылками на стандарты.`;
+
+const AI_SUGGESTIONS = [
+  "Какой материал выбрать для вала редуктора?",
+  "Как рассчитать допуск посадки подшипника?",
+  "Что такое коллизия в 3D-модели и как её устранить?",
+  "Чем отличается Сталь 45 от 40Х?",
+  "Какие стандарты применяются для зубчатых колёс?",
+];
 
 /* ─── конфиги ────────────────────────────────────────────────────── */
 
@@ -448,6 +461,12 @@ export default function ModuleCAD() {
 
         </div>
       )}
+
+      <AiAssistant
+        title="CAD-помощник"
+        systemPrompt={AI_SYSTEM}
+        suggestions={AI_SUGGESTIONS}
+      />
     </div>
   );
 }

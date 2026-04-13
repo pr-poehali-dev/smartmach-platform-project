@@ -1,6 +1,21 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, Stats, Job } from "@/lib/manufacture";
+import AiAssistant from "@/components/smartmach/AiAssistant";
+
+const AI_SYSTEM = `Ты — производственный менеджер и аналитик в системе SmartMach. 
+Помогаешь с управлением производственными заданиями, расстановкой приоритетов, 
+анализом узких мест (бутылочное горлышко), расчётом OEE и производительности, 
+планированием загрузки оборудования, снижением простоев. 
+Отвечай с конкретными метриками и управленческими решениями.`;
+
+const AI_SUGGESTIONS = [
+  "Как расставить приоритеты производственных заданий?",
+  "Что такое OEE и как его рассчитать?",
+  "Как определить узкое место в производстве?",
+  "Как снизить время переналадки оборудования?",
+  "Какие KPI нужно отслеживать в цехе?",
+];
 
 const JOB_STATUS: Record<string, { label: string; color: string }> = {
   new:   { label: "Новое",       color: "text-gray-500   bg-gray-50   border-gray-200" },
@@ -260,6 +275,12 @@ export default function ModuleAnalytics() {
           </div>
         )}
       </div>
+
+      <AiAssistant
+        title="Помощник по заданиям"
+        systemPrompt={AI_SYSTEM}
+        suggestions={AI_SUGGESTIONS}
+      />
     </div>
   );
 }

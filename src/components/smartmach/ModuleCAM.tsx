@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
+import AiAssistant from "@/components/smartmach/AiAssistant";
+
+const AI_SYSTEM = `Ты — технолог-программист ЧПУ в системе SmartMach. 
+Помогаешь с написанием G-кода, выбором режимов резания (подача, скорость, глубина), 
+стратегиями обработки (черновая, чистовая, 5-осевая), выбором инструмента, оптимизацией программ ЧПУ. 
+Отвечай с конкретными режимами и рекомендациями по материалам.`;
+
+const AI_SUGGESTIONS = [
+  "Какие режимы резания для фрезеровки Стали 45?",
+  "Как написать цикл сверления в G-коде?",
+  "Чем отличается G41 от G42 (коррекция на радиус)?",
+  "Как рассчитать скорость подачи для токарной операции?",
+  "Какую стратегию обработки выбрать для кармана?",
+];
 
 const STATUS_CFG: Record<string, { label: string; color: string }> = {
   queue:   { label: "Очередь",  color: "text-gray-500   bg-gray-50   border-gray-200" },
@@ -180,6 +194,12 @@ export default function ModuleCAM() {
           </div>
         )}
       </div>
+
+      <AiAssistant
+        title="CAM-помощник"
+        systemPrompt={AI_SYSTEM}
+        suggestions={AI_SUGGESTIONS}
+      />
     </div>
   );
 }

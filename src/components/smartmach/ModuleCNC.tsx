@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Machine, User } from "@/lib/manufacture";
+import AiAssistant from "@/components/smartmach/AiAssistant";
+
+const AI_SYSTEM = `Ты — специалист по ЧПУ-оборудованию и его обслуживанию в системе SmartMach. 
+Помогаешь с диагностикой аварий и ошибок станков, настройкой параметров, плановым обслуживанием, 
+интерпретацией кодов ошибок (Fanuc, Siemens, Heidenhain), оптимизацией загрузки оборудования.
+Отвечай конкретно, с кодами ошибок и шагами диагностики.`;
+
+const AI_SUGGESTIONS = [
+  "Что означает alarm 300 на стойке Fanuc?",
+  "Как настроить нулевую точку детали на станке?",
+  "Почему станок уходит в E-stop — основные причины?",
+  "Как проверить люфт ШВП на токарном станке?",
+  "Какое плановое обслуживание нужно раз в месяц?",
+];
 
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
   running: { label: "Работает", color: "text-green-600 bg-green-50 border-green-200", dot: "bg-green-500" },
@@ -223,6 +237,12 @@ export default function ModuleCNC() {
           )}
         </div>
       </div>
+
+      <AiAssistant
+        title="CNC-помощник"
+        systemPrompt={AI_SYSTEM}
+        suggestions={AI_SUGGESTIONS}
+      />
     </div>
   );
 }

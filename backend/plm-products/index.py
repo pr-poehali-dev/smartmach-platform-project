@@ -27,12 +27,20 @@ def get_db():
     return psycopg2.connect(os.environ["DATABASE_URL"], cursor_factory=RealDictCursor)
 
 
+def serial(obj):
+    if isinstance(obj, list):
+        return [serial(i) for i in obj]
+    if isinstance(obj, dict):
+        return {k: str(v) if hasattr(v, 'isoformat') else v for k, v in obj.items()}
+    return obj
+
+
 def ok(data, status=200):
-    return {"statusCode": status, "headers": CORS, "body": json.dumps(data, default=str, ensure_ascii=False)}
+    return {"statusCode": status, "headers": CORS, "body": serial(data)}
 
 
 def err(msg, status=400):
-    return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg}, ensure_ascii=False)}
+    return {"statusCode": status, "headers": CORS, "body": {"error": msg}}
 
 
 def handler(event: dict, context) -> dict:

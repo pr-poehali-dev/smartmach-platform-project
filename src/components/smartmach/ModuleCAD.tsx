@@ -21,15 +21,9 @@ export default function ModuleCAD() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">CAD — 3D-моделирование</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Управление деталями и проверка коллизий</p>
-        </div>
-        <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
-          <Icon name="Plus" size={16} />
-          Новая деталь
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">CAD — 3D-моделирование</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Управление деталями и проверка коллизий</p>
       </div>
 
       {/* Stats */}
@@ -105,10 +99,7 @@ export default function ModuleCAD() {
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <button className="flex-1 bg-primary text-primary-foreground text-xs py-2 rounded-lg hover:opacity-90 transition-opacity">Открыть</button>
-                <button className="flex-1 border border-border text-xs py-2 rounded-lg hover:bg-secondary/60 transition-colors">Экспорт</button>
-              </div>
+
             </div>
           ) : (
             <div className="p-8 text-center text-muted-foreground text-sm">

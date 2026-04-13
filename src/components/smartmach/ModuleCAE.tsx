@@ -16,15 +16,9 @@ const STATUS = {
 export default function ModuleCAE() {
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">CAE — Инженерный анализ</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">МКЭ, тепловые и динамические симуляции</p>
-        </div>
-        <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
-          <Icon name="Plus" size={16} />
-          Новый расчёт
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">CAE — Инженерный анализ</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">МКЭ, тепловые и динамические симуляции</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

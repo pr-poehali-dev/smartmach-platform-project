@@ -20,15 +20,9 @@ export default function ModuleCNC() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">CNC — Мониторинг станков</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Состояние оборудования в реальном времени</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white border border-border px-3 py-1.5 rounded-lg">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
-          Онлайн
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">CNC — Мониторинг станков</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Состояние оборудования</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

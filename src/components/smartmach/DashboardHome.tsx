@@ -15,25 +15,19 @@ const MODULES = [
 ];
 
 const KPI = [
-  { label: "Активных станков", value: "48", change: "+3", up: true,  icon: "Radio" },
-  { label: "Задач в обработке", value: "127", change: "+12", up: true, icon: "Cpu" },
-  { label: "Время отклика",    value: "0.3 с", change: "-0.1", up: true, icon: "Zap" },
-  { label: "Пользователей",    value: "84", change: "+7", up: true,  icon: "Users" },
+  { label: "Станков в системе", value: "4",  icon: "Radio" },
+  { label: "Программ ЧПУ",      value: "4",  icon: "Cpu" },
+  { label: "Изделий в PLM",     value: "4",  icon: "Layers" },
+  { label: "Модулей платформы", value: "6",  icon: "LayoutGrid" },
 ];
 
 export default function DashboardHome({ onNavigate }: Props) {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">SmartMach Platform</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Единая платформа для станкостроения</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-green-50 border border-green-200 rounded-full px-3 py-1.5">
-          <span className="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse" />
-          Все системы работают
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">SmartMach Platform</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Единая платформа для станкостроения</p>
       </div>
 
       {/* KPI Cards */}
@@ -45,9 +39,6 @@ export default function DashboardHome({ onNavigate }: Props) {
               <Icon name={k.icon as Parameters<typeof Icon>[0]["name"]} size={16} className="text-muted-foreground" />
             </div>
             <div className="text-2xl font-bold text-foreground">{k.value}</div>
-            <div className={`text-xs mt-1 font-medium ${k.up ? "text-green-600" : "text-red-500"}`}>
-              {k.change} за сегодня
-            </div>
           </div>
         ))}
       </div>
@@ -75,28 +66,7 @@ export default function DashboardHome({ onNavigate }: Props) {
         </div>
       </div>
 
-      {/* Status bar */}
-      <div className="bg-white rounded-xl border border-border p-4">
-        <h2 className="text-sm font-semibold mb-3 text-foreground">Активность системы</h2>
-        <div className="space-y-2">
-          {[
-            { label: "Загрузка серверов", val: 42 },
-            { label: "Использование памяти", val: 67 },
-            { label: "Нагрузка на БД", val: 29 },
-          ].map((s) => (
-            <div key={s.label} className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-44 flex-shrink-0">{s.label}</span>
-              <div className="flex-1 bg-secondary rounded-full h-2">
-                <div
-                  className="h-2 rounded-full bg-primary transition-all"
-                  style={{ width: `${s.val}%` }}
-                />
-              </div>
-              <span className="text-xs font-medium text-foreground w-8 text-right">{s.val}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
+
     </div>
   );
 }

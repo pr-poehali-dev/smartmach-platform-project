@@ -66,8 +66,8 @@ export default function ModulePLM() {
     setError(null);
     try {
       const [pRes, uRes] = await Promise.all([
-        fetch(`${API}/products`),
-        fetch(`${API}/users`),
+        fetch(`${API}?resource=products`),
+        fetch(`${API}?resource=users`),
       ]);
       const pData = await pRes.json();
       const uData = await uRes.json();
@@ -86,7 +86,7 @@ export default function ModulePLM() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`${API}/products`, {
+      const res = await fetch(`${API}?resource=products`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,7 +110,7 @@ export default function ModulePLM() {
 
   async function handleStageChange(productId: number, newStage: string) {
     try {
-      await fetch(`${API}/products/${productId}`, {
+      await fetch(`${API}?resource=products&id=${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage: newStage }),

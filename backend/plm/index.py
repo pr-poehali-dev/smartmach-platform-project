@@ -1,7 +1,8 @@
 """
 PLM API — управление жизненным циклом изделий SmartMach.
-Endpoints: GET/POST /products, GET/PUT /products/{id}, GET /products/{id}/versions,
-           POST /products/{id}/versions, GET /products/{id}/events, GET /users
+Маршрутизация через query: ?resource=products|users|versions|events|stats
+Для конкретной записи: ?resource=products&id=5
+Для версий/событий: ?resource=versions&product_id=5
 """
 import json
 import os
@@ -37,13 +38,16 @@ def err(msg, status=400):
 
 
 def handler(event: dict, context) -> dict:
-    """PLM: управление изделиями, версиями и историей изменений."""
+    """PLM: управление изделиями, версиями и историей изменений через query-параметры."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     method = event.get("httpMethod", "GET")
-    path = event.get("path", "/")
-    parts = [p for p in path.strip("/").split("/") if p]
+    qs = event.get("queryStringParameters") or {}
+    resource = qs.get("resource", "")
+    rec_id = qs.get("id")
+    product_id = qs.get("product_id")
+
     body = {}
     if event.get("body"):
         body = json.loads(event["body"])
@@ -52,13 +56,13 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
 
     try:
-        # GET /users
-        if method == "GET" and parts == ["users"]:
+        # GET ?resource=users
+        if method == "GET" and resource == "users":
             cur.execute("SELECT id, name, email, role, avatar_url, created_at FROM users ORDER BY name")
-            return ok(cur.fetchall())
+            return ok(list(cur.fetchall()))
 
-        # GET /products
-        if method == "GET" and parts == ["products"]:
+        # GET ?resource=products
+        if method == "GET" and resource == "products" and not rec_id:
             cur.execute("""
                 SELECT p.id, p.code, p.name, p.description, p.stage,
                        p.created_at, p.updated_at,
@@ -69,13 +73,26 @@ def handler(event: dict, context) -> dict:
                 LEFT JOIN users u ON u.id = p.owner_id
                 ORDER BY p.updated_at DESC
             """)
-            rows = cur.fetchall()
+            rows = list(cur.fetchall())
             for r in rows:
                 r["stage_label"] = STAGE_LABELS.get(r["stage"], r["stage"])
             return ok(rows)
 
-        # POST /products
-        if method == "POST" and parts == ["products"]:
+        # GET ?resource=products&id=5
+        if method == "GET" and resource == "products" and rec_id:
+            cur.execute("""
+                SELECT p.*, u.name AS owner_name, u.role AS owner_role
+                FROM products p LEFT JOIN users u ON u.id = p.owner_id
+                WHERE p.id = %s
+            """, (int(rec_id),))
+            row = cur.fetchone()
+            if not row:
+                return err("Изделие не найдено", 404)
+            row["stage_label"] = STAGE_LABELS.get(row["stage"], row["stage"])
+            return ok(dict(row))
+
+        # POST ?resource=products
+        if method == "POST" and resource == "products":
             cur.execute("""
                 INSERT INTO products (code, name, description, stage, owner_id)
                 VALUES (%s, %s, %s, %s, %s) RETURNING id
@@ -88,23 +105,9 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"id": pid}, 201)
 
-        # GET /products/{id}
-        if method == "GET" and len(parts) == 2 and parts[0] == "products":
-            pid = int(parts[1])
-            cur.execute("""
-                SELECT p.*, u.name AS owner_name, u.role AS owner_role
-                FROM products p LEFT JOIN users u ON u.id = p.owner_id
-                WHERE p.id = %s
-            """, (pid,))
-            row = cur.fetchone()
-            if not row:
-                return err("Изделие не найдено", 404)
-            row["stage_label"] = STAGE_LABELS.get(row["stage"], row["stage"])
-            return ok(row)
-
-        # PUT /products/{id}
-        if method == "PUT" and len(parts) == 2 and parts[0] == "products":
-            pid = int(parts[1])
+        # PUT ?resource=products&id=5
+        if method == "PUT" and resource == "products" and rec_id:
+            pid = int(rec_id)
             cur.execute("SELECT stage FROM products WHERE id = %s", (pid,))
             old = cur.fetchone()
             if not old:
@@ -125,19 +128,18 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # GET /products/{id}/versions
-        if method == "GET" and len(parts) == 3 and parts[0] == "products" and parts[2] == "versions":
-            pid = int(parts[1])
+        # GET ?resource=versions&product_id=5
+        if method == "GET" and resource == "versions" and product_id:
             cur.execute("""
                 SELECT v.id, v.revision, v.notes, v.created_at, u.name AS author_name
                 FROM product_versions v LEFT JOIN users u ON u.id = v.author_id
                 WHERE v.product_id = %s ORDER BY v.created_at DESC
-            """, (pid,))
-            return ok(cur.fetchall())
+            """, (int(product_id),))
+            return ok(list(cur.fetchall()))
 
-        # POST /products/{id}/versions
-        if method == "POST" and len(parts) == 3 and parts[0] == "products" and parts[2] == "versions":
-            pid = int(parts[1])
+        # POST ?resource=versions&product_id=5
+        if method == "POST" and resource == "versions" and product_id:
+            pid = int(product_id)
             cur.execute("""
                 INSERT INTO product_versions (product_id, revision, notes, author_id)
                 VALUES (%s, %s, %s, %s) RETURNING id
@@ -151,16 +153,15 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"id": vid}, 201)
 
-        # GET /products/{id}/events
-        if method == "GET" and len(parts) == 3 and parts[0] == "products" and parts[2] == "events":
-            pid = int(parts[1])
+        # GET ?resource=events&product_id=5
+        if method == "GET" and resource == "events" and product_id:
             cur.execute("""
                 SELECT e.id, e.event_type, e.old_stage, e.new_stage, e.comment, e.created_at,
                        u.name AS actor_name
                 FROM product_events e LEFT JOIN users u ON u.id = e.actor_id
                 WHERE e.product_id = %s ORDER BY e.created_at DESC
-            """, (pid,))
-            rows = cur.fetchall()
+            """, (int(product_id),))
+            rows = list(cur.fetchall())
             for r in rows:
                 if r["old_stage"]:
                     r["old_stage_label"] = STAGE_LABELS.get(r["old_stage"], r["old_stage"])
@@ -168,11 +169,9 @@ def handler(event: dict, context) -> dict:
                     r["new_stage_label"] = STAGE_LABELS.get(r["new_stage"], r["new_stage"])
             return ok(rows)
 
-        # GET /stats
-        if method == "GET" and parts == ["stats"]:
-            cur.execute("""
-                SELECT stage, COUNT(*) AS cnt FROM products GROUP BY stage
-            """)
+        # GET ?resource=stats
+        if method == "GET" and resource == "stats":
+            cur.execute("SELECT stage, COUNT(*) AS cnt FROM products GROUP BY stage")
             rows = cur.fetchall()
             stats = {r["stage"]: r["cnt"] for r in rows}
             cur.execute("SELECT COUNT(*) AS cnt FROM products")

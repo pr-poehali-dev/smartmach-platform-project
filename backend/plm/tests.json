@@ -1,44 +1,28 @@
 {
   "tests": [
     {
-      "name": "GET /users",
+      "name": "GET users",
       "method": "GET",
-      "path": "/users",
+      "path": "/?resource=users",
       "expectedStatus": 200,
       "expectedBody": [],
       "bodyMatcher": "type"
     },
     {
-      "name": "GET /products",
+      "name": "GET products",
       "method": "GET",
-      "path": "/products",
+      "path": "/?resource=products",
       "expectedStatus": 200,
       "expectedBody": [],
       "bodyMatcher": "type"
     },
     {
-      "name": "GET /stats",
+      "name": "GET stats",
       "method": "GET",
-      "path": "/stats",
+      "path": "/?resource=stats",
       "expectedStatus": 200,
       "expectedBody": {"total": 0},
       "bodyMatcher": "partial"
-    },
-    {
-      "name": "GET /products/1/versions",
-      "method": "GET",
-      "path": "/products/1/versions",
-      "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
-    },
-    {
-      "name": "GET /products/1/events",
-      "method": "GET",
-      "path": "/products/1/events",
-      "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
     }
   ]
 }

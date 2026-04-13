@@ -1,0 +1,120 @@
+import Icon from "@/components/ui/icon";
+
+export const STATUS_CFG: Record<string, { label: string; color: string; icon: string }> = {
+  ok:    { label: "ОК",       color: "text-green-600  bg-green-50  border-green-200",  icon: "CheckCircle" },
+  warn:  { label: "Предупр.", color: "text-yellow-600 bg-yellow-50 border-yellow-200", icon: "AlertTriangle" },
+  error: { label: "Ошибка",   color: "text-red-600    bg-red-50    border-red-200",    icon: "XCircle" },
+};
+
+export const CAT_ICONS: Record<string, string> = {
+  "Валы и оси":              "Minus",
+  "Зубчатые колёса":         "Settings",
+  "Корпуса":                 "Package",
+  "Крепёж":                  "Link",
+  "Подшипниковые узлы":      "CircleDot",
+  "Уплотнения":              "Disc",
+  "Фланцы":                  "Circle",
+  "Пружины":                 "Codesandbox",
+  "Муфты":                   "Plug",
+  "Шкивы и звёздочки":       "Cpu",
+  "Листовые детали":         "Square",
+  "Трубопроводные элементы": "GitBranch",
+  "Прочее":                  "Box",
+};
+
+export const CAT_COLORS: Record<string, string> = {
+  "Валы и оси":              "bg-blue-50   text-blue-600",
+  "Зубчатые колёса":         "bg-purple-50 text-purple-600",
+  "Корпуса":                 "bg-orange-50 text-orange-600",
+  "Крепёж":                  "bg-gray-50   text-gray-600",
+  "Подшипниковые узлы":      "bg-indigo-50 text-indigo-600",
+  "Уплотнения":              "bg-green-50  text-green-600",
+  "Фланцы":                  "bg-cyan-50   text-cyan-600",
+  "Пружины":                 "bg-pink-50   text-pink-600",
+  "Муфты":                   "bg-teal-50   text-teal-600",
+  "Шкивы и звёздочки":       "bg-amber-50  text-amber-600",
+  "Листовые детали":         "bg-slate-50  text-slate-600",
+  "Трубопроводные элементы": "bg-emerald-50 text-emerald-600",
+  "Прочее":                  "bg-gray-50   text-gray-500",
+};
+
+export const CATEGORIES = Object.keys(CAT_ICONS);
+
+export const STANDARDS = [
+  "ГОСТ 2590-2006",
+  "ГОСТ 8732-78",
+  "ГОСТ 1050-2013",
+  "ГОСТ 3478-2019",
+  "ГОСТ 9150-2002",
+  "ГОСТ 5915-70",
+  "ГОСТ 7798-70",
+  "ГОСТ 11738-84",
+  "ГОСТ 6636-69",
+  "ГОСТ 25347-2013",
+  "ГОСТ 1643-81",
+  "ГОСТ 16162-85",
+  "DIN 912",
+  "DIN 933",
+  "DIN 7991",
+  "ISO 286-1",
+  "ISO 1101",
+  "ISO 2768",
+];
+
+export const ROUGHNESS_VALUES = [
+  "Ra 0.2", "Ra 0.4", "Ra 0.8", "Ra 1.6",
+  "Ra 3.2", "Ra 6.3", "Ra 12.5", "Ra 25",
+];
+
+export const FIT_TYPES = [
+  "С зазором (H/f, H/g, H/h)",
+  "Переходная (H/js, H/k, H/m, H/n)",
+  "С натягом (H/p, H/r, H/s, H/t, H/u)",
+];
+
+export const MATERIALS = [
+  "Сталь 45",
+  "Сталь 40Х",
+  "Сталь 20",
+  "Сталь 12Х18Н10Т",
+  "Сталь 65Г",
+  "Сталь 30ХГСА",
+  "Алюминий АМГ6",
+  "Алюминий Д16Т",
+  "Алюминий АД31",
+  "Титан ВТ6",
+  "Чугун СЧ20",
+  "Чугун ВЧ50",
+  "Бронза БрАЖ9-4",
+  "Латунь Л63",
+];
+
+export const EMPTY = {
+  code: "", name: "", category: "Прочее", material: "", version: "v1.0",
+  dimensions: "", weight_kg: "", standard: "", notes: "", author_id: "",
+  roughness: "", fit_type: "", tolerance: "", drawing_number: "",
+};
+
+export function catIcon(cat: string) {
+  return (CAT_ICONS[cat] ?? "Box") as Parameters<typeof Icon>[0]["name"];
+}
+
+export function catColor(cat: string) {
+  return CAT_COLORS[cat] ?? "bg-gray-50 text-gray-500";
+}
+
+export const AI_SYSTEM = `Ты — инженер-конструктор в системе СмартМаш. 
+Помогаешь с выбором материалов, расчётом допусков и посадок, шероховатостью поверхностей, 
+стандартами ЕСКД (ГОСТ, DIN, ISO), выбором типовых деталей из библиотеки, 
+параметрическим моделированием и проверкой геометрии. 
+Отвечай кратко, с конкретными цифрами и ссылками на стандарты.`;
+
+export const AI_SUGGESTIONS = [
+  "Какой материал выбрать для вала редуктора?",
+  "Как рассчитать допуск посадки подшипника по ГОСТ?",
+  "Какую шероховатость Ra назначить для посадочной поверхности?",
+  "Чем отличается Сталь 45 от 40Х по механическим свойствам?",
+  "Какие стандарты применяются для зубчатых колёс?",
+  "Как обозначить посадку с зазором на чертеже по ЕСКД?",
+  "Какой допуск на соосность выбрать для вала и корпуса?",
+];

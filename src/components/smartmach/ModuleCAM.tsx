@@ -2,13 +2,10 @@ import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
-import CamSystems from "@/components/smartmach/CamSystems";
-import CamCompare from "@/components/smartmach/CamCompare";
 import CamPrograms from "@/components/smartmach/CamPrograms";
 import { EMPTY_FORM, NEXT, AI_SYSTEM, AI_SUGGESTIONS } from "@/components/smartmach/cam.data";
 
 export default function ModuleCAM() {
-  const [tab, setTab] = useState<"programs" | "systems" | "compare">("programs");
   const [programs, setPrograms] = useState<Program[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -37,7 +34,9 @@ export default function ModuleCAM() {
     e.preventDefault(); setSaving(true);
     try {
       await mPost("programs", {
-        name: form.name, code: form.code || null, est_time: form.est_time || null,
+        name: form.name,
+        code: form.code || null,
+        est_time: form.est_time || null,
         status: form.status,
         part_id: form.part_id ? Number(form.part_id) : null,
         machine_id: form.machine_id ? Number(form.machine_id) : null,
@@ -56,54 +55,34 @@ export default function ModuleCAM() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Программы ЧПУ — Управление обработкой</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Управляющие программы для станков и очередь на обработку</p>
+          <h1 className="text-2xl font-bold text-foreground">Программы ЧПУ</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Управляющие программы, режимы резания и очередь обработки</p>
         </div>
-        {tab === "programs" && (
-          <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-            <Icon name="Plus" size={16} />Новая программа
-          </button>
-        )}
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+          <Icon name="Plus" size={16} />Новая программа
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {([["programs", "FileCode", "Программы"], ["systems", "BookOpen", "Справочник CAD/CAM"], ["compare", "GitCompareArrows", "Сравнение систем"]] as const).map(([id, icon, label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}>
-            <Icon name={icon} size={15} />{label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "systems" && <CamSystems />}
-
-      {tab === "compare" && <CamCompare />}
-
-      {tab === "programs" && (
-        <CamPrograms
-          programs={programs}
-          parts={parts}
-          machines={machines}
-          users={users}
-          loading={loading}
-          error={error}
-          showForm={showForm}
-          saving={saving}
-          form={form}
-          onSetShowForm={setShowForm}
-          onSetForm={setForm}
-          onSubmit={handleCreate}
-          onAdvance={advance}
-          onRetry={load}
-        />
-      )}
+      <CamPrograms
+        programs={programs}
+        parts={parts}
+        machines={machines}
+        users={users}
+        loading={loading}
+        error={error}
+        showForm={showForm}
+        saving={saving}
+        form={form}
+        onSetShowForm={setShowForm}
+        onSetForm={setForm}
+        onSubmit={handleCreate}
+        onAdvance={advance}
+        onRetry={load}
+      />
 
       <AiAssistant
         title="Помощник технолога"

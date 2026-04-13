@@ -91,11 +91,186 @@
 }
 
 @layer base {
+  :root {
+    --background: 210 20% 97%;
+    --foreground: 220 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 12%;
+
+    --primary: 213 90% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 220 25% 25%;
+
+    --muted: 210 15% 93%;
+    --muted-foreground: 215 12% 50%;
+
+    --accent: 213 90% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 213 90% 40%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 25% 12%;
+    --sidebar-primary: 213 90% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 93%;
+    --sidebar-accent-foreground: 220 25% 25%;
+    --sidebar-border: 214 20% 88%;
+    --sidebar-ring: 213 90% 40%;
+
+    --c-blue: #1565c0;
+    --c-blue-light: #1e88e5;
+    --c-green: #2e7d32;
+    --c-green-light: #43a047;
+    --c-orange: #e65100;
+    --c-red: #c62828;
+    --c-yellow: #f9a825;
+    --c-surface: #f5f7fa;
+    --c-surface2: #eef1f6;
+  }
+}
+
+@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Golos Text", sans-serif;
   }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(214 20% 82%);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--c-blue-light);
+  }
+}
+
+@layer utilities {
+  .font-mono-data {
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  .card-surface {
+    background: white;
+    border: 1px solid hsl(214 20% 88%);
+    border-radius: 12px;
+  }
+
+  .card-hover {
+    transition: all 0.2s ease;
+  }
+  .card-hover:hover {
+    box-shadow: 0 4px 20px rgba(21, 101, 192, 0.1);
+    border-color: rgba(21, 101, 192, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .status-ok {
+    color: var(--c-green-light);
+  }
+  .status-warn {
+    color: var(--c-orange);
+  }
+  .status-err {
+    color: var(--c-red);
+  }
+  .status-idle {
+    color: #78909c;
+  }
+
+  .bg-surface {
+    background: var(--c-surface);
+  }
+  .bg-surface2 {
+    background: var(--c-surface2);
+  }
+
+  .fade-in-delay-1 {
+    animation: fadeInUp 0.4s ease-out 0.05s both;
+  }
+  .fade-in-delay-2 {
+    animation: fadeInUp 0.4s ease-out 0.1s both;
+  }
+  .fade-in-delay-3 {
+    animation: fadeInUp 0.4s ease-out 0.15s both;
+  }
+  .fade-in-delay-4 {
+    animation: fadeInUp 0.4s ease-out 0.2s both;
+  }
+  .fade-in-delay-5 {
+    animation: fadeInUp 0.4s ease-out 0.25s both;
+  }
+  .fade-in-delay-6 {
+    animation: fadeInUp 0.4s ease-out 0.3s both;
+  }
+  .fade-in-delay-7 {
+    animation: fadeInUp 0.4s ease-out 0.35s both;
+  }
+  .fade-in-delay-8 {
+    animation: fadeInUp 0.4s ease-out 0.4s both;
+  }
+
+  .pulse-dot {
+    animation: pulseDot 2s ease-in-out infinite;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+
+@keyframes barGrow {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--bar-w);
+  }
+}
+
+.bar-animate {
+  animation: barGrow 1.2s ease-out forwards;
 }

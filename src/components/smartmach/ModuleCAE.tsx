@@ -3,13 +3,13 @@ import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Simulation, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 
-const AI_SYSTEM = `Ты — инженер-расчётчик (МКЭ, FEA) в системе SmartMach. 
-Помогаешь с интерпретацией результатов МКЭ, тепловых и динамических расчётов, 
+const AI_SYSTEM = `Ты — инженер-расчётчик (метод конечных элементов) в системе СмартМаш. 
+Помогаешь с интерпретацией результатов прочностных, тепловых и динамических расчётов, 
 выбором граничных условий, анализом запасов прочности, усталостным анализом. 
 Отвечай с конкретными формулами, коэффициентами запаса и рекомендациями по улучшению конструкции.`;
 
 const AI_SUGGESTIONS = [
-  "Как трактовать результаты МКЭ — что такое von Mises stress?",
+  "Как трактовать карту напряжений — что такое эквивалентные напряжения?",
   "Какой коэффициент запаса прочности считается нормой?",
   "Как выбрать граничные условия для расчёта вала?",
   "Что такое усталостное разрушение и как его предотвратить?",
@@ -23,11 +23,11 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: string }>
   error:   { label: "Проблема", color: "text-red-600    bg-red-50    border-red-200",   icon: "AlertTriangle" },
 };
 
-const SIM_TYPES = ["МКЭ", "Тепловой", "Динамика", "Усталость", "Вибрация"];
+const SIM_TYPES = ["Прочностной", "Тепловой", "Динамика", "Усталость", "Вибрация"];
 const NEXT: Record<string, string> = { queue: "running", running: "done" };
 const NEXT_LABEL: Record<string, string> = { queue: "Запустить", running: "Завершить" };
 
-const EMPTY = { name: "", sim_type: "МКЭ", status: "queue", result: "", stress_pct: "", part_id: "", author_id: "" };
+const EMPTY = { name: "", sim_type: "Прочностной", status: "queue", result: "", stress_pct: "", part_id: "", author_id: "" };
 
 export default function ModuleCAE() {
   const [sims, setSims] = useState<Simulation[]>([]);
@@ -78,8 +78,8 @@ export default function ModuleCAE() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CAE — Инженерный анализ</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">МКЭ, тепловые и динамические симуляции</p>
+          <h1 className="text-2xl font-bold text-foreground">Расчёты — Инженерный анализ</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Прочностные, тепловые и динамические расчёты</p>
         </div>
         <button onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
@@ -146,7 +146,7 @@ export default function ModuleCAE() {
 
       <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-secondary/40">
-          <span className="text-sm font-semibold">Симуляции</span>
+          <span className="text-sm font-semibold">Расчёты</span>
         </div>
         {loading ? (
           <div className="p-10 text-center text-muted-foreground text-sm">
@@ -201,7 +201,7 @@ export default function ModuleCAE() {
       </div>
 
       <AiAssistant
-        title="CAE-помощник"
+        title="Помощник расчётчика"
         systemPrompt={AI_SYSTEM}
         suggestions={AI_SUGGESTIONS}
       />

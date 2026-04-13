@@ -11,12 +11,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "cad",       label: "CAD",       icon: "Box",          color: "#1e88e5" },
-  { id: "cam",       label: "CAM",       icon: "Cpu",          color: "#8e24aa" },
-  { id: "cae",       label: "CAE",       icon: "FlaskConical", color: "#00897b" },
-  { id: "plm",       label: "PLM",       icon: "GitBranch",    color: "#f4511e" },
-  { id: "cnc",       label: "ЧПУ",       icon: "Radio",        color: "#43a047" },
-  { id: "analytics", label: "Аналитика", icon: "BarChart2",    color: "#fb8c00" },
+  { id: "cad",       label: "Проектирование",  icon: "Box",          color: "#1e88e5" },
+  { id: "cam",       label: "Программы ЧПУ",   icon: "Cpu",          color: "#8e24aa" },
+  { id: "cae",       label: "Расчёты",         icon: "FlaskConical", color: "#00897b" },
+  { id: "plm",       label: "Жизн. цикл",      icon: "GitBranch",    color: "#f4511e" },
+  { id: "cnc",       label: "Оборудование",    icon: "Radio",        color: "#43a047" },
+  { id: "analytics", label: "Задания",         icon: "ClipboardList",color: "#fb8c00" },
 ];
 
 interface Props {
@@ -41,7 +41,7 @@ export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Pro
           <Icon name="Layers" size={16} className="text-white" />
         </div>
         {!collapsed && (
-          <span className="font-bold text-[15px] text-foreground tracking-tight">SmartMach</span>
+          <span className="font-bold text-[15px] text-foreground tracking-tight">СмартМаш</span>
         )}
       </div>
 
@@ -58,7 +58,7 @@ export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Pro
           )}
         >
           <Icon name="LayoutDashboard" size={18} className="flex-shrink-0" />
-          {!collapsed && <span>Дашборд</span>}
+          {!collapsed && <span>Обзор</span>}
         </button>
 
         {/* Divider */}

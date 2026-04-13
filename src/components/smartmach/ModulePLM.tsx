@@ -4,17 +4,17 @@ import AiAssistant from "@/components/smartmach/AiAssistant";
 
 const API = "https://functions.poehali.dev/cefa07dc-7ab3-4dc3-9fc9-31d458b0af27";
 
-const AI_SYSTEM = `Ты — менеджер по управлению жизненным циклом изделий (PLM) в системе SmartMach. 
+const AI_SYSTEM = `Ты — менеджер по управлению жизненным циклом изделий в системе СмартМаш. 
 Помогаешь с процессами согласования конструкторской документации, управлением версиями изделий, 
 переходами между стадиями (черновик → разработка → согласование → производство), 
-интеграцией с ERP, управлением изменениями (ECO/ECR). Отвечай чётко, с указанием ответственных ролей.`;
+управлением изменениями и извещениями об изменениях. Отвечай чётко, с указанием ответственных ролей.`;
 
 const AI_SUGGESTIONS = [
-  "Каковы критерии перевода изделия в стадию 'Согласование'?",
-  "Как правильно оформить извещение об изменении (ИИ)?",
+  "Каковы критерии перевода изделия в стадию «Согласование»?",
+  "Как правильно оформить извещение об изменении?",
   "Что входит в состав конструкторской документации?",
   "Как управлять версиями сборочного чертежа?",
-  "Чем PLM отличается от ERP?",
+  "В чём разница между системой управления жизненным циклом и системой планирования ресурсов?",
 ];
 
 const STAGES = [
@@ -126,7 +126,7 @@ export default function ModulePLM() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">PLM — Жизненный цикл изделий</h1>
+          <h1 className="text-2xl font-bold text-foreground">Жизненный цикл изделий</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Управление версиями, согласование, архив</p>
         </div>
         <button
@@ -318,7 +318,7 @@ export default function ModulePLM() {
       </div>
 
       <AiAssistant
-        title="PLM-помощник"
+        title="Помощник по документации"
         systemPrompt={AI_SYSTEM}
         suggestions={AI_SUGGESTIONS}
       />

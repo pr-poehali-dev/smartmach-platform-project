@@ -3,16 +3,16 @@ import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Machine, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 
-const AI_SYSTEM = `Ты — специалист по ЧПУ-оборудованию и его обслуживанию в системе SmartMach. 
+const AI_SYSTEM = `Ты — специалист по оборудованию с ЧПУ и его обслуживанию в системе СмартМаш. 
 Помогаешь с диагностикой аварий и ошибок станков, настройкой параметров, плановым обслуживанием, 
-интерпретацией кодов ошибок (Fanuc, Siemens, Heidenhain), оптимизацией загрузки оборудования.
-Отвечай конкретно, с кодами ошибок и шагами диагностики.`;
+интерпретацией кодов ошибок систем числового программного управления (Fanuc, Siemens, Heidenhain), 
+оптимизацией загрузки оборудования. Отвечай конкретно, с кодами ошибок и шагами диагностики.`;
 
 const AI_SUGGESTIONS = [
-  "Что означает alarm 300 на стойке Fanuc?",
+  "Что означает код аварии 300 на стойке Fanuc?",
   "Как настроить нулевую точку детали на станке?",
-  "Почему станок уходит в E-stop — основные причины?",
-  "Как проверить люфт ШВП на токарном станке?",
+  "Почему станок аварийно останавливается — основные причины?",
+  "Как проверить люфт шарико-винтовой пары на токарном станке?",
   "Какое плановое обслуживание нужно раз в месяц?",
 ];
 
@@ -74,7 +74,7 @@ export default function ModuleCNC() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CNC — Мониторинг станков</h1>
+          <h1 className="text-2xl font-bold text-foreground">Оборудование — Мониторинг станков</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Состояние и управление оборудованием</p>
         </div>
         <button onClick={() => setShowForm(true)}
@@ -239,7 +239,7 @@ export default function ModuleCNC() {
       </div>
 
       <AiAssistant
-        title="CNC-помощник"
+        title="Помощник по оборудованию"
         systemPrompt={AI_SYSTEM}
         suggestions={AI_SUGGESTIONS}
       />

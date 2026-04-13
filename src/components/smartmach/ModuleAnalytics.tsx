@@ -3,27 +3,27 @@ import Icon from "@/components/ui/icon";
 import { mGet, Stats, Job } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 
-const AI_SYSTEM = `Ты — производственный менеджер и аналитик в системе SmartMach. 
+const AI_SYSTEM = `Ты — производственный менеджер и аналитик в системе СмартМаш. 
 Помогаешь с управлением производственными заданиями, расстановкой приоритетов, 
-анализом узких мест (бутылочное горлышко), расчётом OEE и производительности, 
-планированием загрузки оборудования, снижением простоев. 
+анализом узких мест в производстве, расчётом коэффициента общей эффективности оборудования (ОЭО) 
+и производительности, планированием загрузки оборудования, снижением простоев. 
 Отвечай с конкретными метриками и управленческими решениями.`;
 
 const AI_SUGGESTIONS = [
   "Как расставить приоритеты производственных заданий?",
-  "Что такое OEE и как его рассчитать?",
+  "Что такое коэффициент общей эффективности оборудования (ОЭО) и как его рассчитать?",
   "Как определить узкое место в производстве?",
   "Как снизить время переналадки оборудования?",
-  "Какие KPI нужно отслеживать в цехе?",
+  "Какие показатели эффективности нужно отслеживать в цехе?",
 ];
 
 const JOB_STATUS: Record<string, { label: string; color: string }> = {
-  new:   { label: "Новое",       color: "text-gray-500   bg-gray-50   border-gray-200" },
-  cad:   { label: "CAD",         color: "text-blue-600   bg-blue-50   border-blue-200" },
-  cae:   { label: "CAE",         color: "text-purple-600 bg-purple-50 border-purple-200" },
-  cam:   { label: "CAM",         color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-  cnc:   { label: "CNC",         color: "text-orange-600 bg-orange-50 border-orange-200" },
-  done:  { label: "Выполнено",   color: "text-green-600  bg-green-50  border-green-200" },
+  new:   { label: "Новое",            color: "text-gray-500   bg-gray-50   border-gray-200" },
+  cad:   { label: "Проектирование",   color: "text-blue-600   bg-blue-50   border-blue-200" },
+  cae:   { label: "Расчёт",           color: "text-purple-600 bg-purple-50 border-purple-200" },
+  cam:   { label: "Программа ЧПУ",    color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
+  cnc:   { label: "Обработка",        color: "text-orange-600 bg-orange-50 border-orange-200" },
+  done:  { label: "Выполнено",        color: "text-green-600  bg-green-50  border-green-200" },
 };
 
 const PRIO: Record<string, { label: string; color: string }> = {
@@ -33,11 +33,11 @@ const PRIO: Record<string, { label: string; color: string }> = {
 };
 
 const CYCLE_STEPS = [
-  { key: "cad", label: "CAD", icon: "Box", color: "bg-blue-500" },
-  { key: "cae", label: "CAE", icon: "FlaskConical", color: "bg-purple-500" },
-  { key: "cam", label: "CAM", icon: "Cpu", color: "bg-indigo-500" },
-  { key: "cnc", label: "CNC", icon: "Radio", color: "bg-orange-500" },
-  { key: "done", label: "Готово", icon: "CheckCircle", color: "bg-green-500" },
+  { key: "cad", label: "Проектирование", icon: "Box",          color: "bg-blue-500" },
+  { key: "cae", label: "Расчёт",         icon: "FlaskConical", color: "bg-purple-500" },
+  { key: "cam", label: "Программа ЧПУ",  icon: "Cpu",          color: "bg-indigo-500" },
+  { key: "cnc", label: "Обработка",      icon: "Radio",        color: "bg-orange-500" },
+  { key: "done",label: "Готово",         icon: "CheckCircle",  color: "bg-green-500" },
 ];
 
 const EMPTY_JOB = { product_id: "", part_id: "", machine_id: "", status: "new", priority: "normal", qty: "1", due_date: "", notes: "" };
@@ -108,7 +108,7 @@ export default function ModuleAnalytics() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Производственные задания</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Полный цикл: CAD → CAE → CAM → CNC → Готово</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Полный цикл: Проектирование → Расчёт → Программа ЧПУ → Обработка → Готово</p>
         </div>
         <button onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">

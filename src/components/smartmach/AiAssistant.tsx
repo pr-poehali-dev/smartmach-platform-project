@@ -97,7 +97,7 @@ export default function AiAssistant({
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-foreground">{title}</div>
-              <div className="text-xs text-muted-foreground">GPT-4o mini · SmartMach AI</div>
+              <div className="text-xs text-muted-foreground">Нейросетевой помощник · СмартМаш</div>
             </div>
             {hasMessages && (
               <button onClick={() => setMessages([])}

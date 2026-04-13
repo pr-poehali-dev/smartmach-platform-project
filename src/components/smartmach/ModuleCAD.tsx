@@ -3,14 +3,15 @@ import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 
-const AI_SYSTEM = `Ты — инженер-конструктор и эксперт по CAD-моделированию в системе SmartMach. 
-Помогаешь с выбором материалов, расчётом допусков, проверкой коллизий, стандартами (ГОСТ, DIN, ISO), 
-выбором типовых деталей из библиотеки. Отвечай кратко, по существу, с конкретными цифрами и ссылками на стандарты.`;
+const AI_SYSTEM = `Ты — инженер-конструктор в системе СмартМаш. 
+Помогаешь с выбором материалов, расчётом допусков, проверкой геометрических пересечений (коллизий), 
+стандартами (ГОСТ, ДИН, ИСО), выбором типовых деталей из библиотеки. 
+Отвечай кратко, по существу, с конкретными цифрами и ссылками на стандарты.`;
 
 const AI_SUGGESTIONS = [
   "Какой материал выбрать для вала редуктора?",
   "Как рассчитать допуск посадки подшипника?",
-  "Что такое коллизия в 3D-модели и как её устранить?",
+  "Что такое геометрическое пересечение (коллизия) и как его устранить?",
   "Чем отличается Сталь 45 от 40Х?",
   "Какие стандарты применяются для зубчатых колёс?",
 ];
@@ -280,7 +281,7 @@ export default function ModuleCAD() {
       {/* шапка */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CAD — Библиотека деталей</h1>
+          <h1 className="text-2xl font-bold text-foreground">Проектирование — Библиотека деталей</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Типовые детали и рабочие проекты</p>
         </div>
         <button onClick={() => { setShowForm(true); setTab("mine"); }}
@@ -463,7 +464,7 @@ export default function ModuleCAD() {
       )}
 
       <AiAssistant
-        title="CAD-помощник"
+        title="Помощник конструктора"
         systemPrompt={AI_SYSTEM}
         suggestions={AI_SUGGESTIONS}
       />

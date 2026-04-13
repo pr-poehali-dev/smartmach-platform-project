@@ -3,15 +3,15 @@ import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 
-const AI_SYSTEM = `Ты — технолог-программист ЧПУ в системе SmartMach. 
-Помогаешь с написанием G-кода, выбором режимов резания (подача, скорость, глубина), 
-стратегиями обработки (черновая, чистовая, 5-осевая), выбором инструмента, оптимизацией программ ЧПУ. 
+const AI_SYSTEM = `Ты — технолог-программист ЧПУ в системе СмартМаш. 
+Помогаешь с написанием управляющих программ (G-код), выбором режимов резания (подача, скорость, глубина), 
+стратегиями обработки (черновая, чистовая, многоосевая), выбором инструмента, оптимизацией программ ЧПУ. 
 Отвечай с конкретными режимами и рекомендациями по материалам.`;
 
 const AI_SUGGESTIONS = [
   "Какие режимы резания для фрезеровки Стали 45?",
-  "Как написать цикл сверления в G-коде?",
-  "Чем отличается G41 от G42 (коррекция на радиус)?",
+  "Как написать цикл сверления в управляющей программе?",
+  "Как работает коррекция на радиус инструмента?",
   "Как рассчитать скорость подачи для токарной операции?",
   "Какую стратегию обработки выбрать для кармана?",
 ];
@@ -81,8 +81,8 @@ export default function ModuleCAM() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CAM — Управление обработкой</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Программы ЧПУ и очередь на обработку</p>
+          <h1 className="text-2xl font-bold text-foreground">Программы ЧПУ — Управление обработкой</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Управляющие программы для станков и очередь на обработку</p>
         </div>
         <button onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
@@ -93,7 +93,7 @@ export default function ModuleCAM() {
       {showForm && (
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <span className="font-semibold">Новая программа ЧПУ</span>
+            <span className="font-semibold">Новая управляющая программа</span>
             <button onClick={() => setShowForm(false)}><Icon name="X" size={18} className="text-muted-foreground" /></button>
           </div>
           <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -104,7 +104,7 @@ export default function ModuleCAM() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Код программы</label>
-              <input value={form.code} onChange={(e) => f("code", e.target.value)} placeholder="G54 G90..."
+              <input value={form.code} onChange={(e) => f("code", e.target.value)} placeholder="Текст управляющей программы..."
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             <div>
@@ -196,7 +196,7 @@ export default function ModuleCAM() {
       </div>
 
       <AiAssistant
-        title="CAM-помощник"
+        title="Помощник технолога"
         systemPrompt={AI_SYSTEM}
         suggestions={AI_SUGGESTIONS}
       />

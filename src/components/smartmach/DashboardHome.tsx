@@ -8,12 +8,12 @@ interface Props {
 }
 
 const MODULES = [
-  { id: "cad" as ModuleId,       label: "CAD",       desc: "Детали, версии, коллизии",          icon: "Box",          color: "#1e88e5", bg: "#e3f2fd" },
-  { id: "cam" as ModuleId,       label: "CAM",       desc: "Программы ЧПУ, очередь",             icon: "FileCode",     color: "#8e24aa", bg: "#f3e5f5" },
-  { id: "cae" as ModuleId,       label: "CAE",       desc: "МКЭ, тепловые и динамические расчёты",icon: "FlaskConical", color: "#00897b", bg: "#e0f2f1" },
-  { id: "plm" as ModuleId,       label: "PLM",       desc: "Жизненный цикл изделий",             icon: "GitBranch",    color: "#f4511e", bg: "#fbe9e7" },
-  { id: "cnc" as ModuleId,       label: "CNC",       desc: "Мониторинг и управление станками",    icon: "Radio",        color: "#43a047", bg: "#e8f5e9" },
-  { id: "analytics" as ModuleId, label: "Задания",   desc: "Производственный цикл и задания",    icon: "ClipboardList",color: "#fb8c00", bg: "#fff3e0" },
+  { id: "cad" as ModuleId,       label: "Проектирование",  desc: "Библиотека деталей, версии, проверка геометрии", icon: "Box",          color: "#1e88e5", bg: "#e3f2fd" },
+  { id: "cam" as ModuleId,       label: "Программы ЧПУ",   desc: "Управляющие программы для станков, очередь",     icon: "FileCode",     color: "#8e24aa", bg: "#f3e5f5" },
+  { id: "cae" as ModuleId,       label: "Расчёты",         desc: "Прочностные, тепловые и динамические расчёты",   icon: "FlaskConical", color: "#00897b", bg: "#e0f2f1" },
+  { id: "plm" as ModuleId,       label: "Жизн. цикл",      desc: "Управление версиями изделий и документацией",    icon: "GitBranch",    color: "#f4511e", bg: "#fbe9e7" },
+  { id: "cnc" as ModuleId,       label: "Оборудование",    desc: "Мониторинг и управление станочным парком",       icon: "Radio",        color: "#43a047", bg: "#e8f5e9" },
+  { id: "analytics" as ModuleId, label: "Задания",         desc: "Производственный цикл и задания",                icon: "ClipboardList",color: "#fb8c00", bg: "#fff3e0" },
 ];
 
 export default function DashboardHome({ onNavigate }: Props) {
@@ -24,7 +24,7 @@ export default function DashboardHome({ onNavigate }: Props) {
   }, []);
 
   const KPI = stats ? [
-    { label: "Деталей в CAD",       value: stats.parts_total,       icon: "Box",           color: "text-blue-600" },
+    { label: "Деталей",             value: stats.parts_total,       icon: "Box",           color: "text-blue-600" },
     { label: "Станков",             value: stats.machines_total,    icon: "Cpu",           color: "text-indigo-600" },
     { label: "Станков в работе",    value: stats.machines_running,  icon: "Activity",      color: "text-green-600" },
     { label: "Заданий активных",    value: stats.jobs_active,       icon: "ClipboardList", color: "text-orange-600" },
@@ -33,8 +33,8 @@ export default function DashboardHome({ onNavigate }: Props) {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">SmartMach Platform</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Единая платформа производственного цикла</p>
+        <h1 className="text-2xl font-bold text-foreground">СмартМаш</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Единая система управления производственным циклом</p>
       </div>
 
       {KPI && (

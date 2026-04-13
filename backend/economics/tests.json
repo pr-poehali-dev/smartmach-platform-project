@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "GET employees",
+      "method": "GET",
+      "path": "/?resource=employees",
+      "expectedStatus": 200,
+      "expectedBody": {"id": 1},
+      "bodyMatcher": "array_contains"
+    },
+    {
+      "name": "GET economics_data",
+      "method": "GET",
+      "path": "/?resource=economics_data",
+      "expectedStatus": 200,
+      "expectedBody": {},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

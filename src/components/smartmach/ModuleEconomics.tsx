@@ -1,5 +1,23 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+
+const API = "https://functions.poehali.dev/a33c6a45-ed8e-4ac0-a31c-508facb92751";
+
+interface Employee { id: number; full_name: string; position: string; department: string; status: string; }
+
+async function apiGet(key: string) {
+  const res = await fetch(`${API}?resource=economics_data`);
+  const data = await res.json();
+  return data[key] ?? null;
+}
+
+async function apiSave(key: string, value: unknown) {
+  await fetch(`${API}?resource=economics_data`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, value }),
+  });
+}
 
 /* ─── типы ──────────────────────────────────────────────────────── */
 
@@ -97,7 +115,62 @@ export default function ModuleEconomics() {
   const [hoursDay,   setHoursDay]   = useState(8);
   const [vatPct,     setVatPct]     = useState(20);
   const [profitPct,  setProfitPct]  = useState(25);
+  const [responsibleId, setResponsibleId] = useState<number | null>(null);
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [employees,  setEmployees]  = useState<Employee[]>([]);
+  const [dbLoading,  setDbLoading]  = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [saveMsg,    setSaveMsg]    = useState("");
+
+  // Загрузка данных из БД
+  useEffect(() => {
+    (async () => {
+      setDbLoading(true);
+      try {
+        const [empRes, dataRes] = await Promise.all([
+          fetch(`${API}?resource=employees`).then((r) => r.json()),
+          fetch(`${API}?resource=economics_data`).then((r) => r.json()),
+        ]);
+        if (Array.isArray(empRes)) setEmployees(empRes.filter((e: Employee) => e.status !== "fired"));
+        if (dataRes && typeof dataRes === "object") {
+          if (dataRes.materials)    setMaterials(dataRes.materials);
+          if (dataRes.workers)      setWorkers(dataRes.workers);
+          if (dataRes.overheads)    setOverheads(dataRes.overheads);
+          if (dataRes.products)     setProducts(dataRes.products);
+          if (dataRes.settings) {
+            const s = dataRes.settings;
+            if (s.workDays)      setWorkDays(s.workDays);
+            if (s.hoursDay)      setHoursDay(s.hoursDay);
+            if (s.vatPct)        setVatPct(s.vatPct);
+            if (s.profitPct)     setProfitPct(s.profitPct);
+            if (s.responsibleId) setResponsibleId(s.responsibleId);
+          }
+        }
+      } catch { /* ignore, используем дефолты */ }
+      finally { setDbLoading(false); }
+    })();
+  }, []);
+
+  const saveAll = useCallback(async (
+    mats: Material[], wrks: Worker[], ovhds: Overhead[], prods: Product[],
+    wd: number, hd: number, vat: number, profit: number, resp: number | null
+  ) => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        apiSave("materials", mats),
+        apiSave("workers",   wrks),
+        apiSave("overheads", ovhds),
+        apiSave("products",  prods),
+        apiSave("settings",  { workDays: wd, hoursDay: hd, vatPct: vat, profitPct: profit, responsibleId: resp }),
+      ]);
+      setSaveMsg("Сохранено");
+      setTimeout(() => setSaveMsg(""), 2000);
+    } catch { setSaveMsg("Ошибка"); }
+    finally { setSaving(false); }
+  }, []);
+
+  const handleSave = () => saveAll(materials, workers, overheads, products, workDays, hoursDay, vatPct, profitPct, responsibleId);
 
   /* ── расчёт ─── */
   const calc = useMemo(() => {
@@ -186,18 +259,53 @@ export default function ModuleEconomics() {
       s.services.some((sv) => sv.toLowerCase().includes(q));
   });
 
+  if (dbLoading) return (
+    <div className="flex items-center justify-center h-64 text-muted-foreground">
+      <Icon name="Loader2" size={22} className="animate-spin mr-2" />Загрузка данных…
+    </div>
+  );
+
+  const responsible = employees.find((e) => e.id === responsibleId);
+
   return (
     <div className="p-6 space-y-5">
 
       {/* Шапка */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Экономика производства</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Себестоимость · Точка безубыточности · Рентабельность</p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-lg">
-          <Icon name="Calendar" size={13} />
-          {workDays} раб. дн. × {hoursDay} ч = {calc.monthHours} ч/мес
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Ответственный */}
+          <div className="flex items-center gap-2">
+            <Icon name="UserCheck" size={14} className="text-muted-foreground shrink-0" />
+            <select value={responsibleId ?? ""} onChange={(e) => setResponsibleId(e.target.value ? Number(e.target.value) : null)}
+              className="border border-border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[180px]">
+              <option value="">Ответственный…</option>
+              {employees.map((e) => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </div>
+          {responsible && (
+            <span className="text-xs text-muted-foreground bg-secondary/50 px-2.5 py-1.5 rounded-lg">
+              {responsible.position}
+            </span>
+          )}
+          {/* Сохранить */}
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-50">
+            <Icon name={saving ? "Loader2" : "Save"} size={13} className={saving ? "animate-spin" : ""} />
+            {saving ? "Сохранение…" : "Сохранить"}
+          </button>
+          {saveMsg && (
+            <span className={`text-xs px-2.5 py-1.5 rounded-lg font-medium ${saveMsg === "Сохранено" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+              {saveMsg}
+            </span>
+          )}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-lg">
+            <Icon name="Calendar" size={13} />
+            {workDays} раб. дн. × {hoursDay} ч = {calc.monthHours} ч/мес
+          </div>
         </div>
       </div>
 

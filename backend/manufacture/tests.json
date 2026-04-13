@@ -1,0 +1,53 @@
+{
+  "tests": [
+    {
+      "name": "GET stats",
+      "method": "GET",
+      "path": "/?resource=stats",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET users",
+      "method": "GET",
+      "path": "/?resource=users",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET parts",
+      "method": "GET",
+      "path": "/?resource=parts",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET machines",
+      "method": "GET",
+      "path": "/?resource=machines",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET programs",
+      "method": "GET",
+      "path": "/?resource=programs",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET simulations",
+      "method": "GET",
+      "path": "/?resource=simulations",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET jobs",
+      "method": "GET",
+      "path": "/?resource=jobs",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -8,8 +8,9 @@ import ModulePLM from "@/components/smartmach/ModulePLM";
 import ModuleCNC from "@/components/smartmach/ModuleCNC";
 import ModuleAnalytics from "@/components/smartmach/ModuleAnalytics";
 import ModuleEquipment from "@/components/smartmach/ModuleEquipment";
+import ModuleEconomics from "@/components/smartmach/ModuleEconomics";
 
-export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment";
+export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics";
 
 export default function Index() {
   const [activeModule, setActiveModule] = useState<ModuleId>("home");
@@ -25,6 +26,7 @@ export default function Index() {
       case "cnc":       return <ModuleCNC />;
       case "analytics": return <ModuleAnalytics />;
       case "equipment": return <ModuleEquipment />;
+      case "economics": return <ModuleEconomics />;
       default:          return <DashboardHome onNavigate={setActiveModule} />;
     }
   };

@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "GET leads list",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST new lead",
+      "method": "POST",
+      "path": "/",
+      "body": {"name": "Тест Тестович", "phone": "+7 999 000 00 00", "org": "ООО Тест", "question": "Тестовая заявка"},
+      "expectedStatus": 201,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

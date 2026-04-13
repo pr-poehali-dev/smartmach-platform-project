@@ -1,22 +1,18 @@
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import Icon from "@/components/ui/icon";
 
 interface Machine {
@@ -45,7 +41,7 @@ interface Machine {
   notes: string;
 }
 
-const MACHINES: Machine[] = [
+const INITIAL_MACHINES: Machine[] = [
   {
     id: 1,
     name: "Фрезерный ОЦ №1",
@@ -198,21 +194,38 @@ const MACHINES: Machine[] = [
   },
 ];
 
-const STATUS_CONFIG = {
-  active:         { label: "Работает",    color: "bg-green-100 text-green-800" },
-  maintenance:    { label: "Ремонт",      color: "bg-yellow-100 text-yellow-800" },
-  idle:           { label: "Простой",     color: "bg-blue-100 text-blue-800" },
-  decommissioned: { label: "Списан",      color: "bg-gray-100 text-gray-500" },
+const EMPTY_MACHINE: Omit<Machine, "id"> = {
+  name: "", model: "", type: "Фрезерный ОЦ", manufacturer: "", year: new Date().getFullYear(),
+  axes: 3, controlSystem: "", spindleSpeed: "", tableSize: "", travelX: "", travelY: "", travelZ: "",
+  accuracy: "", power: "", weight: "", coolant: "", toolCapacity: 0,
+  status: "active", location: "", inventoryNumber: "", nextMaintenance: "", notes: "",
 };
 
-const TYPES = ["Все", "Фрезерный ОЦ", "Токарный с ЧПУ", "Круглошлифовальный", "Электроэрозионный (проволочный)"];
+const STATUS_CONFIG = {
+  active:         { label: "Работает",  color: "bg-green-100 text-green-800" },
+  maintenance:    { label: "Ремонт",    color: "bg-yellow-100 text-yellow-800" },
+  idle:           { label: "Простой",   color: "bg-blue-100 text-blue-800" },
+  decommissioned: { label: "Списан",    color: "bg-gray-100 text-gray-500" },
+};
+
+const MACHINE_TYPES = [
+  "Фрезерный ОЦ", "Токарный с ЧПУ", "Круглошлифовальный",
+  "Электроэрозионный (проволочный)", "Сверлильный", "Расточной", "Зубофрезерный", "Другое",
+];
+
+const FILTER_TYPES = ["Все", ...MACHINE_TYPES];
 
 export default function ModuleEquipment() {
+  const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("Все");
-  const [selected, setSelected] = useState<Machine | null>(null);
+  const [viewMachine, setViewMachine] = useState<Machine | null>(null);
+  const [editMachine, setEditMachine] = useState<Machine | null>(null);
+  const [formData, setFormData] = useState<Omit<Machine, "id">>(EMPTY_MACHINE);
+  const [isNew, setIsNew] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Machine | null>(null);
 
-  const filtered = MACHINES.filter((m) => {
+  const filtered = machines.filter((m) => {
     const q = search.toLowerCase();
     const matchSearch =
       m.name.toLowerCase().includes(q) ||
@@ -224,11 +237,46 @@ export default function ModuleEquipment() {
   });
 
   const counts = {
-    active:      MACHINES.filter((m) => m.status === "active").length,
-    maintenance: MACHINES.filter((m) => m.status === "maintenance").length,
-    idle:        MACHINES.filter((m) => m.status === "idle").length,
-    decommissioned: MACHINES.filter((m) => m.status === "decommissioned").length,
+    active:         machines.filter((m) => m.status === "active").length,
+    maintenance:    machines.filter((m) => m.status === "maintenance").length,
+    idle:           machines.filter((m) => m.status === "idle").length,
+    decommissioned: machines.filter((m) => m.status === "decommissioned").length,
   };
+
+  function openCreate() {
+    setFormData(EMPTY_MACHINE);
+    setIsNew(true);
+    setEditMachine({ id: 0, ...EMPTY_MACHINE });
+  }
+
+  function openEdit(m: Machine) {
+    setFormData({ ...m });
+    setIsNew(false);
+    setEditMachine(m);
+    setViewMachine(null);
+  }
+
+  function handleSave() {
+    if (!formData.name.trim() || !formData.model.trim()) return;
+    if (isNew) {
+      const newId = Math.max(0, ...machines.map((m) => m.id)) + 1;
+      setMachines((prev) => [...prev, { id: newId, ...formData }]);
+    } else if (editMachine) {
+      setMachines((prev) => prev.map((m) => m.id === editMachine.id ? { ...m, ...formData } : m));
+    }
+    setEditMachine(null);
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    setMachines((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    setViewMachine(null);
+  }
+
+  function setField<K extends keyof Omit<Machine, "id">>(key: K, value: Omit<Machine, "id">[K]) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -238,13 +286,13 @@ export default function ModuleEquipment() {
           <h1 className="text-2xl font-bold text-foreground">Справочник оборудования</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Станки и технологическое оборудование предприятия</p>
         </div>
-        <Button variant="outline" size="sm">
-          <Icon name="Download" size={15} className="mr-2" />
-          Экспорт
+        <Button size="sm" onClick={openCreate}>
+          <Icon name="Plus" size={15} className="mr-2" />
+          Добавить станок
         </Button>
       </div>
 
-      {/* KPI cards */}
+      {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {(["active", "maintenance", "idle", "decommissioned"] as const).map((s) => (
           <Card key={s} className="border shadow-none">
@@ -271,7 +319,7 @@ export default function ModuleEquipment() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {TYPES.map((t) => (
+          {FILTER_TYPES.map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
@@ -307,11 +355,7 @@ export default function ModuleEquipment() {
             </TableHeader>
             <TableBody>
               {filtered.map((m) => (
-                <TableRow
-                  key={m.id}
-                  className="cursor-pointer hover:bg-secondary/30"
-                  onClick={() => setSelected(m)}
-                >
+                <TableRow key={m.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => setViewMachine(m)}>
                   <TableCell className="pl-4 font-medium">{m.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{m.model}</TableCell>
                   <TableCell className="text-sm">{m.type}</TableCell>
@@ -342,60 +386,198 @@ export default function ModuleEquipment() {
         </CardContent>
       </Card>
 
-      {/* Detail dialog */}
-      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+      {/* ── View dialog ── */}
+      <Dialog open={!!viewMachine && !editMachine} onOpenChange={(o) => !o && setViewMachine(null)}>
         <DialogContent className="max-w-2xl">
-          {selected && (
+          {viewMachine && (
             <>
               <DialogHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <DialogTitle className="text-xl">{selected.name}</DialogTitle>
-                    <p className="text-sm text-muted-foreground mt-0.5">{selected.model} · {selected.manufacturer} · {selected.year} г.</p>
+                    <DialogTitle className="text-xl">{viewMachine.name}</DialogTitle>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {viewMachine.model} · {viewMachine.manufacturer} · {viewMachine.year} г.
+                    </p>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status].color}`}>
-                    {STATUS_CONFIG[selected.status].label}
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${STATUS_CONFIG[viewMachine.status].color}`}>
+                    {STATUS_CONFIG[viewMachine.status].label}
                   </span>
                 </div>
               </DialogHeader>
 
               <div className="grid grid-cols-2 gap-6 mt-2">
-                {/* Column 1: Technical specs */}
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Технические характеристики</p>
-                  <DetailRow label="Тип" value={selected.type} />
-                  <DetailRow label="Число осей" value={`${selected.axes}`} />
-                  <DetailRow label="Система управления" value={selected.controlSystem} />
-                  <DetailRow label="Скорость шпинделя" value={selected.spindleSpeed} />
-                  <DetailRow label="Размер стола" value={selected.tableSize} />
-                  <DetailRow label="Ход X" value={selected.travelX} />
-                  <DetailRow label="Ход Y" value={selected.travelY} />
-                  <DetailRow label="Ход Z" value={selected.travelZ} />
-                  <DetailRow label="Точность позиционирования" value={selected.accuracy} />
-                  <DetailRow label="Мощность" value={selected.power} />
-                  <DetailRow label="Масса станка" value={selected.weight} />
-                  <DetailRow label="Охлаждение" value={selected.coolant} />
-                  {selected.toolCapacity > 0 && (
-                    <DetailRow label="Ёмкость инструментального магазина" value={`${selected.toolCapacity} позиций`} />
+                  <DetailRow label="Тип" value={viewMachine.type} />
+                  <DetailRow label="Число осей" value={`${viewMachine.axes}`} />
+                  <DetailRow label="Система управления" value={viewMachine.controlSystem} />
+                  <DetailRow label="Скорость шпинделя" value={viewMachine.spindleSpeed} />
+                  <DetailRow label="Размер стола" value={viewMachine.tableSize} />
+                  <DetailRow label="Ход X" value={viewMachine.travelX} />
+                  <DetailRow label="Ход Y" value={viewMachine.travelY} />
+                  <DetailRow label="Ход Z" value={viewMachine.travelZ} />
+                  <DetailRow label="Точность" value={viewMachine.accuracy} />
+                  <DetailRow label="Мощность" value={viewMachine.power} />
+                  <DetailRow label="Масса" value={viewMachine.weight} />
+                  <DetailRow label="Охлаждение" value={viewMachine.coolant} />
+                  {viewMachine.toolCapacity > 0 && (
+                    <DetailRow label="Инструментальный магазин" value={`${viewMachine.toolCapacity} позиций`} />
                   )}
                 </div>
-
-                {/* Column 2: Admin info */}
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Сведения об эксплуатации</p>
-                  <DetailRow label="Инвентарный номер" value={selected.inventoryNumber} />
-                  <DetailRow label="Год выпуска" value={`${selected.year}`} />
-                  <DetailRow label="Местонахождение" value={selected.location} />
-                  <DetailRow label="Следующее ТО" value={selected.nextMaintenance} />
-                  {selected.notes && (
-                    <div className="mt-3 p-3 rounded-lg bg-secondary/50 text-sm text-muted-foreground">
-                      {selected.notes}
-                    </div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Эксплуатация</p>
+                  <DetailRow label="Инвентарный номер" value={viewMachine.inventoryNumber} />
+                  <DetailRow label="Год выпуска" value={`${viewMachine.year}`} />
+                  <DetailRow label="Местонахождение" value={viewMachine.location} />
+                  <DetailRow label="Следующее ТО" value={viewMachine.nextMaintenance} />
+                  {viewMachine.notes && (
+                    <div className="mt-3 p-3 rounded-lg bg-secondary/50 text-sm text-muted-foreground">{viewMachine.notes}</div>
                   )}
                 </div>
               </div>
+
+              <DialogFooter className="mt-4 gap-2">
+                <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(viewMachine)}>
+                  <Icon name="Trash2" size={14} className="mr-1.5" />
+                  Удалить
+                </Button>
+                <Button size="sm" onClick={() => openEdit(viewMachine)}>
+                  <Icon name="Pencil" size={14} className="mr-1.5" />
+                  Редактировать
+                </Button>
+              </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit / Create dialog ── */}
+      <Dialog open={!!editMachine} onOpenChange={(o) => !o && setEditMachine(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{isNew ? "Новый станок" : "Редактировать станок"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Basic */}
+            <Section title="Основное">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Наименование *">
+                  <Input value={formData.name} onChange={(e) => setField("name", e.target.value)} placeholder="Фрезерный ОЦ №3" />
+                </Field>
+                <Field label="Модель *">
+                  <Input value={formData.model} onChange={(e) => setField("model", e.target.value)} placeholder="DMG MORI DMU 50" />
+                </Field>
+                <Field label="Тип">
+                  <Select value={formData.type} onValueChange={(v) => setField("type", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MACHINE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Производитель">
+                  <Input value={formData.manufacturer} onChange={(e) => setField("manufacturer", e.target.value)} placeholder="DMG MORI" />
+                </Field>
+                <Field label="Год выпуска">
+                  <Input type="number" value={formData.year} onChange={(e) => setField("year", Number(e.target.value))} />
+                </Field>
+                <Field label="Статус">
+                  <Select value={formData.status} onValueChange={(v) => setField("status", v as Machine["status"])}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map((s) => (
+                        <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+            </Section>
+
+            {/* Technical */}
+            <Section title="Технические характеристики">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Число осей">
+                  <Input type="number" value={formData.axes} onChange={(e) => setField("axes", Number(e.target.value))} />
+                </Field>
+                <Field label="Система управления">
+                  <Input value={formData.controlSystem} onChange={(e) => setField("controlSystem", e.target.value)} placeholder="Siemens 840D SL" />
+                </Field>
+                <Field label="Скорость шпинделя">
+                  <Input value={formData.spindleSpeed} onChange={(e) => setField("spindleSpeed", e.target.value)} placeholder="18 000 об/мин" />
+                </Field>
+                <Field label="Размер стола">
+                  <Input value={formData.tableSize} onChange={(e) => setField("tableSize", e.target.value)} placeholder="630 × 500 мм" />
+                </Field>
+                <Field label="Ход X">
+                  <Input value={formData.travelX} onChange={(e) => setField("travelX", e.target.value)} placeholder="500 мм" />
+                </Field>
+                <Field label="Ход Y">
+                  <Input value={formData.travelY} onChange={(e) => setField("travelY", e.target.value)} placeholder="450 мм" />
+                </Field>
+                <Field label="Ход Z">
+                  <Input value={formData.travelZ} onChange={(e) => setField("travelZ", e.target.value)} placeholder="400 мм" />
+                </Field>
+                <Field label="Точность позиционирования">
+                  <Input value={formData.accuracy} onChange={(e) => setField("accuracy", e.target.value)} placeholder="±0,003 мм" />
+                </Field>
+                <Field label="Мощность">
+                  <Input value={formData.power} onChange={(e) => setField("power", e.target.value)} placeholder="18 кВт" />
+                </Field>
+                <Field label="Масса станка">
+                  <Input value={formData.weight} onChange={(e) => setField("weight", e.target.value)} placeholder="7 500 кг" />
+                </Field>
+                <Field label="Охлаждение">
+                  <Input value={formData.coolant} onChange={(e) => setField("coolant", e.target.value)} placeholder="СОЖ + воздух" />
+                </Field>
+                <Field label="Инструментальный магазин (позиций)">
+                  <Input type="number" value={formData.toolCapacity} onChange={(e) => setField("toolCapacity", Number(e.target.value))} />
+                </Field>
+              </div>
+            </Section>
+
+            {/* Admin */}
+            <Section title="Эксплуатация">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Инвентарный номер">
+                  <Input value={formData.inventoryNumber} onChange={(e) => setField("inventoryNumber", e.target.value)} placeholder="ИНВ-00124" />
+                </Field>
+                <Field label="Местонахождение">
+                  <Input value={formData.location} onChange={(e) => setField("location", e.target.value)} placeholder="Цех №1, позиция A1" />
+                </Field>
+                <Field label="Дата следующего ТО">
+                  <Input type="date" value={formData.nextMaintenance} onChange={(e) => setField("nextMaintenance", e.target.value)} />
+                </Field>
+              </div>
+              <Field label="Примечания">
+                <Textarea value={formData.notes} onChange={(e) => setField("notes", e.target.value)} rows={3} placeholder="Дополнительная информация..." />
+              </Field>
+            </Section>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditMachine(null)}>Отмена</Button>
+            <Button onClick={handleSave} disabled={!formData.name.trim() || !formData.model.trim()}>
+              {isNew ? "Добавить" : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete confirm ── */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Удалить станок?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Станок <span className="font-medium text-foreground">«{deleteTarget?.name}»</span> будет удалён из справочника.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Отмена</Button>
+            <Button variant="destructive" onClick={handleDelete}>Удалить</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -408,6 +590,24 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between gap-2 text-sm">
       <span className="text-muted-foreground shrink-0">{label}</span>
       <span className="font-medium text-right">{value}</span>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {children}
     </div>
   );
 }

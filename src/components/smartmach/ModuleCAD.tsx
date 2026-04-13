@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
@@ -9,16 +9,21 @@ import {
   AI_SYSTEM, AI_SUGGESTIONS,
 } from "@/components/smartmach/cad.data";
 
-type Tab = "templates" | "mine";
+const CadEditor2D = lazy(() => import("@/components/smartmach/CadEditor2D"));
+const CadEditor3D = lazy(() => import("@/components/smartmach/CadEditor3D"));
+
+type MainTab = "library" | "2d" | "3d";
+type LibTab  = "templates" | "mine";
 
 export default function ModuleCAD() {
+  const [mainTab, setMainTab] = useState<MainTab>("library");
   const [templates, setTemplates] = useState<Part[]>([]);
   const [mine, setMine] = useState<Part[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<Tab>("templates");
+  const [tab, setTab] = useState<LibTab>("templates");
   const [catFilter, setCatFilter] = useState<string>("Все");
   const [search, setSearch] = useState("");
 
@@ -120,31 +125,53 @@ export default function ModuleCAD() {
       {/* шапка */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Проектирование — Библиотека деталей</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Типовые детали и рабочие проекты</p>
+          <h1 className="text-2xl font-bold text-foreground">Проектирование — CAD</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Библиотека деталей · 2D-чертежи · 3D-моделирование</p>
         </div>
-        <button onClick={() => { setShowForm(true); setTab("mine"); }}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-          <Icon name="Plus" size={16} />Новая деталь
-        </button>
+        {mainTab === "library" && (
+          <button onClick={() => { setShowForm(true); setTab("mine"); }}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+            <Icon name="Plus" size={16} />Новая деталь
+          </button>
+        )}
       </div>
 
-      {/* вкладки */}
-      <div className="flex gap-1 bg-secondary/50 p-1 rounded-xl w-fit">
-        {([["templates", "Библиотека шаблонов", "Library"], ["mine", "Мои детали", "FolderOpen"]] as const).map(([id, label, icon]) => (
-          <button key={id} onClick={() => { setTab(id); setSelected(null); setCatFilter("Все"); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-              ${tab === id ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+      {/* Главные вкладки */}
+      <div className="flex gap-1 border-b border-border">
+        {([
+          ["library", "FolderOpen",  "Библиотека деталей"],
+          ["2d",      "PenLine",     "2D Чертёж"],
+          ["3d",      "Box",         "3D Модель"],
+        ] as const).map(([id, icon, label]) => (
+          <button key={id} onClick={() => setMainTab(id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              mainTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}>
             <Icon name={icon} size={15} />{label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === id ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
-              {id === "templates" ? templates.length : mine.length}
-            </span>
           </button>
         ))}
       </div>
 
+      {/* 2D редактор */}
+      {mainTab === "2d" && (
+        <div style={{ height: 620 }}>
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground"><Icon name="Loader2" size={22} className="animate-spin mr-2" />Загрузка редактора…</div>}>
+            <CadEditor2D />
+          </Suspense>
+        </div>
+      )}
+
+      {/* 3D редактор */}
+      {mainTab === "3d" && (
+        <div style={{ height: 620 }}>
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground"><Icon name="Loader2" size={22} className="animate-spin mr-2" />Загрузка 3D…</div>}>
+            <CadEditor3D />
+          </Suspense>
+        </div>
+      )}
+
       {/* форма */}
-      {showForm && (
+      {mainTab === "library" && showForm && (
         <CadForm
           form={form}
           saving={saving}
@@ -155,8 +182,8 @@ export default function ModuleCAD() {
         />
       )}
 
-      {/* поиск + фильтр */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* поиск + фильтр — только для библиотеки */}
+      {mainTab === "library" && <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
@@ -171,10 +198,26 @@ export default function ModuleCAD() {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
-      {/* основной контент */}
-      {loading ? (
+      {/* внутренние вкладки библиотеки */}
+      {mainTab === "library" && (
+        <div className="flex gap-1 bg-secondary/50 p-1 rounded-xl w-fit">
+          {([["templates", "Библиотека шаблонов", "Library"], ["mine", "Мои детали", "FolderOpen"]] as const).map(([id, label, icon]) => (
+            <button key={id} onClick={() => { setTab(id); setSelected(null); setCatFilter("Все"); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                ${tab === id ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              <Icon name={icon} size={15} />{label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === id ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                {id === "templates" ? templates.length : mine.length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* основной контент библиотеки */}
+      {mainTab === "library" && (loading ? (
         <div className="py-16 text-center text-muted-foreground text-sm">
           <Icon name="Loader" size={32} className="mx-auto mb-3 opacity-30 animate-spin" />Загрузка…
         </div>
@@ -237,7 +280,7 @@ export default function ModuleCAD() {
           </div>
 
         </div>
-      )}
+      ))}
 
       <AiAssistant
         title="Помощник конструктора"

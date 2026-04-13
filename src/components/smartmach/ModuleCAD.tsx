@@ -4,53 +4,118 @@ import { mGet, mPost, mPut, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 
 const AI_SYSTEM = `Ты — инженер-конструктор в системе СмартМаш. 
-Помогаешь с выбором материалов, расчётом допусков, проверкой геометрических пересечений (коллизий), 
-стандартами (ГОСТ, ДИН, ИСО), выбором типовых деталей из библиотеки. 
-Отвечай кратко, по существу, с конкретными цифрами и ссылками на стандарты.`;
+Помогаешь с выбором материалов, расчётом допусков и посадок, шероховатостью поверхностей, 
+стандартами ЕСКД (ГОСТ, DIN, ISO), выбором типовых деталей из библиотеки, 
+параметрическим моделированием и проверкой геометрии. 
+Отвечай кратко, с конкретными цифрами и ссылками на стандарты.`;
 
 const AI_SUGGESTIONS = [
   "Какой материал выбрать для вала редуктора?",
-  "Как рассчитать допуск посадки подшипника?",
-  "Что такое геометрическое пересечение (коллизия) и как его устранить?",
-  "Чем отличается Сталь 45 от 40Х?",
+  "Как рассчитать допуск посадки подшипника по ГОСТ?",
+  "Какую шероховатость Ra назначить для посадочной поверхности?",
+  "Чем отличается Сталь 45 от 40Х по механическим свойствам?",
   "Какие стандарты применяются для зубчатых колёс?",
+  "Как обозначить посадку с зазором на чертеже по ЕСКД?",
+  "Какой допуск на соосность выбрать для вала и корпуса?",
 ];
 
 /* ─── конфиги ────────────────────────────────────────────────────── */
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: string }> = {
-  ok:    { label: "ОК",         color: "text-green-600  bg-green-50  border-green-200",  icon: "CheckCircle" },
-  warn:  { label: "Предупр.",   color: "text-yellow-600 bg-yellow-50 border-yellow-200", icon: "AlertTriangle" },
-  error: { label: "Ошибка",     color: "text-red-600    bg-red-50    border-red-200",    icon: "XCircle" },
+  ok:    { label: "ОК",       color: "text-green-600  bg-green-50  border-green-200",  icon: "CheckCircle" },
+  warn:  { label: "Предупр.", color: "text-yellow-600 bg-yellow-50 border-yellow-200", icon: "AlertTriangle" },
+  error: { label: "Ошибка",   color: "text-red-600    bg-red-50    border-red-200",    icon: "XCircle" },
 };
 
 const CAT_ICONS: Record<string, string> = {
-  "Валы и оси":           "Minus",
-  "Зубчатые колёса":      "Settings",
-  "Корпуса":              "Package",
-  "Крепёж":               "Link",
-  "Подшипниковые узлы":   "CircleDot",
-  "Уплотнения":           "Disc",
-  "Фланцы":               "Circle",
-  "Пружины":              "Codesandbox",
-  "Прочее":               "Box",
+  "Валы и оси":             "Minus",
+  "Зубчатые колёса":        "Settings",
+  "Корпуса":                "Package",
+  "Крепёж":                 "Link",
+  "Подшипниковые узлы":     "CircleDot",
+  "Уплотнения":             "Disc",
+  "Фланцы":                 "Circle",
+  "Пружины":                "Codesandbox",
+  "Муфты":                  "Plug",
+  "Шкивы и звёздочки":      "Cpu",
+  "Листовые детали":        "Square",
+  "Трубопроводные элементы":"GitBranch",
+  "Прочее":                 "Box",
 };
 
 const CAT_COLORS: Record<string, string> = {
-  "Валы и оси":           "bg-blue-50   text-blue-600",
-  "Зубчатые колёса":      "bg-purple-50 text-purple-600",
-  "Корпуса":              "bg-orange-50 text-orange-600",
-  "Крепёж":               "bg-gray-50   text-gray-600",
-  "Подшипниковые узлы":   "bg-indigo-50 text-indigo-600",
-  "Уплотнения":           "bg-green-50  text-green-600",
-  "Фланцы":               "bg-cyan-50   text-cyan-600",
-  "Пружины":              "bg-pink-50   text-pink-600",
-  "Прочее":               "bg-gray-50   text-gray-500",
+  "Валы и оси":             "bg-blue-50   text-blue-600",
+  "Зубчатые колёса":        "bg-purple-50 text-purple-600",
+  "Корпуса":                "bg-orange-50 text-orange-600",
+  "Крепёж":                 "bg-gray-50   text-gray-600",
+  "Подшипниковые узлы":     "bg-indigo-50 text-indigo-600",
+  "Уплотнения":             "bg-green-50  text-green-600",
+  "Фланцы":                 "bg-cyan-50   text-cyan-600",
+  "Пружины":                "bg-pink-50   text-pink-600",
+  "Муфты":                  "bg-teal-50   text-teal-600",
+  "Шкивы и звёздочки":      "bg-amber-50  text-amber-600",
+  "Листовые детали":        "bg-slate-50  text-slate-600",
+  "Трубопроводные элементы":"bg-emerald-50 text-emerald-600",
+  "Прочее":                 "bg-gray-50   text-gray-500",
 };
 
 const CATEGORIES = Object.keys(CAT_ICONS);
-const EMPTY = { code: "", name: "", category: "Прочее", material: "", version: "v1.0",
-                dimensions: "", weight_kg: "", standard: "", notes: "", author_id: "" };
+
+// Стандарты по ЕСКД / DIN / ISO — из Компас-3D, nanoCAD, SolidWorks
+const STANDARDS = [
+  "ГОСТ 2590-2006",  // прокат круглый
+  "ГОСТ 8732-78",    // трубы стальные
+  "ГОСТ 1050-2013",  // сталь конструкционная
+  "ГОСТ 3478-2019",  // подшипники
+  "ГОСТ 9150-2002",  // резьба метрическая
+  "ГОСТ 5915-70",    // гайки
+  "ГОСТ 7798-70",    // болты
+  "ГОСТ 11738-84",   // винты
+  "ГОСТ 6636-69",    // Ra шероховатость
+  "ГОСТ 25347-2013", // допуски и посадки
+  "ГОСТ 1643-81",    // зубчатые колёса
+  "ГОСТ 16162-85",   // муфты
+  "DIN 912",
+  "DIN 933",
+  "DIN 7991",
+  "ISO 286-1",
+  "ISO 1101",
+  "ISO 2768",
+];
+
+// Шероховатость по ГОСТ 6636-69
+const ROUGHNESS_VALUES = ["Ra 0.2", "Ra 0.4", "Ra 0.8", "Ra 1.6", "Ra 3.2", "Ra 6.3", "Ra 12.5", "Ra 25"];
+
+// Типы посадок по ГОСТ 25347
+const FIT_TYPES = [
+  "С зазором (H/f, H/g, H/h)",
+  "Переходная (H/js, H/k, H/m, H/n)",
+  "С натягом (H/p, H/r, H/s, H/t, H/u)",
+];
+
+// Материалы с маркой
+const MATERIALS = [
+  "Сталь 45",
+  "Сталь 40Х",
+  "Сталь 20",
+  "Сталь 12Х18Н10Т",
+  "Сталь 65Г",
+  "Сталь 30ХГСА",
+  "Алюминий АМГ6",
+  "Алюминий Д16Т",
+  "Алюминий АД31",
+  "Титан ВТ6",
+  "Чугун СЧ20",
+  "Чугун ВЧ50",
+  "Бронза БрАЖ9-4",
+  "Латунь Л63",
+];
+
+const EMPTY = {
+  code: "", name: "", category: "Прочее", material: "", version: "v1.0",
+  dimensions: "", weight_kg: "", standard: "", notes: "", author_id: "",
+  roughness: "", fit_type: "", tolerance: "", drawing_number: "",
+};
 
 type Tab = "templates" | "mine";
 
@@ -59,11 +124,9 @@ type Tab = "templates" | "mine";
 function catIcon(cat: string) { return (CAT_ICONS[cat] ?? "Box") as Parameters<typeof Icon>[0]["name"]; }
 function catColor(cat: string) { return CAT_COLORS[cat] ?? "bg-gray-50 text-gray-500"; }
 
-/* ─── компонент карточки детали ─────────────────────────────────── */
+/* ─── карточка детали ────────────────────────────────────────────── */
 
-function PartCard({
-  part, active, onClick,
-}: { part: Part; active: boolean; onClick: () => void }) {
+function PartCard({ part, active, onClick }: { part: Part; active: boolean; onClick: () => void }) {
   const cfg = STATUS_CFG[part.status] ?? STATUS_CFG.ok;
   return (
     <div onClick={onClick}
@@ -93,12 +156,14 @@ function PartCard({
   );
 }
 
-/* ─── панель деталей ─────────────────────────────────────────────── */
+/* ─── детальная панель ───────────────────────────────────────────── */
 
-function DetailPanel({
-  part, onUseAsBase, onStatusChange,
-}: { part: Part; onUseAsBase: (p: Part) => void; onStatusChange: (p: Part, s: string) => void }) {
+function DetailPanel({ part, onUseAsBase, onStatusChange }:
+  { part: Part; onUseAsBase: (p: Part) => void; onStatusChange: (p: Part, s: string) => void }
+) {
   const cfg = STATUS_CFG[part.status] ?? STATUS_CFG.ok;
+  const extra = part as Part & { roughness?: string; fit_type?: string; tolerance?: string; drawing_number?: string };
+
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3">
@@ -114,16 +179,21 @@ function DetailPanel({
         </span>
       </div>
 
+      {/* Основные параметры */}
       <div className="space-y-1.5 text-sm">
-        {[
-          ["Категория",   part.category],
-          part.material   && ["Материал",   part.material],
-          part.dimensions && ["Габариты",   part.dimensions],
-          part.weight_kg  && ["Масса",      `${part.weight_kg} кг`],
-          part.standard   && ["Стандарт",   part.standard],
-          part.author_name&& ["Автор",      part.author_name],
-        ].filter(Boolean).map((r) => {
-          const [k, v] = r as [string, string];
+        {([
+          ["Категория",        part.category],
+          part.material        && ["Материал",        part.material],
+          part.dimensions      && ["Габариты",        part.dimensions],
+          part.weight_kg       && ["Масса",           `${part.weight_kg} кг`],
+          part.standard        && ["Стандарт",        part.standard],
+          extra.roughness      && ["Шероховатость",   extra.roughness],
+          extra.fit_type       && ["Тип посадки",     extra.fit_type],
+          extra.tolerance      && ["Допуск",          extra.tolerance],
+          extra.drawing_number && ["Номер чертежа",   extra.drawing_number],
+          part.author_name     && ["Автор",           part.author_name],
+        ] as (string[] | false)[]).filter(Boolean).map((r) => {
+          const [k, v] = r as string[];
           return (
             <div key={k} className="flex justify-between gap-2">
               <span className="text-muted-foreground whitespace-nowrap">{k}</span>
@@ -179,7 +249,6 @@ export default function ModuleCAD() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY);
 
-  /* загрузка */
   async function load() {
     setLoading(true); setError(null);
     try {
@@ -194,7 +263,6 @@ export default function ModuleCAD() {
   }
   useEffect(() => { load(); }, []);
 
-  /* фильтрация */
   const list = tab === "templates" ? templates : mine;
   const filtered = useMemo(() => {
     let res = list;
@@ -209,7 +277,6 @@ export default function ModuleCAD() {
     return res;
   }, [list, catFilter, search]);
 
-  /* группировка по категории */
   const grouped = useMemo(() => {
     const map: Record<string, Part[]> = {};
     for (const p of filtered) {
@@ -219,27 +286,22 @@ export default function ModuleCAD() {
     return map;
   }, [filtered]);
 
-  /* взять за основу */
   async function handleUseAsBase(tmpl: Part) {
     setSaving(true);
     try {
-      const code = `${tmpl.code}-КОПИЯ`;
       await mPost("parts", {
-        code, name: tmpl.name, category: tmpl.category,
+        code: `${tmpl.code}-КОПИЯ`, name: tmpl.name, category: tmpl.category,
         material: tmpl.material, version: "v1.0", status: "ok",
         dimensions: tmpl.dimensions, weight_kg: tmpl.weight_kg,
         standard: tmpl.standard,
         notes: `На основе шаблона: ${tmpl.name} (${tmpl.code})`,
         collisions: 0, is_template: false,
       });
-      await load();
-      setTab("mine");
-      setSelected(null);
+      await load(); setTab("mine"); setSelected(null);
     } catch { alert("Ошибка при создании копии"); }
     finally { setSaving(false); }
   }
 
-  /* статус */
   async function handleStatus(part: Part, status: string) {
     try {
       await mPut("parts", part.id, { status });
@@ -248,7 +310,6 @@ export default function ModuleCAD() {
     } catch { alert("Ошибка при обновлении статуса"); }
   }
 
-  /* форма создания */
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
     try {
@@ -269,7 +330,6 @@ export default function ModuleCAD() {
 
   const f = (k: keyof typeof EMPTY, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  /* уникальные категории для фильтра */
   const availableCats = useMemo(() => {
     const cats = new Set(list.map((p) => p.category));
     return ["Все", ...CATEGORIES.filter((c) => cats.has(c))];
@@ -304,82 +364,143 @@ export default function ModuleCAD() {
         ))}
       </div>
 
-      {/* форма */}
+      {/* форма создания */}
       {showForm && (
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="font-semibold text-foreground">Новая деталь</span>
             <button onClick={() => setShowForm(false)}><Icon name="X" size={18} className="text-muted-foreground" /></button>
           </div>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <form onSubmit={handleCreate} className="space-y-4">
+
+            {/* Основное */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Код *</label>
+                <input required value={form.code} onChange={(e) => f("code", e.target.value)} placeholder="КРД-001"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Название *</label>
+                <input required value={form.name} onChange={(e) => f("name", e.target.value)} placeholder="Корпус редуктора"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Категория</label>
+                <select value={form.category} onChange={(e) => f("category", e.target.value)}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Материал</label>
+                <select value={form.material} onChange={(e) => f("material", e.target.value)}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  <option value="">— выберите —</option>
+                  {MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Версия</label>
+                <input value={form.version} onChange={(e) => f("version", e.target.value)} placeholder="v1.0"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Автор</label>
+                <select value={form.author_id} onChange={(e) => f("author_id", e.target.value)}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                  <option value="">— не выбран —</option>
+                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Геометрия и масса */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Код *</label>
-              <input required value={form.code} onChange={(e) => f("code", e.target.value)} placeholder="КРД-001"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-t border-border pt-3 mb-2">
+                Геометрия и масса
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Габариты</label>
+                  <input value={form.dimensions} onChange={(e) => f("dimensions", e.target.value)} placeholder="Ø40×200 мм"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Масса (кг)</label>
+                  <input type="number" step="0.001" value={form.weight_kg} onChange={(e) => f("weight_kg", e.target.value)}
+                    placeholder="1.250"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Номер чертежа</label>
+                  <input value={form.drawing_number} onChange={(e) => f("drawing_number", e.target.value)}
+                    placeholder="ДЧ-2024-001"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
             </div>
-            <div className="lg:col-span-2">
-              <label className="text-xs text-muted-foreground mb-1 block">Название *</label>
-              <input required value={form.name} onChange={(e) => f("name", e.target.value)} placeholder="Корпус редуктора"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
+
+            {/* Допуски и ЕСКД */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Категория</label>
-              <select value={form.category} onChange={(e) => f("category", e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-t border-border pt-3 mb-2">
+                Допуски, посадки и стандарты (ЕСКД)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Шероховатость</label>
+                  <select value={form.roughness} onChange={(e) => f("roughness", e.target.value)}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">— не указана —</option>
+                    {ROUGHNESS_VALUES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Тип посадки</label>
+                  <select value={form.fit_type} onChange={(e) => f("fit_type", e.target.value)}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">— не указана —</option>
+                    {FIT_TYPES.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Допуск</label>
+                  <input value={form.tolerance} onChange={(e) => f("tolerance", e.target.value)}
+                    placeholder="H7/h6"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Стандарт</label>
+                  <select value={form.standard} onChange={(e) => f("standard", e.target.value)}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">— не указан —</option>
+                    {STANDARDS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
+
+            {/* Примечания */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Материал</label>
-              <input value={form.material} onChange={(e) => f("material", e.target.value)} placeholder="Сталь 45"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Версия</label>
-              <input value={form.version} onChange={(e) => f("version", e.target.value)} placeholder="v1.0"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Габариты</label>
-              <input value={form.dimensions} onChange={(e) => f("dimensions", e.target.value)} placeholder="Ø40×200 мм"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Масса (кг)</label>
-              <input type="number" step="0.001" value={form.weight_kg} onChange={(e) => f("weight_kg", e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Стандарт</label>
-              <input value={form.standard} onChange={(e) => f("standard", e.target.value)} placeholder="ГОСТ 2590-2006"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Автор</label>
-              <select value={form.author_id} onChange={(e) => f("author_id", e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                <option value="">— не выбран —</option>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
               <label className="text-xs text-muted-foreground mb-1 block">Примечания</label>
-              <input value={form.notes} onChange={(e) => f("notes", e.target.value)} placeholder="Необязательно"
+              <input value={form.notes} onChange={(e) => f("notes", e.target.value)}
+                placeholder="Необязательно"
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
-            <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-2 pt-1">
+
+            <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setShowForm(false)}
                 className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-secondary/60">Отмена</button>
               <button type="submit" disabled={saving}
                 className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50">
-                {saving ? "Сохранение…" : "Создать"}
+                {saving ? "Сохранение…" : "Создать деталь"}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* поиск + фильтр по категории */}
+      {/* поиск + фильтр */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -410,7 +531,7 @@ export default function ModuleCAD() {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-          {/* список деталей */}
+          {/* список */}
           <div className="xl:col-span-2 space-y-5">
             {Object.keys(grouped).length === 0 ? (
               <div className="py-16 text-center text-muted-foreground text-sm bg-white rounded-xl border border-border">
@@ -436,7 +557,7 @@ export default function ModuleCAD() {
             ))}
           </div>
 
-          {/* панель деталей */}
+          {/* карточка */}
           <div className="xl:col-span-1">
             <div className="sticky top-4 bg-white rounded-xl border border-border shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-secondary/40">

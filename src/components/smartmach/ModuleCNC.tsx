@@ -25,22 +25,6 @@ export default function ModuleCNC() {
         <p className="text-muted-foreground text-sm mt-0.5">Состояние оборудования</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Всего станков", value: MACHINES.length, icon: "Cpu",          color: "text-blue-600",  bg: "bg-blue-50" },
-          { label: "В работе",      value: 2,               icon: "Activity",     color: "text-green-600", bg: "bg-green-50" },
-          { label: "Аварии",        value: 1,               icon: "AlertTriangle",color: "text-red-500",   bg: "bg-red-50" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-border p-4 shadow-sm">
-            <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-3`}>
-              <Icon name={s.icon as Parameters<typeof Icon>[0]["name"]} size={18} className={s.color} />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{s.value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-secondary/40">

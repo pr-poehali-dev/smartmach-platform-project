@@ -21,22 +21,6 @@ export default function ModuleCAE() {
         <p className="text-muted-foreground text-sm mt-0.5">МКЭ, тепловые и динамические симуляции</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Расчётов",       value: SIMULATIONS.length, icon: "FlaskConical", color: "text-purple-600", bg: "bg-purple-50" },
-          { label: "Выполнено",      value: 2,                  icon: "CheckCircle",  color: "text-green-600",  bg: "bg-green-50" },
-          { label: "Требуют внимания",value: 1,                 icon: "AlertTriangle",color: "text-red-500",    bg: "bg-red-50" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-border p-4 shadow-sm">
-            <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-3`}>
-              <Icon name={s.icon as Parameters<typeof Icon>[0]["name"]} size={18} className={s.color} />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{s.value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
       <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-secondary/40">
           <span className="text-sm font-semibold text-foreground">Симуляции</span>

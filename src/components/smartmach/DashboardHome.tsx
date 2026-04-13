@@ -14,13 +14,6 @@ const MODULES = [
   { id: "analytics" as ModuleId, label: "Аналитика", desc: "KPI и предиктивная диагностика",        icon: "BarChart2",    color: "#fb8c00", bg: "#fff3e0" },
 ];
 
-const KPI = [
-  { label: "Станков в системе", value: "4",  icon: "Radio" },
-  { label: "Программ ЧПУ",      value: "4",  icon: "Cpu" },
-  { label: "Изделий в PLM",     value: "4",  icon: "Layers" },
-  { label: "Модулей платформы", value: "6",  icon: "LayoutGrid" },
-];
-
 export default function DashboardHome({ onNavigate }: Props) {
   return (
     <div className="p-6 space-y-6">
@@ -28,19 +21,6 @@ export default function DashboardHome({ onNavigate }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-foreground">SmartMach Platform</h1>
         <p className="text-muted-foreground text-sm mt-0.5">Единая платформа для станкостроения</p>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {KPI.map((k) => (
-          <div key={k.label} className="bg-white rounded-xl border border-border p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-muted-foreground">{k.label}</span>
-              <Icon name={k.icon as Parameters<typeof Icon>[0]["name"]} size={16} className="text-muted-foreground" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{k.value}</div>
-          </div>
-        ))}
       </div>
 
       {/* Modules Grid */}

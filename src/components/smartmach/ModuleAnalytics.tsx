@@ -21,24 +21,6 @@ export default function ModuleAnalytics() {
         <p className="text-muted-foreground text-sm mt-0.5">Ключевые показатели производства за последние 6 месяцев</p>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {KPI.map((k) => (
-          <div key={k.label} className="bg-white rounded-xl border border-border p-4 shadow-sm">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-9 h-9 bg-secondary rounded-lg flex items-center justify-center">
-                <Icon name={k.icon as Parameters<typeof Icon>[0]["name"]} size={18} className="text-muted-foreground" />
-              </div>
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${k.positive ? "text-green-700 bg-green-50" : "text-red-600 bg-red-50"}`}>
-                {k.delta}
-              </span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">{k.value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{k.label}</div>
-          </div>
-        ))}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Bar chart */}
         <div className="bg-white rounded-xl border border-border shadow-sm p-4">

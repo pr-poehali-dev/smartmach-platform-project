@@ -1,7 +1,6 @@
 """
 PLM Users API — список пользователей системы SmartMach.
 """
-import json
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -22,12 +21,10 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
     try:
         cur.execute("SELECT id, name, email, role, avatar_url, created_at FROM users ORDER BY name")
-        rows = cur.fetchall()
-        return {
-            "statusCode": 200,
-            "headers": CORS,
-            "body": json.dumps(rows, default=str, ensure_ascii=False)
-        }
+        rows = [dict(r) for r in cur.fetchall()]
+        for r in rows:
+            r["created_at"] = str(r["created_at"])
+        return {"statusCode": 200, "headers": CORS, "body": rows}
     finally:
         cur.close()
         conn.close()

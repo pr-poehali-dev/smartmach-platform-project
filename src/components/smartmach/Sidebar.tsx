@@ -1,6 +1,7 @@
 import Icon from "@/components/ui/icon";
 import { ModuleId } from "@/pages/Index";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface NavItem {
   id: ModuleId;
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Props) {
+  const navigate = useNavigate();
   return (
     <aside
       className={cn(
@@ -91,7 +93,15 @@ export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Pro
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-border p-3 flex-shrink-0">
+      <div className="border-t border-border p-3 flex-shrink-0 space-y-1">
+        <button
+          onClick={() => navigate("/")}
+          className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 rounded-lg hover:bg-secondary/60"
+          title="На главную страницу"
+        >
+          <Icon name="Home" size={14} />
+          {!collapsed && <span>На главную</span>}
+        </button>
         <button
           onClick={onToggle}
           className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1"

@@ -1,0 +1,35 @@
+CREATE TABLE equipment (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  model TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT '',
+  manufacturer TEXT NOT NULL DEFAULT '',
+  year INTEGER NOT NULL DEFAULT 2020,
+  axes INTEGER NOT NULL DEFAULT 3,
+  control_system TEXT NOT NULL DEFAULT '',
+  spindle_speed TEXT NOT NULL DEFAULT '',
+  table_size TEXT NOT NULL DEFAULT '',
+  travel_x TEXT NOT NULL DEFAULT '',
+  travel_y TEXT NOT NULL DEFAULT '',
+  travel_z TEXT NOT NULL DEFAULT '',
+  accuracy TEXT NOT NULL DEFAULT '',
+  power TEXT NOT NULL DEFAULT '',
+  weight TEXT NOT NULL DEFAULT '',
+  coolant TEXT NOT NULL DEFAULT '',
+  tool_capacity INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active',
+  location TEXT NOT NULL DEFAULT '',
+  inventory_number TEXT NOT NULL DEFAULT '',
+  next_maintenance TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO equipment (name, model, type, manufacturer, year, axes, control_system, spindle_speed, table_size, travel_x, travel_y, travel_z, accuracy, power, weight, coolant, tool_capacity, status, location, inventory_number, next_maintenance, notes) VALUES
+('Фрезерный ОЦ №1', 'DMG MORI DMU 50', 'Фрезерный ОЦ', 'DMG MORI', 2019, 5, 'Siemens 840D SL', '18 000 об/мин', '630 × 500 мм', '500 мм', '450 мм', '400 мм', '±0,003 мм', '18 кВт', '7 500 кг', 'СОЖ + воздух', 30, 'active', 'Цех №1, позиция A1', 'ИНВ-00124', '2026-06-15', 'Плановое ТО выполнено 01.03.2026'),
+('Токарный с ЧПУ №1', 'HAAS ST-30', 'Токарный с ЧПУ', 'HAAS Automation', 2020, 2, 'HAAS Control', '3 400 об/мин', '—', '—', '—', '610 мм', '±0,005 мм', '22 кВт', '5 200 кг', 'СОЖ', 12, 'active', 'Цех №1, позиция B3', 'ИНВ-00137', '2026-05-20', ''),
+('Токарный с ЧПУ №2', 'Mazak QT-NEXUS 200', 'Токарный с ЧПУ', 'Yamazaki Mazak', 2018, 2, 'Mazatrol SmoothG', '4 000 об/мин', '—', '—', '—', '530 мм', '±0,004 мм', '18,5 кВт', '4 800 кг', 'СОЖ', 10, 'maintenance', 'Цех №1, позиция B5', 'ИНВ-00138', '2026-04-18', 'Замена шпиндельного подшипника — плановый ремонт'),
+('Фрезерный ОЦ №2', 'Fanuc Robodrill α-D21MiA5', 'Фрезерный ОЦ', 'Fanuc', 2021, 5, 'Fanuc 31i-B5', '24 000 об/мин', '400 × 400 мм', '700 мм', '400 мм', '330 мм', '±0,002 мм', '15 кВт', '3 100 кг', 'Внутренний + воздух', 21, 'active', 'Цех №2, позиция A2', 'ИНВ-00152', '2026-07-01', ''),
+('Шлифовальный №1', 'Studer S33', 'Круглошлифовальный', 'Fritz Studer AG', 2017, 3, 'StuderWIN', '3 600 об/мин', '—', '—', '—', '1 000 мм', '±0,001 мм', '7,5 кВт', '3 900 кг', 'СОЖ', 0, 'idle', 'Цех №2, позиция C1', 'ИНВ-00098', '2026-08-10', 'Ожидает заказ на обработку'),
+('Электроэрозионный №1', 'Mitsubishi MV2400S', 'Электроэрозионный (проволочный)', 'Mitsubishi Electric', 2016, 4, 'Mitsubishi M800', '—', '820 × 620 мм', '600 мм', '400 мм', '220 мм', '±0,002 мм', '5 кВт', '2 100 кг', 'Деионизированная вода', 0, 'decommissioned', 'Склад', 'ИНВ-00071', '—', 'Выведен из эксплуатации — ожидает списания');

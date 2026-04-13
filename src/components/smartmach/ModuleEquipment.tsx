@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,6 +40,8 @@ interface Machine {
   nextMaintenance: string;
   notes: string;
 }
+
+const API_URL = "https://functions.poehali.dev/ea23c122-5390-4ba0-8db8-032ba069c01b";
 
 const INITIAL_MACHINES: Machine[] = [
   {
@@ -217,6 +219,7 @@ const FILTER_TYPES = ["Все", ...MACHINE_TYPES];
 
 export default function ModuleEquipment() {
   const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("Все");
   const [viewMachine, setViewMachine] = useState<Machine | null>(null);
@@ -224,6 +227,13 @@ export default function ModuleEquipment() {
   const [formData, setFormData] = useState<Omit<Machine, "id">>(EMPTY_MACHINE);
   const [isNew, setIsNew] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Machine | null>(null);
+
+  useEffect(() => {
+    fetch(API_URL)
+      .then((r) => r.json())
+      .then((data) => { setMachines(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
   const filtered = machines.filter((m) => {
     const q = search.toLowerCase();
@@ -256,19 +266,30 @@ export default function ModuleEquipment() {
     setViewMachine(null);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!formData.name.trim() || !formData.model.trim()) return;
     if (isNew) {
-      const newId = Math.max(0, ...machines.map((m) => m.id)) + 1;
-      setMachines((prev) => [...prev, { id: newId, ...formData }]);
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const { id } = await res.json();
+      setMachines((prev) => [...prev, { id, ...formData }]);
     } else if (editMachine) {
+      await fetch(`${API_URL}/${editMachine.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
       setMachines((prev) => prev.map((m) => m.id === editMachine.id ? { ...m, ...formData } : m));
     }
     setEditMachine(null);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deleteTarget) return;
+    await fetch(`${API_URL}/${deleteTarget.id}`, { method: "DELETE" });
     setMachines((prev) => prev.filter((m) => m.id !== deleteTarget.id));
     setDeleteTarget(null);
     setViewMachine(null);
@@ -277,6 +298,13 @@ export default function ModuleEquipment() {
   function setField<K extends keyof Omit<Machine, "id">>(key: K, value: Omit<Machine, "id">[K]) {
     setFormData((prev) => ({ ...prev, [key]: value }));
   }
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64 text-muted-foreground">
+      <Icon name="Loader2" size={22} className="animate-spin mr-2" />
+      Загрузка оборудования...
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-6">

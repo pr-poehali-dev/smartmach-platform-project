@@ -92,14 +92,26 @@ export function useCad2DActions({
   const handleZoom = useCallback((delta: number) => {
     const fc = fabricRef.current; if (!fc) return;
     const nz = Math.max(0.2, Math.min(8, zoom + delta));
-    fc.setZoom(nz); setZoom(nz);
+    // Базовые размеры листа (до зума)
+    const baseW = fc.width!  / zoom;
+    const baseH = fc.height! / zoom;
+    // Физически масштабируем canvas-элемент — чтобы скролл работал
+    fc.setDimensions({ width: Math.round(baseW * nz), height: Math.round(baseH * nz) });
+    fc.setZoom(nz);
+    setZoom(nz);
   }, [fabricRef, zoom, setZoom]);
 
   const fitView = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
-    fc.setZoom(1); fc.viewportTransform = [1,0,0,1,0,0];
-    setZoom(1); fc.renderAll();
-  }, [fabricRef, setZoom]);
+    // Восстанавливаем базовый размер (делим на текущий zoom)
+    const baseW = fc.width!  / zoom;
+    const baseH = fc.height! / zoom;
+    fc.setDimensions({ width: Math.round(baseW), height: Math.round(baseH) });
+    fc.setZoom(1);
+    fc.viewportTransform = [1, 0, 0, 1, 0, 0];
+    setZoom(1);
+    fc.renderAll();
+  }, [fabricRef, zoom, setZoom]);
 
   // ── Зеркало (отражение по вертикальной оси) ───────────────────────
   const mirrorSelected = useCallback(() => {

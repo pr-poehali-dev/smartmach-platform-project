@@ -79,6 +79,19 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
     saveHistory:  canvas.saveHistory,
   });
 
+  // Зум колёсиком мыши (Ctrl + колесо) — после объявления actions
+  useEffect(() => {
+    const el = canvas.containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      actions.handleZoom(e.deltaY > 0 ? -0.1 : 0.1);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [canvas.containerRef, actions]);
+
   return (
     <div className="flex flex-col h-full bg-[#12131f] rounded-xl border border-gray-700/60 overflow-hidden" style={{ minHeight: 640 }}>
 

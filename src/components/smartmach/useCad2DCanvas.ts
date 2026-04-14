@@ -428,6 +428,9 @@ export function useCad2DCanvas() {
     const fc = fabricRef.current; if (!fc) return;
     const [pw, ph] = PAPER_SIZES[paperSize];
     if (pw && ph) {
+      // Сбрасываем zoom до 1 при смене формата — иначе размер листа некорректен
+      fc.setZoom(1);
+      setZoom(1);
       fc.setDimensions({ width: pw, height: ph });
       fc.getObjects().filter((o) => (o as any).__grid).forEach((o) => fc.remove(o));
       if (showGridRef.current) drawGrid(fc, pw, ph);
@@ -456,7 +459,7 @@ export function useCad2DCanvas() {
       mkLine(fR, fT, fR, fB, 1.4); mkLine(fL, fB, fR, fB, 1.4);
       fc.renderAll();
     }
-  }, [paperSize, drawGrid]);
+  }, [paperSize, drawGrid, setZoom]);
 
   /* ── тема (тёмный/светлый фон) ── */
   useEffect(() => {

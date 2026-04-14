@@ -188,7 +188,7 @@ export function useCad2DActions({
   // ── Группировать ──────────────────────────────────────────────────
   const groupSelected = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
-    const active = fc.getActiveObject();
+    const active = fc.getActiveObject() as any;
     if (!active || !(active instanceof ActiveSelection)) return;
     const group = active.toGroup();
     fc.setActiveObject(group);
@@ -198,7 +198,7 @@ export function useCad2DActions({
   // ── Разгруппировать ───────────────────────────────────────────────
   const ungroupSelected = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
-    const active = fc.getActiveObject();
+    const active = fc.getActiveObject() as any;
     if (!active || !(active instanceof Group)) return;
     active.toActiveSelection();
     fc.renderAll(); saveHistory(fc);

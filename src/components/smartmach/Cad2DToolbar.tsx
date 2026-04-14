@@ -296,14 +296,14 @@ export default function Cad2DToolbar({
             <Sep />
 
             <RibbonGroup label="Порядок объектов">
-              <RibbonBtn icon="BringToFront" label="На перед"  onClick={onBringForward} />
-              <RibbonBtn icon="SendToBack"   label="На зад"    onClick={onSendBackward} />
+              <RibbonBtn icon="MoveUp"   label="На перед"  onClick={onBringForward} />
+              <RibbonBtn icon="MoveDown" label="На зад"    onClick={onSendBackward} />
             </RibbonGroup>
             <Sep />
 
             <RibbonGroup label="Группировка">
-              <RibbonBtn icon="Group"   label="Группировать"   onClick={onGroupSelected} />
-              <RibbonBtn icon="Ungroup" label="Разгруппировать" onClick={onUngroupSelected} />
+              <RibbonBtn icon="Layers2"  label="Группировать"   onClick={onGroupSelected} />
+              <RibbonBtn icon="Layers"   label="Разгруппировать" onClick={onUngroupSelected} />
             </RibbonGroup>
             <Sep />
 

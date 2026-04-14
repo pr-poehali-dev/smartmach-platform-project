@@ -4,8 +4,8 @@ import {
   Canvas, Line, Circle, Rect, IText, Group, Ellipse, Path,
   type TPointerEventInfo,
 } from "fabric";
-import { type Tool, type PartInfo } from "@/components/smartmach/cad.data";
-import { snapToGrid } from "@/components/smartmach/cad2d.data";
+import { type PartInfo } from "@/components/smartmach/cad.data";
+import { type Tool, snapToGrid } from "@/components/smartmach/cad2d.data";
 
 interface DrawingDeps {
   fabricRef:       MutableRefObject<Canvas | null>;

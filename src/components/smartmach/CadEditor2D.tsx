@@ -1,7 +1,6 @@
 import { type PartInfo } from "@/components/smartmach/cad.data";
 import Cad2DToolbar from "@/components/smartmach/Cad2DToolbar";
 import {
-  Cad2DToolPanel,
   Cad2DLayersPanel,
   Cad2DPropsPanel,
   Cad2DPartPanel,
@@ -122,9 +121,6 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
       />
 
       <div className="flex flex-1 overflow-hidden">
-
-        {/* Левая панель инструментов */}
-        <Cad2DToolPanel tool={canvas.tool} onTool={canvas.setTool} />
 
         {/* Основная область */}
         <div className="flex-1 flex flex-col overflow-hidden">

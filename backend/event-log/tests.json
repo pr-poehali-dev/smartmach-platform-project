@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {
+      "name": "Get events without session - unauthorized",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    }
+  ]
+}

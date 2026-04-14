@@ -2,6 +2,7 @@ import Icon from "@/components/ui/icon";
 import { ModuleId } from "@/pages/Index";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
   id: ModuleId;
@@ -31,6 +32,7 @@ interface Props {
 
 export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Props) {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   return (
     <aside
       className={cn(
@@ -97,6 +99,42 @@ export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Pro
 
       {/* Footer */}
       <div className="border-t border-border p-3 flex-shrink-0 space-y-1">
+        {/* Пользователь */}
+        {user ? (
+          <button
+            onClick={() => navigate("/profile")}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-secondary/60 transition-colors"
+            title={collapsed ? user.name : undefined}
+          >
+            <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            {!collapsed && (
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-xs font-medium text-foreground truncate">{user.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+              </div>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate("/auth")}
+            className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 rounded-lg hover:bg-secondary/60"
+            title={collapsed ? "Войти" : undefined}
+          >
+            <Icon name="LogIn" size={14} />
+            {!collapsed && <span>Войти</span>}
+          </button>
+        )}
+        {user && !collapsed && (
+          <button
+            onClick={async () => { await logout(); navigate("/auth"); }}
+            className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1 rounded-lg hover:bg-secondary/60"
+          >
+            <Icon name="LogOut" size={13} />
+            <span>Выйти</span>
+          </button>
+        )}
         <button
           onClick={() => navigate("/")}
           className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 rounded-lg hover:bg-secondary/60"

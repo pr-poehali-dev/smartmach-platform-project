@@ -12,14 +12,16 @@ function ChallengesSection({ onEnter }: ChallengesSectionProps) {
   return (
     <section id="challenges" className="py-20 px-6 bg-slate-50">
       <div className="max-w-6xl mx-auto">
-        <SectionLabel text="Какие задачи решает система" />
+        <SectionLabel text="Научно-техническая проблема" />
         <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4" style={FONT}>
-          Типичные трудности<br />на производственном предприятии
+          Разрыв контуров КД–CAE–CAM–MES<br />как системная проблема
         </h2>
         <p className="text-muted-foreground text-base mb-10 max-w-2xl">
-          Малые и средние предприятия станкостроения работают в условиях, где конструктор,
-          технолог и цех используют несовместимые инструменты. Это приводит к потерям времени,
-          браку и невозможности роста.
+          В отечественном станкостроении отсутствует механизм автоматической проверки
+          совместимости версий и технологических ограничений между контурами конструкторской
+          документации, расчётов, управляющих программ и производственного исполнения.
+          Ручная синхронизация приводит к системным потерям и невозможности обеспечить
+          полную трассируемость изменений.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {CHALLENGES.map((p) => (
@@ -32,7 +34,7 @@ function ChallengesSection({ onEnter }: ChallengesSectionProps) {
           ))}
           <div className="bg-primary text-primary-foreground rounded-xl p-5 flex flex-col justify-between">
             <div className="text-sm leading-relaxed opacity-90">
-              «СмартМаш» решает все эти задачи в единой системе — от эскиза до выхода готовой детали со станка.
+              «СмартМаш» устраняет разрыв между контурами через единую цифровую модель изделия с автоматической валидацией согласованности данных на каждом переходе КД→CAE→CAM→MES.
             </div>
             <button onClick={onEnter}
               className="mt-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors w-fit"
@@ -94,6 +96,98 @@ function ModulesSection() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── НИОКР ───────────────────────────────────────────────────── */
+
+function NiocrSection() {
+  const novelty = [
+    {
+      icon: "GitMerge",
+      title: "Сквозное связывание данных КД–CAE–CAM–MES",
+      desc: "Разработан подход к автоматической проверке совместимости версий и технологических ограничений без ручной синхронизации между контурами.",
+    },
+    {
+      icon: "FileCheck",
+      title: "Единый цифровой паспорт изделия",
+      desc: "Реализован механизм трассируемости изменений от конструкторских решений до управляющих программ и производственных заданий.",
+    },
+    {
+      icon: "ScanSearch",
+      title: "Алгоритмы автоматизированной проверки",
+      desc: "Предложены алгоритмы проверки технологичности и обнаружения геометрических коллизий до выпуска управляющих программ.",
+    },
+    {
+      icon: "Network",
+      title: "Интеграция в едином цифровом контуре",
+      desc: "Управление документацией, расчётами, станками и заданиями объединены в единый контур без дублирования данных.",
+    },
+  ];
+
+  const pilot = [
+    { value: "12", label: "деталей обработано в ходе пилотной эксплуатации" },
+    { value: "4",  label: "станка подключено к контуру мониторинга МЕС" },
+    { value: "−64%", label: "сокращение времени согласования КД: с 7 до 2 дней" },
+    { value: "−38%", label: "снижение доли ошибок в управляющих программах" },
+  ];
+
+  return (
+    <section id="niocr" className="py-20 px-6 bg-slate-50">
+      <div className="max-w-6xl mx-auto">
+        <SectionLabel text="НИОКР" />
+        <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4" style={FONT}>
+          Научно-техническая новизна<br />и результаты пилотной эксплуатации
+        </h2>
+        <p className="text-muted-foreground text-base mb-12 max-w-3xl">
+          Цель НИОКР — разработка методического и программного обеспечения для сквозной интеграции
+          контуров КД–CAE–CAM–MES на основе единой цифровой модели изделия. Текущая стадия —
+          <span className="font-semibold text-foreground"> TRL 5</span>; переход к TRL 6 планируется
+          при расширении испытаний на 2–3 предприятиях.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
+          {novelty.map((item, i) => (
+            <div key={item.title} className="bg-white rounded-2xl border border-border p-6 flex gap-4">
+              <div className="w-10 h-10 bg-primary/8 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Icon name={item.icon as Parameters<typeof Icon>[0]["name"]} size={20} className="text-primary" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-muted-foreground tracking-wider mb-1">НОВИЗНА {i + 1}</div>
+                <h3 className="font-bold text-foreground mb-1 text-sm" style={FONT}>{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-slate-900 rounded-2xl p-8">
+          <div className="flex items-center gap-2 mb-6">
+            <Icon name="FlaskConical" size={18} className="text-slate-400" />
+            <span className="text-sm font-bold text-white" style={FONT}>Результаты пилотной эксплуатации</span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {pilot.map((p) => (
+              <div key={p.value}>
+                <div className="text-3xl font-bold text-primary mb-1" style={FONT}>{p.value}</div>
+                <p className="text-xs text-slate-400 leading-relaxed">{p.label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <p className="text-sm text-slate-400 max-w-xl">
+              Ожидаемые результаты при промышленном масштабировании: сокращение времени согласования КД
+              в 2–3 раза, снижение доли ошибок в УП на 30–40%, рост прослеживаемости до 100% по всем
+              стадиям жизненного цикла.
+            </p>
+            <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-4 py-2 flex-shrink-0">
+              <Icon name="TrendingUp" size={16} className="text-primary" />
+              <span className="text-sm font-bold text-white" style={FONT}>TRL 5 → TRL 6</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -197,6 +291,7 @@ export default function LandingSections({ onEnter }: LandingSectionsProps) {
     <>
       <ChallengesSection onEnter={onEnter} />
       <ModulesSection />
+      <NiocrSection />
       <AboutSection />
       <EffectsSection />
     </>

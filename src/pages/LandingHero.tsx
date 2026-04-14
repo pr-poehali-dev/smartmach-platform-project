@@ -30,6 +30,7 @@ function NavBar({ onEnter }: { onEnter: () => void }) {
         <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground" style={FONT}>
           <a href="#challenges" className="hover:text-foreground transition-colors">Задачи</a>
           <a href="#modules"    className="hover:text-foreground transition-colors">Модули</a>
+          <a href="#niocr"      className="hover:text-foreground transition-colors">НИОКР</a>
           <a href="#about"      className="hover:text-foreground transition-colors">О компании</a>
           <a href="#contact"    className="hover:text-foreground transition-colors">Контакты</a>
         </nav>
@@ -83,14 +84,15 @@ export default function LandingHero({ onEnter }: LandingHeroProps) {
               Продукт ООО «МАТ-Лабс» · Российское программное обеспечение
             </div>
             <h1 className="text-5xl sm:text-6xl font-bold text-foreground leading-tight tracking-tight mb-6" style={FONT}>
-              Цифровая система<br />
-              <span className="text-primary">управления производством</span><br />
-              в станкостроении
+              Сквозная интеграция<br />
+              <span className="text-primary">КД–CAE–CAM–MES</span><br />
+              на единой цифровой модели
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed mb-8 max-w-2xl">
-              «СмартМаш» объединяет проектирование деталей, прочностные расчёты, подготовку
-              программ для станков, управление жизненным циклом изделий и мониторинг оборудования
-              в единой российской системе — без зарубежных лицензий, без разрозненных инструментов.
+              «СмартМаш» решает фундаментальную проблему станкостроения — разрыв между контурами
+              конструкторской документации, расчётов, управляющих программ и исполнения. Единая
+              цифровая модель изделия обеспечивает автоматическую валидацию согласованности данных
+              на каждом переходе и полную трассируемость изменений по стадиям жизненного цикла.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={onEnter}

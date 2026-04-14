@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { PAPER_SIZES } from "@/components/smartmach/cad2d.data";
 import { type PartInfo } from "@/components/smartmach/cad.data";
 import Cad2DToolbar from "@/components/smartmach/Cad2DToolbar";
@@ -12,6 +12,7 @@ import {
 import { useCad2DCanvas, drawGostFrame } from "@/components/smartmach/useCad2DCanvas";
 import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
+import Cad2DRuler from "@/components/smartmach/Cad2DRuler";
 
 const TOOL_LABELS: Record<string, string> = {
   select: "Выбор (V)", move: "Переместить (M)", line: "Отрезок (L)",
@@ -29,10 +30,22 @@ const TOOL_LABELS: Record<string, string> = {
 
 export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
   const canvas = useCad2DCanvas();
-  const [showGost, setShowGost] = useState(false);
-  const [showSave, setShowSave] = useState(false);
+  const [showGost,    setShowGost]    = useState(false);
+  const [showSave,    setShowSave]    = useState(false);
   const [savePreview, setSavePreview] = useState<string>("");
   const [lastGostMeta, setLastGostMeta] = useState<Record<string, string> | null>(null);
+  const [scrollX, setScrollX] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+  const outerRef = useRef<HTMLDivElement>(null);
+
+  // Синхронизируем scroll контейнера канваса с линейкой
+  useEffect(() => {
+    const el = canvas.containerRef.current;
+    if (!el) return;
+    const onScroll = () => { setScrollX(-el.scrollLeft); setScrollY(-el.scrollTop); };
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [canvas.containerRef]);
 
   const { insertPartDrawing } = useCad2DDrawing({
     fabricRef:      canvas.fabricRef,
@@ -188,12 +201,33 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
               />
             )}
 
-            {/* Canvas */}
-            <div ref={canvas.containerRef} className="flex-1 overflow-auto bg-[#12131f] relative">
-              <canvas ref={canvas.canvasRef} className="block" />
+            {/* Canvas + линейки */}
+            <div ref={outerRef} className="flex-1 overflow-hidden bg-[#12131f] relative">
+
+              {/* Линейки ГОСТ (Canvas 2D) */}
+              <Cad2DRuler
+                zoom={canvas.zoom}
+                scrollX={scrollX}
+                scrollY={scrollY}
+                cursorX={canvas.coords.x}
+                cursorY={canvas.coords.y}
+                canvasW={canvas.fabricRef.current?.width ?? 1122}
+                canvasH={canvas.fabricRef.current?.height ?? 794}
+                theme={canvas.theme}
+                rulerSize={20}
+              />
+
+              {/* Скроллируемая область канваса — отступ на размер линеек */}
+              <div
+                ref={canvas.containerRef}
+                className="overflow-auto"
+                style={{ position: "absolute", left: 20, top: 20, right: 0, bottom: 0 }}
+              >
+                <canvas ref={canvas.canvasRef} className="block" />
+              </div>
 
               {/* Статус-бар */}
-              <div className="absolute bottom-2 left-3 flex items-center gap-3 text-[11px] bg-gray-900/90 text-gray-300 px-3 py-1 rounded-lg pointer-events-none border border-gray-700">
+              <div className="absolute bottom-2 left-24 flex items-center gap-3 text-[11px] bg-gray-900/90 text-gray-300 px-3 py-1 rounded-lg pointer-events-none border border-gray-700 z-20">
                 <span className="font-medium text-white">
                   {TOOL_LABELS[canvas.tool] ?? canvas.tool}
                 </span>
@@ -206,25 +240,6 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
                 {canvas.tool !== "select" && canvas.tool !== "move" && canvas.tool !== "erase" && canvas.tool !== "polyline" && (
                   <span className="text-blue-300">ЛКМ — рисовать · Esc — выход</span>
                 )}
-              </div>
-
-              {/* Линейка сверху */}
-              <div className="absolute top-0 left-0 right-0 h-5 bg-gray-800/70 pointer-events-none flex items-end overflow-hidden border-b border-gray-700/40">
-                {Array.from({ length: Math.ceil((canvas.fabricRef.current?.width ?? 1200) / 100) }).map((_, i) => (
-                  <div key={i} style={{ left: i * 100 * canvas.zoom, position: "absolute", bottom: 0 }} className="flex flex-col items-start">
-                    <span className="text-[9px] text-gray-500 pl-0.5">{i * 100}</span>
-                    <div className="w-px h-2 bg-gray-600" />
-                  </div>
-                ))}
-              </div>
-
-              {/* Линейка слева */}
-              <div className="absolute top-5 left-0 bottom-0 w-5 bg-gray-800/70 pointer-events-none border-r border-gray-700/40">
-                {Array.from({ length: Math.ceil((canvas.fabricRef.current?.height ?? 800) / 100) }).map((_, i) => (
-                  <div key={i} style={{ top: i * 100 * canvas.zoom + 0, position: "absolute", left: 0 }}>
-                    <span className="text-[9px] text-gray-500" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{i * 100}</span>
-                  </div>
-                ))}
               </div>
             </div>
 

@@ -110,7 +110,7 @@ export function useCad2DCanvas() {
     const fc = fabricRef.current; if (!fc) return;
     const [pw, ph] = PAPER_SIZES[paperSize];
     if (pw && ph) {
-      fc.setWidth(pw); fc.setHeight(ph);
+      fc.setDimensions({ width: pw, height: ph });
       fc.getObjects().filter((o) => (o as any).__grid).forEach((o) => fc.remove(o));
       if (showGridRef.current) drawGrid(fc, pw, ph);
       const existing = fc.getObjects().filter((o) => (o as any).__frame);

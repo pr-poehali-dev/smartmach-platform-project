@@ -30,14 +30,19 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    let ok = false;
-    if (mode === "login") {
-      ok = await login(email, password);
-    } else {
-      ok = await register(name, email, password, role, companyName || undefined);
+    try {
+      let ok = false;
+      if (mode === "login") {
+        ok = await login(email, password);
+      } else {
+        ok = await register(name, email, password, role, companyName || undefined);
+      }
+      if (ok) navigate("/platform");
+    } catch {
+      setError("Ошибка соединения с сервером. Попробуйте ещё раз.");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-    if (ok) navigate("/platform");
   };
 
   return (

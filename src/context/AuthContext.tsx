@@ -63,18 +63,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (name: string, email: string, password: string, role: string, companyName?: string) => {
     setError(null);
-    const res = await authFetch("/register", { method: "POST", body: JSON.stringify({ name, email, password, role, company_name: companyName }) });
-    const d = await res.json();
-    if (!res.ok) { setError(d.error ?? "Ошибка регистрации"); return false; }
-    setSid(d.session_id); setUser(d.user); return true;
+    try {
+      const res = await authFetch("/register", { method: "POST", body: JSON.stringify({ name, email, password, role, company_name: companyName }) });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error ?? "Ошибка регистрации"); return false; }
+      setSid(d.session_id); setUser(d.user); return true;
+    } catch {
+      setError("Нет соединения с сервером. Проверьте интернет и попробуйте снова."); return false;
+    }
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
-    const res = await authFetch("/login", { method: "POST", body: JSON.stringify({ email, password }) });
-    const d = await res.json();
-    if (!res.ok) { setError(d.error ?? "Ошибка входа"); return false; }
-    setSid(d.session_id); setUser(d.user); return true;
+    try {
+      const res = await authFetch("/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error ?? "Ошибка входа"); return false; }
+      setSid(d.session_id); setUser(d.user); return true;
+    } catch {
+      setError("Нет соединения с сервером. Проверьте интернет и попробуйте снова."); return false;
+    }
   }, []);
 
   const logout = useCallback(async () => {

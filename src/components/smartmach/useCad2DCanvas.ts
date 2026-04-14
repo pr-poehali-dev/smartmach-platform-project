@@ -26,7 +26,7 @@ export function useCad2DCanvas() {
   const [coords,    setCoords]    = useState({ x: 0, y: 0 });
   const [histIdx,   setHistIdx]   = useState(0);
   const [histLen,   setHistLen]   = useState(1);
-  const [paperSize, setPaperSize] = useState("A4 гориз.");
+  const [paperSize, setPaperSize] = useState("A4 горизонт.");
   const [layers,    setLayers]    = useState<Layer[]>([
     { id: "layer-0", name: "Основной", color: "#000000", visible: true, locked: false },
     { id: "layer-1", name: "Размеры",  color: "#1e40af", visible: true, locked: false },
@@ -80,7 +80,7 @@ export function useCad2DCanvas() {
   /* ── инициализация ── */
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
-    const [pw, ph] = PAPER_SIZES["A4 гориз."];
+    const [pw, ph] = PAPER_SIZES["A4 горизонт."] ?? PAPER_SIZES[Object.keys(PAPER_SIZES)[0]];
     const w = pw || containerRef.current.clientWidth || 1100;
     const h = ph || 600;
     const fc = new Canvas(canvasRef.current, { width: w, height: h, backgroundColor: "#ffffff", selection: true });

@@ -5,8 +5,9 @@ POST /login    — вход (email, password)
 POST /logout   — выход (session_id в заголовке X-Session-Id)
 GET  /me       — текущий пользователь (session_id в заголовке X-Session-Id)
 """
-import os, json, hashlib, secrets
+import os, json, hashlib, secrets, re
 import psycopg2
+import bcrypt
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p45794133_smartmach_platform_p")
 CORS = {
@@ -15,11 +16,19 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Session-Id",
 }
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def hash_password(pwd: str) -> str:
-    return hashlib.sha256(pwd.encode()).hexdigest()
+    return bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(pwd: str, stored_hash: str) -> bool:
+    if stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$"):
+        return bcrypt.checkpw(pwd.encode(), stored_hash.encode())
+    # обратная совместимость: старые SHA-256 хеши
+    return hashlib.sha256(pwd.encode()).hexdigest() == stored_hash
 
 def make_session(conn, user_id: int) -> str:
     sid = secrets.token_hex(32)
@@ -66,6 +75,9 @@ def handler(event: dict, context) -> dict:
             if not name or not email or len(password) < 6:
                 return {"statusCode": 400, "headers": CORS,
                         "body": json.dumps({"error": "Заполните все поля. Пароль минимум 6 символов."})}
+            if not EMAIL_RE.match(email):
+                return {"statusCode": 400, "headers": CORS,
+                        "body": json.dumps({"error": "Некорректный email."})}
             if role not in ("admin", "engineer", "technologist"):
                 role = "engineer"
 
@@ -94,15 +106,28 @@ def handler(event: dict, context) -> dict:
 
             with conn.cursor() as cur:
                 cur.execute(
-                    f"SELECT id FROM {SCHEMA}.users WHERE email = %s AND password_hash = %s AND is_active = true",
-                    (email, hash_password(password))
+                    f"SELECT id, password_hash FROM {SCHEMA}.users WHERE email = %s AND is_active = true",
+                    (email,)
                 )
                 row = cur.fetchone()
-            if not row:
+
+            if not row or not verify_password(password, row[1]):
                 return {"statusCode": 401, "headers": CORS,
                         "body": json.dumps({"error": "Неверный email или пароль."})}
 
-            sid = make_session(conn, row[0])
+            user_id, stored_hash = row[0], row[1]
+
+            # автоматически обновляем SHA-256 хеш на bcrypt при первом входе
+            if not (stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$")):
+                new_hash = hash_password(password)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"UPDATE {SCHEMA}.users SET password_hash = %s WHERE id = %s",
+                        (new_hash, user_id)
+                    )
+                conn.commit()
+
+            sid = make_session(conn, user_id)
             user = get_user_by_session(conn, sid)
             return {"statusCode": 200, "headers": CORS,
                     "body": json.dumps({"session_id": sid, "user": user})}

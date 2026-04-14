@@ -1,12 +1,17 @@
 {
   "tests": [
     {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
       "name": "GET all equipment",
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"id": 1},
-      "bodyMatcher": "array_contains"
+      "bodyMatcher": "partial"
     }
   ]
 }

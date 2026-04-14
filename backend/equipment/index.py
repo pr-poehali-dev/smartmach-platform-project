@@ -66,7 +66,7 @@ def handler(event: dict, context) -> dict:
 
         # GET /{id}  — один станок
         if method == "GET" and machine_id:
-            cur.execute("SELECT id, name, model, type, manufacturer, year, axes, control_system, spindle_speed, table_size, travel_x, travel_y, travel_z, accuracy, power, weight, coolant, tool_capacity, status, location, inventory_number, next_maintenance, notes FROM equipment WHERE id = %s" % machine_id)
+            cur.execute("SELECT id, name, model, type, manufacturer, year, axes, control_system, spindle_speed, table_size, travel_x, travel_y, travel_z, accuracy, power, weight, coolant, tool_capacity, status, location, inventory_number, next_maintenance, notes FROM equipment WHERE id = %s", (machine_id,))
             row = cur.fetchone()
             if not row:
                 return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "not found"})}
@@ -119,7 +119,7 @@ def handler(event: dict, context) -> dict:
 
         # DELETE /{id}  — удалить
         if method == "DELETE" and machine_id:
-            cur.execute("DELETE FROM equipment WHERE id = %s" % machine_id)
+            cur.execute("DELETE FROM equipment WHERE id = %s", (machine_id,))
             conn.commit()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 

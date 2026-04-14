@@ -11,6 +11,9 @@ export interface AuthUser {
   role: "admin" | "engineer" | "technologist";
   avatar_url: string | null;
   created_at: string;
+  company_id: number | null;
+  company_name: string | null;
+  company_plan: string | null;
 }
 
 interface AuthCtx {
@@ -19,9 +22,10 @@ interface AuthCtx {
   error: string | null;
   setError: (e: string | null) => void;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string, role: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, role: string, companyName?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   sessionId: () => string;
+  createCompany: (name: string) => Promise<boolean>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -57,9 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string, role: string) => {
+  const register = useCallback(async (name: string, email: string, password: string, role: string, companyName?: string) => {
     setError(null);
-    const res = await authFetch("/register", { method: "POST", body: JSON.stringify({ name, email, password, role }) });
+    const res = await authFetch("/register", { method: "POST", body: JSON.stringify({ name, email, password, role, company_name: companyName }) });
     const d = await res.json();
     if (!res.ok) { setError(d.error ?? "Ошибка регистрации"); return false; }
     setSid(d.session_id); setUser(d.user); return true;
@@ -78,8 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSid(); setUser(null);
   }, []);
 
+  const createCompany = useCallback(async (name: string) => {
+    setError(null);
+    const res = await authFetch("/company", { method: "POST", body: JSON.stringify({ name }) });
+    const d = await res.json();
+    if (!res.ok) { setError(d.error ?? "Ошибка создания предприятия"); return false; }
+    if (d.user) setUser(d.user);
+    return true;
+  }, []);
+
   return (
-    <Ctx.Provider value={{ user, loading, error, setError, login, register, logout, sessionId: getSid }}>
+    <Ctx.Provider value={{ user, loading, error, setError, login, register, logout, sessionId: getSid, createCompany }}>
       {children}
     </Ctx.Provider>
   );

@@ -1,47 +1,49 @@
 """
-Журнал событий пользователя.
-POST / — записать событие (session_id в заголовке X-Session-Id)
-GET  / — получить события текущего пользователя (session_id в заголовке X-Session-Id)
+Журнал событий пользователя с изоляцией по предприятию.
+POST / — записать событие
+GET  / — получить события предприятия текущего пользователя
 """
 import os, json
 import psycopg2
 
-SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p45794133_smartmach_platform_p")
+S = "t_p45794133_smartmach_platform_p"
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-Session-Id",
 }
 
+
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
-def get_user_id(conn, sid: str):
+
+def get_session_info(conn, sid):
     with conn.cursor() as cur:
         cur.execute(
-            f"""SELECT u.id FROM {SCHEMA}.sessions s
-                JOIN {SCHEMA}.users u ON u.id = s.user_id
+            f"""SELECT u.id, s.company_id FROM {S}.sessions s
+                JOIN {S}.users u ON u.id = s.user_id
                 WHERE s.id = %s AND s.expires_at > now() AND u.is_active = true""",
             (sid,)
         )
         row = cur.fetchone()
-    return row[0] if row else None
+    return (row[0], row[1]) if row else (None, None)
+
 
 def handler(event: dict, context) -> dict:
+    """Event-log: журнал событий с изоляцией по предприятию."""
     method = event.get("httpMethod", "GET")
-
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     sid = event.get("headers", {}).get("X-Session-Id") or ""
     conn = get_conn()
     try:
-        user_id = get_user_id(conn, sid) if sid else None
-        if not user_id:
+        user_id, company_id = get_session_info(conn, sid) if sid else (None, None)
+        if not user_id or not company_id:
             return {"statusCode": 401, "headers": CORS,
                     "body": json.dumps({"error": "Не авторизован."})}
 
-        # ── POST / — записать событие ────────────────────────────────
         if method == "POST":
             body = json.loads(event.get("body") or "{}")
             action      = (body.get("action") or "").strip()
@@ -55,26 +57,25 @@ def handler(event: dict, context) -> dict:
 
             with conn.cursor() as cur:
                 cur.execute(
-                    f"""INSERT INTO {SCHEMA}.event_log (user_id, action, entity_type, entity_id, details)
-                        VALUES (%s, %s, %s, %s, %s) RETURNING id, created_at""",
-                    (user_id, action, entity_type, entity_id, details)
+                    f"""INSERT INTO {S}.event_log (user_id, company_id, action, entity_type, entity_id, details)
+                        VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, created_at""",
+                    (user_id, company_id, action, entity_type, entity_id, details)
                 )
                 row = cur.fetchone()
             conn.commit()
             return {"statusCode": 200, "headers": CORS,
                     "body": json.dumps({"id": row[0], "created_at": str(row[1])})}
 
-        # ── GET / — получить события ─────────────────────────────────
         if method == "GET":
-            limit = min(int(event.get("queryStringParameters", {}).get("limit", 50)), 200)
+            limit = min(int((event.get("queryStringParameters") or {}).get("limit", 50)), 200)
             with conn.cursor() as cur:
                 cur.execute(
                     f"""SELECT id, action, entity_type, entity_id, details, created_at
-                        FROM {SCHEMA}.event_log
-                        WHERE user_id = %s
+                        FROM {S}.event_log
+                        WHERE company_id = %s
                         ORDER BY created_at DESC
                         LIMIT %s""",
-                    (user_id, limit)
+                    (company_id, limit)
                 )
                 rows = cur.fetchall()
             events = [

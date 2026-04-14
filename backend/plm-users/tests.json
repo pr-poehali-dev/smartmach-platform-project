@@ -1,12 +1,16 @@
 {
   "tests": [
     {
-      "name": "List users",
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET without auth returns 401",
       "method": "GET",
       "path": "/",
-      "expectedStatus": 200,
-      "expectedBody": [{"id": 1, "name": "Алексей Иванов"}],
-      "bodyMatcher": "partial"
+      "expectedStatus": 401
     }
   ]
 }

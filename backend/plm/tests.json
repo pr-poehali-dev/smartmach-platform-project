@@ -1,28 +1,16 @@
 {
   "tests": [
     {
-      "name": "GET users",
-      "method": "GET",
-      "path": "/?resource=users",
-      "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
     },
     {
-      "name": "GET products",
+      "name": "GET without auth returns 401",
       "method": "GET",
-      "path": "/?resource=products",
-      "expectedStatus": 200,
-      "expectedBody": [],
-      "bodyMatcher": "type"
-    },
-    {
-      "name": "GET stats",
-      "method": "GET",
-      "path": "/?resource=stats",
-      "expectedStatus": 200,
-      "expectedBody": {"total": 0},
-      "bodyMatcher": "partial"
+      "path": "/",
+      "expectedStatus": 401
     }
   ]
 }

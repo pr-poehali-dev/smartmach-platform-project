@@ -1,20 +1,16 @@
 {
   "tests": [
     {
-      "name": "GET employees",
-      "method": "GET",
-      "path": "/?resource=employees",
-      "expectedStatus": 200,
-      "expectedBody": {"id": 1},
-      "bodyMatcher": "array_contains"
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
     },
     {
-      "name": "GET economics_data",
+      "name": "GET without auth returns 401",
       "method": "GET",
-      "path": "/?resource=economics_data",
-      "expectedStatus": 200,
-      "expectedBody": {},
-      "bodyMatcher": "partial"
+      "path": "/",
+      "expectedStatus": 401
     }
   ]
 }

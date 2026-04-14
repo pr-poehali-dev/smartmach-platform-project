@@ -7,11 +7,10 @@
       "expectedStatus": 200
     },
     {
-      "name": "GET all equipment",
+      "name": "GET without auth returns 401",
       "method": "GET",
       "path": "/",
-      "expectedStatus": 200,
-      "bodyMatcher": "partial"
+      "expectedStatus": 401
     }
   ]
 }

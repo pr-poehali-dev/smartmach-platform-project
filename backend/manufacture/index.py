@@ -2,6 +2,7 @@
 Manufacture API v2 — полный производственный цикл SmartMach.
 Маршрутизация: ?resource=parts|machines|programs|simulations|jobs|stats|users
 Для операций с конкретной записью: ?resource=parts&id=5
+Все данные изолированы по предприятию (company_id из сессии).
 """
 import json
 import os
@@ -10,8 +11,8 @@ from psycopg2.extras import RealDictCursor
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Session-Id",
 }
 
 S = "t_p45794133_smartmach_platform_p"
@@ -29,8 +30,19 @@ def err(msg, status=400):
     return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg}, ensure_ascii=False)}
 
 
+def get_company_id(cur, sid):
+    if not sid:
+        return None
+    cur.execute(
+        f"SELECT s.company_id FROM {S}.sessions s WHERE s.id = %s AND s.expires_at > now() LIMIT 1",
+        (sid,)
+    )
+    row = cur.fetchone()
+    return row["company_id"] if row else None
+
+
 def handler(event: dict, context) -> dict:
-    """Manufacture: полный производственный цикл — детали, станки, программы ЧПУ, расчёты, задания."""
+    """Manufacture: производственный цикл с изоляцией данных по предприятию."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
@@ -38,10 +50,7 @@ def handler(event: dict, context) -> dict:
     qs = event.get("queryStringParameters") or {}
     resource = qs.get("resource", "")
     rid = qs.get("id")
-    if rid and str(rid).isdigit():
-        rid = int(rid)
-    else:
-        rid = None
+    rid = int(rid) if rid and str(rid).isdigit() else None
 
     body = {}
     if event.get("body"):
@@ -50,45 +59,47 @@ def handler(event: dict, context) -> dict:
         except Exception:
             pass
 
+    sid = event.get("headers", {}).get("X-Session-Id") or ""
+
     conn = db()
     cur = conn.cursor()
 
     try:
-        # ─── USERS ───────────────────────────────────────────────────────────
+        company_id = get_company_id(cur, sid)
+        if not company_id:
+            return err("Не авторизован или не выбрано предприятие.", 401)
+
+        # ─── USERS ───────────────────────────────────────────────────
         if resource == "users":
-            cur.execute(f"SELECT id, name, email, role FROM {S}.users ORDER BY name")
+            cur.execute(f"SELECT id, name, email, role FROM {S}.users WHERE company_id = %s ORDER BY name", (company_id,))
             return ok(list(cur.fetchall()))
 
-        # ─── STATS ───────────────────────────────────────────────────────────
+        # ─── STATS ───────────────────────────────────────────────────
         if resource == "stats":
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.parts")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.parts WHERE company_id = %s", (company_id,))
             parts_total = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.machines")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.machines WHERE company_id = %s", (company_id,))
             machines_total = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.machines WHERE status = 'running'")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.machines WHERE company_id = %s AND status = 'running'", (company_id,))
             machines_running = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.cnc_programs WHERE status = 'running'")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.cnc_programs WHERE company_id = %s AND status = 'running'", (company_id,))
             programs_running = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.jobs WHERE status != 'done'")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.jobs WHERE company_id = %s AND status != 'done'", (company_id,))
             jobs_active = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.jobs WHERE status = 'done'")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.jobs WHERE company_id = %s AND status = 'done'", (company_id,))
             jobs_done = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.simulations WHERE status = 'error'")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.simulations WHERE company_id = %s AND status = 'error'", (company_id,))
             sims_error = cur.fetchone()["cnt"]
-            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.products")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.products WHERE company_id = %s", (company_id,))
             products_total = cur.fetchone()["cnt"]
             return ok({
-                "parts_total": parts_total,
-                "machines_total": machines_total,
-                "machines_running": machines_running,
-                "programs_running": programs_running,
-                "jobs_active": jobs_active,
-                "jobs_done": jobs_done,
-                "sims_error": sims_error,
-                "products_total": products_total,
+                "parts_total": parts_total, "machines_total": machines_total,
+                "machines_running": machines_running, "programs_running": programs_running,
+                "jobs_active": jobs_active, "jobs_done": jobs_done,
+                "sims_error": sims_error, "products_total": products_total,
             })
 
-        # ─── PARTS (CAD) ─────────────────────────────────────────────────────
+        # ─── PARTS ───────────────────────────────────────────────────
         if resource == "parts":
             if method == "GET":
                 only_templates = qs.get("templates") == "1"
@@ -97,24 +108,20 @@ def handler(event: dict, context) -> dict:
                 limit = min(int(qs.get("limit") or 50), 200)
                 offset = max(int(qs.get("offset") or 0), 0)
 
-                conditions = []
-                params = []
+                conditions = ["p.company_id = %s"]
+                params = [company_id]
                 if only_templates:
                     conditions.append("p.is_template = TRUE")
                 elif only_mine:
                     conditions.append("p.is_template = FALSE")
                 if search:
-                    conditions.append(
-                        "(p.name ILIKE %s OR p.code ILIKE %s OR p.material ILIKE %s)"
-                    )
+                    conditions.append("(p.name ILIKE %s OR p.code ILIKE %s OR p.material ILIKE %s)")
                     like = f"%{search}%"
                     params += [like, like, like]
 
-                where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-
+                where = "WHERE " + " AND ".join(conditions)
                 cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.parts p {where}", params)
                 total = cur.fetchone()["cnt"]
-
                 cur.execute(f"""
                     SELECT p.id, p.code, p.name, p.material, p.version, p.status,
                            p.collisions, p.notes, p.category, p.is_template,
@@ -134,8 +141,8 @@ def handler(event: dict, context) -> dict:
             if method == "POST":
                 cur.execute(f"""
                     INSERT INTO {S}.parts (product_id, code, name, material, version, status, collisions,
-                                           author_id, notes, category, is_template, dimensions, weight_kg, standard)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                           author_id, notes, category, is_template, dimensions, weight_kg, standard, company_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """, (
                     body.get("product_id"), body["code"], body["name"],
                     body.get("material"), body.get("version", "v1.0"),
@@ -143,6 +150,7 @@ def handler(event: dict, context) -> dict:
                     body.get("author_id"), body.get("notes"),
                     body.get("category", "Прочее"), body.get("is_template", False),
                     body.get("dimensions"), body.get("weight_kg"), body.get("standard"),
+                    company_id,
                 ))
                 new_id = cur.fetchone()["id"]
                 conn.commit()
@@ -156,12 +164,12 @@ def handler(event: dict, context) -> dict:
                         fields.append(f"{f} = %s")
                         vals.append(body[f])
                 fields.append("updated_at = NOW()")
-                vals.append(rid)
-                cur.execute(f"UPDATE {S}.parts SET {', '.join(fields)} WHERE id = %s", vals)
+                vals += [rid, company_id]
+                cur.execute(f"UPDATE {S}.parts SET {', '.join(fields)} WHERE id = %s AND company_id = %s", vals)
                 conn.commit()
                 return ok({"ok": True})
 
-        # ─── MACHINES (CNC) ───────────────────────────────────────────────────
+        # ─── MACHINES ────────────────────────────────────────────────
         if resource == "machines":
             if method == "GET":
                 cur.execute(f"""
@@ -170,18 +178,20 @@ def handler(event: dict, context) -> dict:
                            u.name AS operator_name
                     FROM {S}.machines m
                     LEFT JOIN {S}.users u ON u.id = m.operator_id
+                    WHERE m.company_id = %s
                     ORDER BY m.name
-                """)
+                """, (company_id,))
                 return ok(list(cur.fetchall()))
 
             if method == "POST":
                 cur.execute(f"""
-                    INSERT INTO {S}.machines (name, type, status, load_pct, program, operator_id, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                    INSERT INTO {S}.machines (name, type, status, load_pct, program, operator_id, notes, company_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """, (
                     body["name"], body["type"],
                     body.get("status", "idle"), body.get("load_pct", 0),
                     body.get("program"), body.get("operator_id"), body.get("notes"),
+                    company_id,
                 ))
                 new_id = cur.fetchone()["id"]
                 conn.commit()
@@ -194,12 +204,12 @@ def handler(event: dict, context) -> dict:
                         fields.append(f"{f} = %s")
                         vals.append(body[f])
                 fields.append("updated_at = NOW()")
-                vals.append(rid)
-                cur.execute(f"UPDATE {S}.machines SET {', '.join(fields)} WHERE id = %s", vals)
+                vals += [rid, company_id]
+                cur.execute(f"UPDATE {S}.machines SET {', '.join(fields)} WHERE id = %s AND company_id = %s", vals)
                 conn.commit()
                 return ok({"ok": True})
 
-        # ─── PROGRAMS (CAM) ───────────────────────────────────────────────────
+        # ─── PROGRAMS ────────────────────────────────────────────────
         if resource == "programs":
             if method == "GET":
                 cur.execute(f"""
@@ -212,19 +222,20 @@ def handler(event: dict, context) -> dict:
                     LEFT JOIN {S}.parts p ON p.id = pg.part_id
                     LEFT JOIN {S}.machines m ON m.id = pg.machine_id
                     LEFT JOIN {S}.users u ON u.id = pg.author_id
+                    WHERE pg.company_id = %s
                     ORDER BY pg.created_at DESC
-                """)
+                """, (company_id,))
                 return ok(list(cur.fetchall()))
 
             if method == "POST":
                 cur.execute(f"""
-                    INSERT INTO {S}.cnc_programs (part_id, machine_id, name, code, status, est_time, author_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                    INSERT INTO {S}.cnc_programs (part_id, machine_id, name, code, status, est_time, author_id, company_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """, (
                     body.get("part_id"), body.get("machine_id"),
                     body["name"], body.get("code"),
                     body.get("status", "queue"), body.get("est_time"),
-                    body.get("author_id"),
+                    body.get("author_id"), company_id,
                 ))
                 new_id = cur.fetchone()["id"]
                 conn.commit()
@@ -240,12 +251,12 @@ def handler(event: dict, context) -> dict:
                     fields.append("started_at = NOW()")
                 if body.get("status") == "done":
                     fields.append("finished_at = NOW()")
-                vals.append(rid)
-                cur.execute(f"UPDATE {S}.cnc_programs SET {', '.join(fields)} WHERE id = %s", vals)
+                vals += [rid, company_id]
+                cur.execute(f"UPDATE {S}.cnc_programs SET {', '.join(fields)} WHERE id = %s AND company_id = %s", vals)
                 conn.commit()
                 return ok({"ok": True})
 
-        # ─── SIMULATIONS (CAE) ────────────────────────────────────────────────
+        # ─── SIMULATIONS ─────────────────────────────────────────────
         if resource == "simulations":
             if method == "GET":
                 cur.execute(f"""
@@ -256,18 +267,19 @@ def handler(event: dict, context) -> dict:
                     FROM {S}.simulations s
                     LEFT JOIN {S}.parts p ON p.id = s.part_id
                     LEFT JOIN {S}.users u ON u.id = s.author_id
+                    WHERE s.company_id = %s
                     ORDER BY s.created_at DESC
-                """)
+                """, (company_id,))
                 return ok(list(cur.fetchall()))
 
             if method == "POST":
                 cur.execute(f"""
-                    INSERT INTO {S}.simulations (part_id, name, sim_type, status, result, stress_pct, author_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                    INSERT INTO {S}.simulations (part_id, name, sim_type, status, result, stress_pct, author_id, company_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """, (
                     body.get("part_id"), body["name"], body["sim_type"],
                     body.get("status", "queue"), body.get("result"),
-                    body.get("stress_pct"), body.get("author_id"),
+                    body.get("stress_pct"), body.get("author_id"), company_id,
                 ))
                 new_id = cur.fetchone()["id"]
                 conn.commit()
@@ -280,12 +292,12 @@ def handler(event: dict, context) -> dict:
                         fields.append(f"{f} = %s")
                         vals.append(body[f])
                 fields.append("updated_at = NOW()")
-                vals.append(rid)
-                cur.execute(f"UPDATE {S}.simulations SET {', '.join(fields)} WHERE id = %s", vals)
+                vals += [rid, company_id]
+                cur.execute(f"UPDATE {S}.simulations SET {', '.join(fields)} WHERE id = %s AND company_id = %s", vals)
                 conn.commit()
                 return ok({"ok": True})
 
-        # ─── JOBS ────────────────────────────────────────────────────────────
+        # ─── JOBS ────────────────────────────────────────────────────
         if resource == "jobs":
             if method == "GET":
                 cur.execute(f"""
@@ -300,21 +312,22 @@ def handler(event: dict, context) -> dict:
                     LEFT JOIN {S}.parts p ON p.id = j.part_id
                     LEFT JOIN {S}.machines m ON m.id = j.machine_id
                     LEFT JOIN {S}.users u ON u.id = j.assignee_id
+                    WHERE j.company_id = %s
                     ORDER BY
                         CASE j.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
                         j.created_at DESC
-                """)
+                """, (company_id,))
                 return ok(list(cur.fetchall()))
 
             if method == "POST":
                 cur.execute(f"""
-                    INSERT INTO {S}.jobs (product_id, part_id, machine_id, status, priority, qty, assignee_id, due_date, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                    INSERT INTO {S}.jobs (product_id, part_id, machine_id, status, priority, qty, assignee_id, due_date, notes, company_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """, (
                     body.get("product_id"), body.get("part_id"), body.get("machine_id"),
                     body.get("status", "new"), body.get("priority", "normal"),
                     body.get("qty", 1), body.get("assignee_id"),
-                    body.get("due_date") or None, body.get("notes"),
+                    body.get("due_date") or None, body.get("notes"), company_id,
                 ))
                 new_id = cur.fetchone()["id"]
                 conn.commit()
@@ -327,8 +340,8 @@ def handler(event: dict, context) -> dict:
                         fields.append(f"{f} = %s")
                         vals.append(body[f])
                 fields.append("updated_at = NOW()")
-                vals.append(rid)
-                cur.execute(f"UPDATE {S}.jobs SET {', '.join(fields)} WHERE id = %s", vals)
+                vals += [rid, company_id]
+                cur.execute(f"UPDATE {S}.jobs SET {', '.join(fields)} WHERE id = %s AND company_id = %s", vals)
                 conn.commit()
                 return ok({"ok": True})
 

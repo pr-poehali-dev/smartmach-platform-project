@@ -46,7 +46,12 @@ export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Pro
           <Icon name="Layers" size={16} className="text-white" />
         </div>
         {!collapsed && (
-          <span className="font-bold text-[15px] text-foreground tracking-tight">СмартМаш</span>
+          <div className="min-w-0">
+            <span className="font-bold text-[15px] text-foreground tracking-tight block leading-tight">СмартМаш</span>
+            {user?.company_name && (
+              <span className="text-[10px] text-muted-foreground truncate block leading-tight">{user.company_name}</span>
+            )}
+          </div>
         )}
       </div>
 

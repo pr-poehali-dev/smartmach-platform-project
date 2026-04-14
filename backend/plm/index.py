@@ -1,8 +1,7 @@
 """
 PLM API — управление жизненным циклом изделий SmartMach.
 Маршрутизация через query: ?resource=products|users|versions|events|stats
-Для конкретной записи: ?resource=products&id=5
-Для версий/событий: ?resource=versions&product_id=5
+Все данные изолированы по предприятию (company_id из сессии).
 """
 import json
 import os
@@ -12,16 +11,14 @@ from psycopg2.extras import RealDictCursor
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-User-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-User-Id, X-Session-Id",
 }
 
+S = "t_p45794133_smartmach_platform_p"
+
 STAGE_LABELS = {
-    "draft": "Черновик",
-    "development": "Разработка",
-    "review": "Согласование",
-    "approved": "Утверждено",
-    "production": "Производство",
-    "archive": "Архив",
+    "draft": "Черновик", "development": "Разработка", "review": "Согласование",
+    "approved": "Утверждено", "production": "Производство", "archive": "Архив",
 }
 
 
@@ -37,8 +34,19 @@ def err(msg, status=400):
     return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg}, ensure_ascii=False)}
 
 
+def get_company_id(cur, sid):
+    if not sid:
+        return None
+    cur.execute(
+        f"SELECT company_id FROM {S}.sessions WHERE id = %s AND expires_at > now() LIMIT 1",
+        (sid,)
+    )
+    row = cur.fetchone()
+    return row["company_id"] if row else None
+
+
 def handler(event: dict, context) -> dict:
-    """PLM: управление изделиями, версиями и историей изменений через query-параметры."""
+    """PLM: изделия, версии, история изменений с изоляцией данных по предприятию."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
@@ -47,6 +55,7 @@ def handler(event: dict, context) -> dict:
     resource = qs.get("resource", "")
     rec_id = qs.get("id")
     product_id = qs.get("product_id")
+    sid = event.get("headers", {}).get("X-Session-Id") or ""
 
     body = {}
     if event.get("body"):
@@ -56,23 +65,28 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
 
     try:
+        company_id = get_company_id(cur, sid)
+        if not company_id:
+            return err("Не авторизован или не выбрано предприятие.", 401)
+
         # GET ?resource=users
         if method == "GET" and resource == "users":
-            cur.execute("SELECT id, name, email, role, avatar_url, created_at FROM users ORDER BY name")
+            cur.execute(f"SELECT id, name, email, role, avatar_url, created_at FROM {S}.users WHERE company_id = %s ORDER BY name", (company_id,))
             return ok(list(cur.fetchall()))
 
         # GET ?resource=products
         if method == "GET" and resource == "products" and not rec_id:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT p.id, p.code, p.name, p.description, p.stage,
                        p.created_at, p.updated_at,
                        u.name AS owner_name, u.role AS owner_role,
-                       (SELECT COUNT(*) FROM product_versions v WHERE v.product_id = p.id) AS version_count,
-                       (SELECT revision FROM product_versions v WHERE v.product_id = p.id ORDER BY v.created_at DESC LIMIT 1) AS latest_revision
-                FROM products p
-                LEFT JOIN users u ON u.id = p.owner_id
+                       (SELECT COUNT(*) FROM {S}.product_versions v WHERE v.product_id = p.id) AS version_count,
+                       (SELECT revision FROM {S}.product_versions v WHERE v.product_id = p.id ORDER BY v.created_at DESC LIMIT 1) AS latest_revision
+                FROM {S}.products p
+                LEFT JOIN {S}.users u ON u.id = p.owner_id
+                WHERE p.company_id = %s
                 ORDER BY p.updated_at DESC
-            """)
+            """, (company_id,))
             rows = list(cur.fetchall())
             for r in rows:
                 r["stage_label"] = STAGE_LABELS.get(r["stage"], r["stage"])
@@ -80,35 +94,36 @@ def handler(event: dict, context) -> dict:
 
         # GET ?resource=products&id=5
         if method == "GET" and resource == "products" and rec_id:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT p.*, u.name AS owner_name, u.role AS owner_role
-                FROM products p LEFT JOIN users u ON u.id = p.owner_id
-                WHERE p.id = %s
-            """, (int(rec_id),))
+                FROM {S}.products p LEFT JOIN {S}.users u ON u.id = p.owner_id
+                WHERE p.id = %s AND p.company_id = %s
+            """, (int(rec_id), company_id))
             row = cur.fetchone()
             if not row:
                 return err("Изделие не найдено", 404)
+            row = dict(row)
             row["stage_label"] = STAGE_LABELS.get(row["stage"], row["stage"])
-            return ok(dict(row))
+            return ok(row)
 
         # POST ?resource=products
         if method == "POST" and resource == "products":
-            cur.execute("""
-                INSERT INTO products (code, name, description, stage, owner_id)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """, (body["code"], body["name"], body.get("description"), body.get("stage", "draft"), body.get("owner_id")))
+            cur.execute(f"""
+                INSERT INTO {S}.products (code, name, description, stage, owner_id, company_id)
+                VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
+            """, (body["code"], body["name"], body.get("description"), body.get("stage", "draft"), body.get("owner_id"), company_id))
             pid = cur.fetchone()["id"]
-            cur.execute("""
-                INSERT INTO product_events (product_id, actor_id, event_type, new_stage, comment)
-                VALUES (%s, %s, 'created', %s, %s)
-            """, (pid, body.get("owner_id"), body.get("stage", "draft"), "Изделие создано"))
+            cur.execute(f"""
+                INSERT INTO {S}.product_events (product_id, actor_id, event_type, new_stage, comment, company_id)
+                VALUES (%s,%s,'created',%s,%s,%s)
+            """, (pid, body.get("owner_id"), body.get("stage", "draft"), "Изделие создано", company_id))
             conn.commit()
             return ok({"id": pid}, 201)
 
         # PUT ?resource=products&id=5
         if method == "PUT" and resource == "products" and rec_id:
             pid = int(rec_id)
-            cur.execute("SELECT stage FROM products WHERE id = %s", (pid,))
+            cur.execute(f"SELECT stage FROM {S}.products WHERE id = %s AND company_id = %s", (pid, company_id))
             old = cur.fetchone()
             if not old:
                 return err("Изделие не найдено", 404)
@@ -118,49 +133,49 @@ def handler(event: dict, context) -> dict:
                     fields.append(f"{f} = %s")
                     vals.append(body[f])
             fields.append("updated_at = NOW()")
-            vals.append(pid)
-            cur.execute(f"UPDATE products SET {', '.join(fields)} WHERE id = %s", vals)
+            vals += [pid, company_id]
+            cur.execute(f"UPDATE {S}.products SET {', '.join(fields)} WHERE id = %s AND company_id = %s", vals)
             if "stage" in body and body["stage"] != old["stage"]:
-                cur.execute("""
-                    INSERT INTO product_events (product_id, actor_id, event_type, old_stage, new_stage, comment)
-                    VALUES (%s, %s, 'stage_change', %s, %s, %s)
-                """, (pid, body.get("actor_id"), old["stage"], body["stage"], body.get("comment", "")))
+                cur.execute(f"""
+                    INSERT INTO {S}.product_events (product_id, actor_id, event_type, old_stage, new_stage, comment, company_id)
+                    VALUES (%s,%s,'stage_change',%s,%s,%s,%s)
+                """, (pid, body.get("actor_id"), old["stage"], body["stage"], body.get("comment", ""), company_id))
             conn.commit()
             return ok({"ok": True})
 
         # GET ?resource=versions&product_id=5
         if method == "GET" and resource == "versions" and product_id:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT v.id, v.revision, v.notes, v.created_at, u.name AS author_name
-                FROM product_versions v LEFT JOIN users u ON u.id = v.author_id
-                WHERE v.product_id = %s ORDER BY v.created_at DESC
-            """, (int(product_id),))
+                FROM {S}.product_versions v LEFT JOIN {S}.users u ON u.id = v.author_id
+                WHERE v.product_id = %s AND v.company_id = %s ORDER BY v.created_at DESC
+            """, (int(product_id), company_id))
             return ok(list(cur.fetchall()))
 
         # POST ?resource=versions&product_id=5
         if method == "POST" and resource == "versions" and product_id:
             pid = int(product_id)
-            cur.execute("""
-                INSERT INTO product_versions (product_id, revision, notes, author_id)
-                VALUES (%s, %s, %s, %s) RETURNING id
-            """, (pid, body["revision"], body.get("notes"), body.get("author_id")))
+            cur.execute(f"""
+                INSERT INTO {S}.product_versions (product_id, revision, notes, author_id, company_id)
+                VALUES (%s,%s,%s,%s,%s) RETURNING id
+            """, (pid, body["revision"], body.get("notes"), body.get("author_id"), company_id))
             vid = cur.fetchone()["id"]
-            cur.execute("""
-                INSERT INTO product_events (product_id, actor_id, event_type, comment)
-                VALUES (%s, %s, 'new_version', %s)
-            """, (pid, body.get("author_id"), f"Добавлена версия {body['revision']}"))
-            cur.execute("UPDATE products SET updated_at = NOW() WHERE id = %s", (pid,))
+            cur.execute(f"""
+                INSERT INTO {S}.product_events (product_id, actor_id, event_type, comment, company_id)
+                VALUES (%s,%s,'new_version',%s,%s)
+            """, (pid, body.get("author_id"), f"Добавлена версия {body['revision']}", company_id))
+            cur.execute(f"UPDATE {S}.products SET updated_at = NOW() WHERE id = %s AND company_id = %s", (pid, company_id))
             conn.commit()
             return ok({"id": vid}, 201)
 
         # GET ?resource=events&product_id=5
         if method == "GET" and resource == "events" and product_id:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT e.id, e.event_type, e.old_stage, e.new_stage, e.comment, e.created_at,
                        u.name AS actor_name
-                FROM product_events e LEFT JOIN users u ON u.id = e.actor_id
-                WHERE e.product_id = %s ORDER BY e.created_at DESC
-            """, (int(product_id),))
+                FROM {S}.product_events e LEFT JOIN {S}.users u ON u.id = e.actor_id
+                WHERE e.product_id = %s AND e.company_id = %s ORDER BY e.created_at DESC
+            """, (int(product_id), company_id))
             rows = list(cur.fetchall())
             for r in rows:
                 if r["old_stage"]:
@@ -171,12 +186,11 @@ def handler(event: dict, context) -> dict:
 
         # GET ?resource=stats
         if method == "GET" and resource == "stats":
-            cur.execute("SELECT stage, COUNT(*) AS cnt FROM products GROUP BY stage")
-            rows = cur.fetchall()
-            stats = {r["stage"]: r["cnt"] for r in rows}
-            cur.execute("SELECT COUNT(*) AS cnt FROM products")
+            cur.execute(f"SELECT stage, COUNT(*) AS cnt FROM {S}.products WHERE company_id = %s GROUP BY stage", (company_id,))
+            stats = {r["stage"]: r["cnt"] for r in cur.fetchall()}
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.products WHERE company_id = %s", (company_id,))
             total = cur.fetchone()["cnt"]
-            cur.execute("SELECT COUNT(*) AS cnt FROM product_versions")
+            cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.product_versions WHERE company_id = %s", (company_id,))
             versions = cur.fetchone()["cnt"]
             return ok({"by_stage": stats, "total": total, "total_versions": versions})
 

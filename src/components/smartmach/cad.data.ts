@@ -137,3 +137,28 @@ export const AI_SUGGESTIONS = [
   "Как обозначить посадку с зазором на чертеже по ЕСКД?",
   "Какой допуск на соосность выбрать для вала и корпуса?",
 ];
+
+// Хелпер для передачи Part в редакторы 2D/3D
+export function partInfoFromPart(part: {
+  id: number; code: string; name: string; material: string | null;
+  dimensions: string | null; standard: string | null; weight_kg: number | null;
+  category: string;
+  [key: string]: unknown;
+}, form: typeof EMPTY): PartInfo {
+  return {
+    id: part.id,
+    code: part.code,
+    name: part.name,
+    material: part.material,
+    dimensions: part.dimensions,
+    dim_length: part.dim_length ? Number(part.dim_length) : (form.dim_length ? Number(form.dim_length) : null),
+    dim_width:  part.dim_width  ? Number(part.dim_width)  : (form.dim_width  ? Number(form.dim_width)  : null),
+    dim_height: part.dim_height ? Number(part.dim_height) : (form.dim_height ? Number(form.dim_height) : null),
+    standard: part.standard,
+    drawing_number: (part.drawing_number as string | null) ?? null,
+    tolerance:      (part.tolerance      as string | null) ?? null,
+    roughness:      (part.roughness      as string | null) ?? null,
+    weight_kg: part.weight_kg ?? null,
+    category: part.category,
+  };
+}

@@ -1,5 +1,5 @@
 """
-Аутентификация пользователей с поддержкой мультитенантности (предприятий).
+Auth API v2 — аутентификация пользователей с поддержкой мультитенантности.
 POST /register  — регистрация (name, email, password, role, company_name?)
 POST /login     — вход (email, password)
 POST /logout    — выход

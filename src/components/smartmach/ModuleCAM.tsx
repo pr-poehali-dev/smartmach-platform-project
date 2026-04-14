@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
-import { mGet, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
+import { mGet, mGetPartsList, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import CamPrograms from "@/components/smartmach/CamPrograms";
 import { EMPTY_FORM, NEXT, AI_SYSTEM, AI_SUGGESTIONS } from "@/components/smartmach/cam.data";
@@ -20,7 +20,7 @@ export default function ModuleCAM() {
     setLoading(true); setError(null);
     try {
       const [pr, pa, m, u] = await Promise.all([
-        mGet<Program[]>("programs"), mGet<Part[]>("parts"),
+        mGet<Program[]>("programs"), mGetPartsList(),
         mGet<Machine[]>("machines"), mGet<User[]>("users"),
       ]);
       setPrograms(pr); setParts(pa); setMachines(m); setUsers(u);

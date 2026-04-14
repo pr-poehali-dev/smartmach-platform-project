@@ -22,6 +22,11 @@ export async function mGetParts(opts: {
   return apiGet<PartsPage>("manufacture", "/", params);
 }
 
+export async function mGetPartsList(): Promise<Part[]> {
+  const page = await mGetParts({ limit: 200 });
+  return page.items ?? [];
+}
+
 export async function mPost<T>(resource: string, body: object): Promise<T> {
   return apiPost<T>("manufacture", body, { resource });
 }

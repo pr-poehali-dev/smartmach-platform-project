@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
-import { mGet, mPost, mPut, Simulation, Part, User } from "@/lib/manufacture";
+import { mGet, mGetPartsList, mPost, mPut, Simulation, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import CaeKpi from "@/components/smartmach/CaeKpi";
 import CaeForm from "@/components/smartmach/CaeForm";
@@ -23,7 +23,7 @@ export default function ModuleCAE() {
     setLoading(true); setError(null);
     try {
       const [s, p, u] = await Promise.all([
-        mGet<Simulation[]>("simulations"), mGet<Part[]>("parts"), mGet<User[]>("users"),
+        mGet<Simulation[]>("simulations"), mGetPartsList(), mGet<User[]>("users"),
       ]);
       setSims(s); setParts(p); setUsers(u);
     } catch { setError("Не удалось загрузить данные"); }

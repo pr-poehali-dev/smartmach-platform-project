@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
-import { mGet, type Stats, type Job } from "@/lib/manufacture";
+import { mGet, mGetPartsList, type Stats, type Job } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import { apiGet } from "@/lib/api";
 import { AI_SYSTEM, AI_SUGGESTIONS, EMPTY_JOB } from "@/components/smartmach/analytics.types";
@@ -26,7 +26,7 @@ export default function ModuleAnalytics() {
       const [s, j, pr, pa, m] = await Promise.all([
         mGet<Stats>("stats"), mGet<Job[]>("jobs"),
         apiGet<{ id: number; name: string; code: string }[]>("plm", "", { resource: "products" }),
-        mGet<{ id: number; name: string; code: string }[]>("parts"),
+        mGetPartsList(),
         mGet<{ id: number; name: string }[]>("machines"),
       ]);
       setStats(s); setJobs(j); setProducts(pr); setParts(pa); setMachines(m);

@@ -120,12 +120,12 @@ export function drawGostFrame(fc: Canvas, pw: number, ph: number, opts: GostFram
   const fR = pw - 5 * mX;   // правый край рамки
   const fB = ph - 5 * mY;   // нижний край рамки
 
-  // ── 1. Внешняя граница листа (тонкая) ───────────────────────────
-  add(new Rect({
-    left: 0, top: 0, width: pw - 0.5, height: ph - 0.5,
-    stroke: INK, strokeWidth: 0.35, fill: "transparent",
-    selectable: false, evented: false,
-  }));
+  // ── 1. Внешняя граница листа (тонкие линии, ГОСТ 2.303) ─────────
+  // Используем 4 линии вместо Rect чтобы избежать артефакта заливки
+  thin(0,      0,      pw, 0 );      // верх
+  thin(0,      ph - 1, pw, ph - 1);  // низ
+  thin(0,      0,      0,  ph);      // лево
+  thin(pw - 1, 0,      pw - 1, ph);  // право
 
   // ── 2. Рамка поля чертежа (основная линия) ───────────────────────
   main(fL, fT, fL, fB);
@@ -322,6 +322,8 @@ export function useCad2DCanvas() {
   const historyRef     = useRef<string[]>([]);
   const clipboardRef   = useRef<any[]>([]);
   const activeLayerRef = useRef("layer-0");
+  // true после применения ГОСТ-рамки — тогда смена формата не перерисовывает простую рамку
+  const gostFrameActiveRef = useRef(false);
 
   const [tool,      setTool]      = useState<Tool>("select");
   const [strokeW,   setStrokeW]   = useState(1);
@@ -429,21 +431,29 @@ export function useCad2DCanvas() {
       fc.setDimensions({ width: pw, height: ph });
       fc.getObjects().filter((o) => (o as any).__grid).forEach((o) => fc.remove(o));
       if (showGridRef.current) drawGrid(fc, pw, ph);
+      // Если активна ГОСТ-рамка — только меняем размер канваса, рамку не трогаем
+      if (gostFrameActiveRef.current) {
+        fc.renderAll();
+        return;
+      }
       fc.getObjects().filter((o) => (o as any).__frame).forEach((o) => fc.remove(o));
-      // Граница листа — тонкая линия (ГОСТ 2.303)
-      const border = new Rect({ left: 0, top: 0, width: pw - 0.5, height: ph - 0.5, stroke: "#000", strokeWidth: 0.4, fill: "transparent", selectable: false, evented: false });
-      (border as any).__frame = true; fc.add(border); fc.sendObjectToBack(border);
-      // Рамка поля чертежа — основная линия, поля 20/5/5/5 мм
+      // Рамка поля чертежа — основная линия по ГОСТ 2.303, поля 20/5/5/5 мм
       const isV = ph > pw;
       const mX2 = isV ? ph / 297 : pw / 297;
       const mY2 = isV ? pw / 210 : ph / 210;
       const fL = 20 * mX2, fT = 5 * mY2, fR = pw - 5 * mX2, fB = ph - 5 * mY2;
-      const mkLine = (x1: number, y1: number, x2: number, y2: number) => {
-        const l = new Line([x1, y1, x2, y2], { stroke: "#000", strokeWidth: 1.4, selectable: false, evented: false });
+      const mkLine = (x1: number, y1: number, x2: number, y2: number, sw: number) => {
+        const l = new Line([x1, y1, x2, y2], { stroke: "#000", strokeWidth: sw, selectable: false, evented: false });
         (l as any).__frame = true; fc.add(l); fc.sendObjectToBack(l);
       };
-      mkLine(fL, fT, fL, fB); mkLine(fL, fT, fR, fT);
-      mkLine(fR, fT, fR, fB); mkLine(fL, fB, fR, fB);
+      // Внешняя граница листа — тонкая (0.35)
+      mkLine(0,      0,      pw, 0,      0.35);
+      mkLine(0,      ph - 1, pw, ph - 1, 0.35);
+      mkLine(0,      0,      0,  ph,     0.35);
+      mkLine(pw - 1, 0,      pw - 1, ph, 0.35);
+      // Рамка чертёжного поля — основная (1.4)
+      mkLine(fL, fT, fL, fB, 1.4); mkLine(fL, fT, fR, fT, 1.4);
+      mkLine(fR, fT, fR, fB, 1.4); mkLine(fL, fB, fR, fB, 1.4);
       fc.renderAll();
     }
   }, [paperSize, drawGrid]);
@@ -513,6 +523,7 @@ export function useCad2DCanvas() {
     showPartPanel, setShowPartPanel,
     theme, setTheme,
     themeRef,
+    gostFrameActiveRef,
     getColor, drawGrid, saveHistory,
   };
 }

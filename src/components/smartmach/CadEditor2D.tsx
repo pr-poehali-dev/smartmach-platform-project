@@ -89,13 +89,19 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
           onClose={() => setShowGost(false)}
           onApply={(opts) => {
             setLastGostMeta(opts as unknown as Record<string, string>);
+            // Сначала ставим флаг — чтобы смена размера не нарисовала простую рамку
+            canvas.gostFrameActiveRef.current = true;
             canvas.setPaperSize(opts.paperSize);
+            // Небольшая задержка после смены размера
             setTimeout(() => {
               const fc = canvas.fabricRef.current;
               if (!fc) return;
               const [pw, ph] = PAPER_SIZES[opts.paperSize] ?? [0, 0];
-              if (pw && ph) drawGostFrame(fc, pw, ph, opts);
-            }, 150);
+              if (pw && ph) {
+                fc.setDimensions({ width: pw, height: ph });
+                drawGostFrame(fc, pw, ph, opts);
+              }
+            }, 50);
           }}
         />
       )}

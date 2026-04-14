@@ -48,6 +48,7 @@ interface Props {
   onAlignLeft: () => void;
   onAlignCenter: () => void;
   onAlignRight: () => void;
+  onOpenGost: () => void;
 }
 
 /* ── Выпадающее меню ── */
@@ -153,7 +154,7 @@ export default function Cad2DToolbar({
   onImportSVG, onExportDXF, onExportPNG,
   onMirror, onRotate, onScale, onOffset, onTrim, onExtend, onFillet, onArray,
   onGroupSelected, onUngroupSelected, onBringForward, onSendBackward,
-  onAlignLeft, onAlignCenter, onAlignRight,
+  onAlignLeft, onAlignCenter, onAlignRight, onOpenGost,
 }: Props) {
 
   const drawTools: Tool[] = ["line", "polyline", "rect", "circle", "arc", "ellipse", "spline"];
@@ -292,6 +293,15 @@ export default function Cad2DToolbar({
         <MenuDivider />
         <MenuItem icon="Upload"   label="Импорт SVG"    onClick={onImportSVG} />
       </Dropdown>
+
+      <Sep />
+
+      {/* Рамка ГОСТ */}
+      <button onClick={onOpenGost}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors text-amber-300 hover:bg-amber-900/30 border border-amber-700/40 hover:border-amber-600/60">
+        <Icon name="Frame" size={13} />
+        Рамка ГОСТ
+      </button>
 
     </div>
   );

@@ -1,11 +1,14 @@
+import { useState } from "react";
+import { PAPER_SIZES } from "@/components/smartmach/cad2d.data";
 import { type PartInfo } from "@/components/smartmach/cad.data";
 import Cad2DToolbar from "@/components/smartmach/Cad2DToolbar";
+import Cad2DGostDialog from "@/components/smartmach/Cad2DGostDialog";
 import {
   Cad2DLayersPanel,
   Cad2DPropsPanel,
   Cad2DPartPanel,
 } from "@/components/smartmach/Cad2DPanels";
-import { useCad2DCanvas } from "@/components/smartmach/useCad2DCanvas";
+import { useCad2DCanvas, drawGostFrame } from "@/components/smartmach/useCad2DCanvas";
 import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
 
@@ -25,6 +28,7 @@ const TOOL_LABELS: Record<string, string> = {
 
 export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
   const canvas = useCad2DCanvas();
+  const [showGost, setShowGost] = useState(false);
 
   const { insertPartDrawing } = useCad2DDrawing({
     fabricRef:      canvas.fabricRef,
@@ -60,6 +64,24 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
 
   return (
     <div className="flex flex-col h-full bg-[#12131f] rounded-xl border border-gray-700/60 overflow-hidden" style={{ minHeight: 640 }}>
+
+      {/* Диалог рамки ГОСТ */}
+      {showGost && (
+        <Cad2DGostDialog
+          currentPaper={canvas.paperSize}
+          onClose={() => setShowGost(false)}
+          onApply={(opts) => {
+            canvas.setPaperSize(opts.paperSize);
+            // Небольшая задержка чтобы canvas пересчитал размеры после смены формата
+            setTimeout(() => {
+              const fc = canvas.fabricRef.current;
+              if (!fc) return;
+              const [pw, ph] = PAPER_SIZES[opts.paperSize] ?? [0, 0];
+              if (pw && ph) drawGostFrame(fc, pw, ph, opts);
+            }, 150);
+          }}
+        />
+      )}
 
       {/* Панель активной детали */}
       {part && (
@@ -118,6 +140,7 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
         onAlignLeft={actions.alignLeft}
         onAlignCenter={actions.alignCenter}
         onAlignRight={actions.alignRight}
+        onOpenGost={() => setShowGost(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">

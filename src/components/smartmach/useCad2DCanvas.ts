@@ -1,7 +1,133 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas, Line, Rect } from "fabric";
+import { Canvas, Line, Rect, IText } from "fabric";
 import { type Tool, type Layer, PAPER_SIZES, GRID, GRID_MAJOR } from "@/components/smartmach/cad2d.data";
+
+export interface GostFrameOptions {
+  paperSize: string;
+  drawingNumber: string;
+  drawingName: string;
+  company: string;
+  designer: string;
+  checker: string;
+  scale: string;
+  mass: string;
+  sheet: string;
+  sheets: string;
+}
+
+/** Рисует рамку и основную надпись по ГОСТ 2.104-2006 */
+export function drawGostFrame(fc: Canvas, pw: number, ph: number, opts: GostFrameOptions) {
+  // Удаляем старые рамки
+  fc.getObjects().filter((o) => (o as any).__frame).forEach((o) => fc.remove(o));
+
+  const add = (obj: any, tag = "__frame") => { (obj as any)[tag] = true; fc.add(obj); fc.sendObjectToBack(obj); return obj; };
+  const line = (x1: number, y1: number, x2: number, y2: number, w = 0.5) =>
+    add(new Line([x1, y1, x2, y2], { stroke: "#000", strokeWidth: w, selectable: false, evented: false }));
+  const rect = (l: number, t: number, w: number, h: number, sw = 0.5) =>
+    add(new Rect({ left: l, top: t, width: w, height: h, stroke: "#000", strokeWidth: sw, fill: "transparent", selectable: false, evented: false }));
+  const text = (str: string, x: number, y: number, size = 8, align: "left" | "center" | "right" = "center") =>
+    add(new IText(str || "", { left: x, top: y, fontSize: size, fontFamily: "GOST Type A, Arial, sans-serif", fill: "#000", selectable: false, evented: false, textAlign: align, originX: align === "center" ? "center" : "left" }));
+
+  // Масштаб px/мм. A4 горизонт = 1122×794px ≈ 297×210мм
+  // Для вертикальных форматов меняем оси
+  const isVert = ph > pw;
+  const mX = isVert ? ph / 297 : pw / 297;
+  const mY = isVert ? pw / 210 : ph / 210;
+
+  const L = 20 * mX;   // левое поле
+  const T = 5  * mY;   // верхнее
+  const R = pw - 5 * mX; // правый край рамки
+  const B = ph - 5 * mY; // нижний край рамки
+
+  // Внешняя граница листа
+  rect(0, 0, pw - 1, ph - 1, 0.3);
+
+  // Основная рамка (толстая)
+  add(new Rect({ left: L, top: T, width: R - L, height: B - T, stroke: "#000", strokeWidth: 1.5, fill: "transparent", selectable: false, evented: false }));
+
+  // ── Основная надпись ГОСТ 2.104-2006 (форма 1) ──────────────────
+  // Высота основной надписи = 55мм, ширина = 185мм (вправо от рамки)
+  const stampH = 55 * mY;
+  const stampW = 185 * mX;
+  const stampL = R - stampW;
+  const stampT = B - stampH;
+
+  // Фон основной надписи (белый)
+  add(new Rect({ left: stampL, top: stampT, width: stampW, height: stampH, fill: "#fff", stroke: "#000", strokeWidth: 0.5, selectable: false, evented: false }));
+
+  // Вертикальные линии основной надписи
+  const cols = [7, 17, 23, 15, 10, 14, 53, 13, 15, 12, 11].map((mm, i) => {
+    const prev = [7, 17, 23, 15, 10, 14, 53, 13, 15, 12].slice(0, i).reduce((a, b) => a + b, 0);
+    return stampL + prev * mX;
+  });
+
+  // Горизонтальные строки (высоты по ГОСТ): 7, 8, 8, 8, 8, 8, 8мм
+  const rows = [7, 8, 8, 8, 8, 8].map((mm, i) => {
+    const prev = [7, 8, 8, 8, 8].slice(0, i).reduce((a, b) => a + b, 0);
+    return stampT + prev * mY;
+  });
+  rows.push(stampT + 47 * mY);
+  rows.push(B);
+
+  // Рисуем горизонтальные линии основной надписи
+  rows.forEach((y) => line(stampL, y, R, y, 0.5));
+
+  // Вертикальные делители
+  const vCols = [stampL + 7*mX, stampL + 17*mX, stampL + 23*mX, stampL + 38*mX, stampL + 48*mX, stampL + 62*mX, stampL + 76*mX, stampL + 100*mX, stampL + 113*mX, stampL + 128*mX, stampL + 140*mX, stampL + 151*mX, stampL + 162*mX, stampL + 173*mX];
+  vCols.forEach((x) => { if (x > stampL && x < R) line(x, stampT, x, B, 0.5); });
+
+  // Левая дополнительная колонка 14мм (зоны, обозначения изменений)
+  const addColL = stampL - 14 * mX;
+  if (addColL >= L) {
+    add(new Rect({ left: addColL, top: stampT, width: 14 * mX, height: stampH, fill: "#fff", stroke: "#000", strokeWidth: 0.5, selectable: false, evented: false }));
+    line(addColL, stampT, addColL, B, 0.5);
+    text("Изм.", addColL + 7*mX, stampT + 3*mY, 6);
+  }
+
+  // Тексты основной надписи
+  const cx = (a: number, b: number) => (a + b) / 2;
+  const cy = (a: number, b: number) => (a + b) / 2;
+
+  // Заголовок — наименование документа (крупный)
+  text(opts.drawingName || "Наименование", cx(stampL + 62*mX, R), cy(rows[0], rows[1]), 10, "center");
+
+  // Обозначение документа
+  text(opts.drawingNumber || "ХXXХ.ХXXХ.ХXX", cx(stampL + 62*mX, R), cy(rows[1], rows[2]), 8, "center");
+
+  // Подписи
+  const labelSize = 6;
+  text("Разраб.", stampL + 2*mX, cy(rows[2], rows[3]), labelSize, "left");
+  text("Пров.",   stampL + 2*mX, cy(rows[3], rows[4]), labelSize, "left");
+  text("Т.контр.", stampL + 2*mX, cy(rows[4], rows[5]), labelSize, "left");
+  text("Н.контр.", stampL + 2*mX, cy(rows[5], rows[6]), labelSize, "left");
+  text("Утв.",     stampL + 2*mX, cy(rows[6], rows[7]), labelSize, "left");
+
+  // ФИО
+  text(opts.designer || "", cx(stampL + 7*mX, stampL + 17*mX), cy(rows[2], rows[3]), 7, "center");
+  text(opts.checker  || "", cx(stampL + 7*mX, stampL + 17*mX), cy(rows[3], rows[4]), 7, "center");
+
+  // Предприятие
+  text(opts.company || "Предприятие", cx(stampL + 100*mX, R), cy(rows[4], rows[6]), 7, "center");
+
+  // Масса / Масштаб / Лист-Листов
+  text("Масса",   cx(stampL + 62*mX, stampL + 76*mX), stampT + 2*mY, labelSize, "center");
+  text("Масштаб", cx(stampL + 76*mX, stampL + 100*mX), stampT + 2*mY, labelSize, "center");
+  text("Лист",    cx(stampL + 100*mX, stampL + 113*mX), stampT + 2*mY, labelSize, "center");
+  text("Листов",  cx(stampL + 113*mX, stampL + 128*mX), stampT + 2*mY, labelSize, "center");
+
+  text(opts.mass  || "",   cx(stampL + 62*mX, stampL + 76*mX),  rows[1] + 2*mY, 8, "center");
+  text(opts.scale || "1:1", cx(stampL + 76*mX, stampL + 100*mX), rows[1] + 2*mY, 8, "center");
+  text(opts.sheet  || "1",  cx(stampL + 100*mX, stampL + 113*mX), rows[1] + 2*mY, 8, "center");
+  text(opts.sheets || "1",  cx(stampL + 113*mX, stampL + 128*mX), rows[1] + 2*mY, 8, "center");
+
+  // Угловой штамп (ГОСТ требует): зона справа вверху
+  const zoneW = 5 * mX;
+  line(R - zoneW, T, R - zoneW, T + 5*mY, 0.5);
+  line(R, T + 5*mY, R - zoneW, T + 5*mY, 0.5);
+
+  fc.renderAll();
+}
 
 export function useCad2DCanvas() {
   const canvasRef      = useRef<HTMLCanvasElement>(null);

@@ -45,11 +45,17 @@ function addArrow(fc: Canvas, tx: number, ty: number, dir: number, layer: string
 }
 
 /**
- * Линейный размер (ГОСТ 2.307 п.2.1-2.8):
- *   - Выносные линии перпендикулярны измеряемому отрезку
- *   - Размерная линия параллельна, со стрелками на концах
- *   - Текст над размерной линией по центру
- *   - offset — отступ размерной линии от контура (мм → px)
+ * Линейный размер по ГОСТ 2.307.
+ * x1,y1 → x2,y2  — точки контура, к которым привязывается размер.
+ * offset          — отступ размерной линии от контура в px (+ = влево/вверх от перпендикуляра).
+ * label           — текст (если null — вычисляется автоматически).
+ *
+ * Алгоритм:
+ *  1. Вычисляем единичный перпендикуляр nx,ny к измеряемому отрезку.
+ *  2. Смещаем оба конца на offset по перпендикуляру → точки размерной линии d1, d2.
+ *  3. Выносные линии: от x1y1 до d1+ext и от x2y2 до d2+ext (выступ ext=5px).
+ *  4. Размерная линия d1→d2 со стрелками.
+ *  5. Текст по центру размерной линии, повёрнут вдоль неё (читается снизу или слева).
  */
 function addLinearDim(
   fc: Canvas,
@@ -60,52 +66,70 @@ function addLinearDim(
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return new Group([]);
 
-  // Перпендикуляр (направление размерной линии)
+  // Единичный перпендикуляр
   const nx = -dy / len, ny = dx / len;
+
   // Точки размерной линии
   const d1x = x1 + nx * offset, d1y = y1 + ny * offset;
   const d2x = x2 + nx * offset, d2y = y2 + ny * offset;
-  // Выносные линии: от контура до размерной + 5px выступ
-  const ext = 5;
+
+  // Угол размерной линии (направление от d1 к d2)
   const angle = Math.atan2(d2y - d1y, d2x - d1x);
+
+  // Выступ выносной линии за размерную (px)
+  const ext = 5;
 
   const objs: any[] = [];
 
-  // Размерная линия (тонкая сплошная)
+  // Размерная линия
   objs.push(new Line([d1x, d1y, d2x, d2y], {
     stroke: DIM_COLOR, strokeWidth: DIM_SW, selectable: false, evented: false,
   }));
 
-  // Стрелки на концах
-  makeArrow(d1x, d1y, angle + Math.PI, ).forEach(([ax1, ay1, ax2, ay2]) =>
-    objs.push(new Line([ax1, ay1, ax2, ay2], { stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false }))
+  // Стрелки на концах размерной линии
+  makeArrow(d1x, d1y, angle + Math.PI).forEach(([ax1, ay1, ax2, ay2]) =>
+    objs.push(new Line([ax1, ay1, ax2, ay2], {
+      stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false,
+    }))
   );
   makeArrow(d2x, d2y, angle).forEach(([ax1, ay1, ax2, ay2]) =>
-    objs.push(new Line([ax1, ay1, ax2, ay2], { stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false }))
+    objs.push(new Line([ax1, ay1, ax2, ay2], {
+      stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false,
+    }))
   );
 
-  // Выносные линии
+  // Выносные линии (от точек контура до размерной + выступ)
   objs.push(new Line([x1, y1, d1x + nx * ext, d1y + ny * ext], {
-    stroke: DIM_COLOR, strokeWidth: DIM_SW, strokeDashArray: [],
-    selectable: false, evented: false,
+    stroke: DIM_COLOR, strokeWidth: DIM_SW, selectable: false, evented: false,
   }));
   objs.push(new Line([x2, y2, d2x + nx * ext, d2y + ny * ext], {
-    stroke: DIM_COLOR, strokeWidth: DIM_SW, strokeDashArray: [],
-    selectable: false, evented: false,
+    stroke: DIM_COLOR, strokeWidth: DIM_SW, selectable: false, evented: false,
   }));
 
-  // Текст размера — над размерной линией, по центру, перпендикулярно если вертикально
-  const cx = (d1x + d2x) / 2;
-  const cy = (d1y + d2y) / 2;
+  // Текст над серединой размерной линии
+  const mcx = (d1x + d2x) / 2;
+  const mcy = (d1y + d2y) / 2;
   const dimText = label ?? String(Math.round(len));
+
+  // Угол текста: всегда читается снизу вверх или слева направо
+  const angleDeg = angle * 180 / Math.PI;
+  const textAngle = (angleDeg > 90 || angleDeg < -90)
+    ? angleDeg + 180
+    : angleDeg;
+
+  // Смещаем текст перпендикулярно размерной линии (в сторону offset)
+  const textOffset = DIM_FONT_SZ + 2;
   const txt = new IText(dimText, {
-    left: cx, top: cy - DIM_FONT_SZ - 2,
-    fontSize: DIM_FONT_SZ, fontFamily: FONT_FAMILY,
-    fill: DIM_COLOR, originX: "center", originY: "bottom",
-    angle: (angle * 180 / Math.PI + 360) % 360 > 90 && (angle * 180 / Math.PI + 360) % 360 < 270
-      ? (angle * 180 / Math.PI + 180) % 360
-      : angle * 180 / Math.PI,
-    selectable: false, evented: false,
+    left:     mcx + nx * textOffset,
+    top:      mcy + ny * textOffset,
+    fontSize: DIM_FONT_SZ,
+    fontFamily: FONT_FAMILY,
+    fill: DIM_COLOR,
+    originX: "center",
+    originY: "center",
+    angle:    textAngle,
+    selectable: false,
+    evented: false,
   });
   objs.push(txt);
 
@@ -114,22 +138,37 @@ function addLinearDim(
   return grp;
 }
 
-/** Радиусный размер по ГОСТ 2.307 п.2.12: R-линия от центра, стрелка на контуре. */
+/**
+ * Радиусный размер по ГОСТ 2.307 п.2.12.
+ * Линия от центра (cx,cy) до точки на контуре, стрелка на контуре.
+ * Текст «Rxx» у начала линии (у центра).
+ */
 function addRadiusDim(
   fc: Canvas, cx: number, cy: number, r: number, layer: string,
 ): Group {
-  const ang = -Math.PI / 4; // 45° — удобное направление выноски
-  const ex = cx + r * Math.cos(ang), ey = cy + r * Math.sin(ang);
+  // Направление выноски — 45° вправо-вверх (наиболее читаемо)
+  const ang = -Math.PI / 4;
+  const ex = cx + r * Math.cos(ang);
+  const ey = cy + r * Math.sin(ang);
 
   const objs: any[] = [];
+
+  // Размерная линия: от центра до точки на контуре
   objs.push(new Line([cx, cy, ex, ey], {
     stroke: DIM_COLOR, strokeWidth: DIM_SW, selectable: false, evented: false,
   }));
+
+  // Стрелка на контуре (остриё в (ex, ey), направление от центра к краю)
   makeArrow(ex, ey, ang).forEach(([x1, y1, x2, y2]) =>
-    objs.push(new Line([x1, y1, x2, y2], { stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false }))
+    objs.push(new Line([x1, y1, x2, y2], {
+      stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false,
+    }))
   );
+
+  // Текст у середины линии, чуть в сторону
+  const mx = (cx + ex) / 2, my = (cy + ey) / 2;
   const txt = new IText(`R${Math.round(r)}`, {
-    left: cx, top: cy - DIM_FONT_SZ - 2,
+    left: mx - 6, top: my - DIM_FONT_SZ - 1,
     fontSize: DIM_FONT_SZ, fontFamily: FONT_FAMILY,
     fill: DIM_COLOR, originX: "center", originY: "bottom",
     selectable: false, evented: false,
@@ -141,24 +180,40 @@ function addRadiusDim(
   return grp;
 }
 
-/** Диаметральный размер по ГОСТ 2.307 п.2.11: линия через центр, стрелки, знак ∅. */
+/**
+ * Диаметральный размер по ГОСТ 2.307 п.2.11.
+ * Линия через центр (cx,cy), стрелки на обоих концах, знак ∅.
+ * Текст над серединой линии.
+ */
 function addDiameterDim(
   fc: Canvas, cx: number, cy: number, r: number, layer: string,
 ): Group {
-  const x1 = cx - r, y1 = cy, x2 = cx + r, y2 = cy;
+  // Горизонтальная линия через центр
+  const x1 = cx - r, y1 = cy;
+  const x2 = cx + r, y2 = cy;
 
   const objs: any[] = [];
+
+  // Размерная линия
   objs.push(new Line([x1, y1, x2, y2], {
     stroke: DIM_COLOR, strokeWidth: DIM_SW, selectable: false, evented: false,
   }));
+
+  // Стрелки на обоих концах
   makeArrow(x1, y1, Math.PI).forEach(([ax1, ay1, ax2, ay2]) =>
-    objs.push(new Line([ax1, ay1, ax2, ay2], { stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false }))
+    objs.push(new Line([ax1, ay1, ax2, ay2], {
+      stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false,
+    }))
   );
   makeArrow(x2, y2, 0).forEach(([ax1, ay1, ax2, ay2]) =>
-    objs.push(new Line([ax1, ay1, ax2, ay2], { stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false }))
+    objs.push(new Line([ax1, ay1, ax2, ay2], {
+      stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.2, selectable: false, evented: false,
+    }))
   );
+
+  // Текст над серединой линии (над центром окружности)
   const txt = new IText(`∅${Math.round(r * 2)}`, {
-    left: cx, top: cy - DIM_FONT_SZ - 2,
+    left: cx, top: cy - DIM_FONT_SZ - 3,
     fontSize: DIM_FONT_SZ, fontFamily: FONT_FAMILY,
     fill: DIM_COLOR, originX: "center", originY: "bottom",
     selectable: false, evented: false,
@@ -431,20 +486,25 @@ export function useCad2DDrawing({
         });
         (arc as any).__layer = activeLayerRef.current;
         fc.add(arc);
-        // Авторазмер: радиус дуги
+        // Авторазмер: радиус дуги — центр как начало (sx, sy)
         if (r > 5) {
-          const cx2 = (sx + ex) / 2, cy2 = (sy + ey) / 2;
-          const grp = addRadiusDim(fc, cx2, cy2, r / 2, DIM_LAYER);
+          const grp = addRadiusDim(fc, sx, sy, r, DIM_LAYER);
           fc.add(grp);
         }
       }
 
       // ── Прямоугольник — авторазмеры ширины и высоты ──────────────
       else if (t === "rect" && sh instanceof Rect) {
-        const w = Math.abs(ex - sx), h2 = Math.abs(ey - sy);
+        // Берём реальные координаты из объекта (учитываем origin и scaleX/scaleY)
+        const bounds = sh.getBoundingRect();
+        const lx  = bounds.left;
+        const ty2 = bounds.top;
+        const w   = bounds.width;
+        const h2  = bounds.height;
         if (w > 5 && h2 > 5) {
-          const lx = Math.min(sx, ex), ty2 = Math.min(sy, ey);
+          // Размер ширины — сверху фигуры
           const dimW2 = addLinearDim(fc, lx, ty2, lx + w, ty2, -24, `${Math.round(w)}`, DIM_LAYER);
+          // Размер высоты — слева от фигуры
           const dimH2 = addLinearDim(fc, lx, ty2, lx, ty2 + h2, -24, `${Math.round(h2)}`, DIM_LAYER);
           fc.add(dimW2); fc.add(dimH2);
         }
@@ -452,9 +512,12 @@ export function useCad2DDrawing({
 
       // ── Окружность — авторазмер диаметра ─────────────────────────
       else if (t === "circle" && sh instanceof Circle) {
-        const r = sh.radius ?? 0;
+        // Circle: left/top = верхний левый угол bounding box, radius = радиус
+        const bounds = sh.getBoundingRect();
+        const r   = (bounds.width) / 2;
+        const cx2 = bounds.left + r;
+        const cy2 = bounds.top  + r;
         if (r > 5) {
-          const cx2 = (sh.left ?? 0) + r, cy2 = (sh.top ?? 0) + r;
           const grp = addDiameterDim(fc, cx2, cy2, r, DIM_LAYER);
           fc.add(grp);
         }
@@ -462,20 +525,30 @@ export function useCad2DDrawing({
 
       // ── Эллипс — авторазмеры осей ────────────────────────────────
       else if (t === "ellipse" && sh instanceof Ellipse) {
-        const rx = sh.rx ?? 0, ry = sh.ry ?? 0;
-        const cx2 = sh.left ?? 0, cy2 = sh.top ?? 0;
-        if (rx > 5 && ry > 5) {
-          const dimRx = addLinearDim(fc, cx2 - rx, cy2, cx2 + rx, cy2, -20, `${Math.round(rx * 2)}`, DIM_LAYER);
-          const dimRy = addLinearDim(fc, cx2, cy2 - ry, cx2, cy2 + ry, -20, `${Math.round(ry * 2)}`, DIM_LAYER);
+        const bounds = sh.getBoundingRect();
+        const rx2 = bounds.width  / 2;
+        const ry2 = bounds.height / 2;
+        const cx2 = bounds.left + rx2;
+        const cy2 = bounds.top  + ry2;
+        if (rx2 > 5 && ry2 > 5) {
+          // Горизонтальная ось (ширина) — снизу
+          const dimRx = addLinearDim(fc, cx2 - rx2, cy2, cx2 + rx2, cy2, ry2 + 20, `${Math.round(rx2 * 2)}`, DIM_LAYER);
+          // Вертикальная ось (высота) — справа
+          const dimRy = addLinearDim(fc, cx2, cy2 - ry2, cx2, cy2 + ry2, rx2 + 20, `${Math.round(ry2 * 2)}`, DIM_LAYER);
           fc.add(dimRx); fc.add(dimRy);
         }
       }
 
       // ── Отрезок — авторазмер длины ───────────────────────────────
       else if (t === "line" && sh instanceof Line) {
-        const len = Math.round(Math.sqrt((ex - sx) ** 2 + (ey - sy) ** 2));
+        // Line: координаты точек хранятся в x1,y1,x2,y2 относительно left/top объекта
+        const lx1 = (sh.x1 ?? 0) + (sh.left ?? 0);
+        const ly1 = (sh.y1 ?? 0) + (sh.top  ?? 0);
+        const lx2 = (sh.x2 ?? 0) + (sh.left ?? 0);
+        const ly2 = (sh.y2 ?? 0) + (sh.top  ?? 0);
+        const len = Math.round(Math.sqrt((lx2 - lx1) ** 2 + (ly2 - ly1) ** 2));
         if (len > 5) {
-          const grp = addLinearDim(fc, sx, sy, ex, ey, -20, `${len}`, DIM_LAYER);
+          const grp = addLinearDim(fc, lx1, ly1, lx2, ly2, -20, `${len}`, DIM_LAYER);
           fc.add(grp);
         }
       }

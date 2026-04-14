@@ -1,8 +1,10 @@
- 
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
-import { STROKES, LINE_TYPES, PAPER_SIZES } from "@/components/smartmach/cad2d.data";
+import { STROKES, LINE_TYPES, PAPER_SIZES, TOOLS, type Tool, type RibbonTab } from "@/components/smartmach/cad2d.data";
 
 interface Props {
+  tool: Tool;
+  onTool: (t: Tool) => void;
   paperSize: string;
   strokeW: number;
   lineType: string;
@@ -31,9 +33,90 @@ interface Props {
   onImportSVG: () => void;
   onExportDXF: () => void;
   onExportPNG: () => void;
+  onMirror: () => void;
+  onRotate: () => void;
+  onScale: () => void;
+  onOffset: () => void;
+  onTrim: () => void;
+  onExtend: () => void;
+  onFillet: () => void;
+  onArray: () => void;
+  onGroupSelected: () => void;
+  onUngroupSelected: () => void;
+  onBringForward: () => void;
+  onSendBackward: () => void;
+  onAlignLeft: () => void;
+  onAlignCenter: () => void;
+  onAlignRight: () => void;
+}
+
+function RibbonBtn({
+  icon, label, active, disabled, large, onClick, title,
+}: {
+  icon: string; label: string; active?: boolean; disabled?: boolean;
+  large?: boolean; onClick: () => void; title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title ?? label}
+      className={`flex flex-col items-center justify-center gap-0.5 rounded transition-colors disabled:opacity-30
+        ${large
+          ? "w-14 h-14 px-1"
+          : "w-11 h-11 px-1"
+        }
+        ${active
+          ? "bg-blue-600/30 text-blue-300 border border-blue-500/50"
+          : "text-gray-300 hover:bg-gray-700/70 border border-transparent"
+        }`}
+    >
+      <Icon name={icon as Parameters<typeof Icon>[0]["name"]} size={large ? 20 : 16} />
+      <span className={`text-center leading-tight font-normal truncate w-full ${large ? "text-[10px]" : "text-[9px]"}`}>{label}</span>
+    </button>
+  );
+}
+
+function ToolBtn({ id, tool, onTool, large }: { id: Tool; tool: Tool; onTool: (t: Tool) => void; large?: boolean }) {
+  const t = TOOLS.find((x) => x.id === id);
+  if (!t) return null;
+  return (
+    <RibbonBtn
+      icon={t.icon}
+      label={t.label.split(" (")[0]}
+      title={t.label}
+      active={tool === id}
+      large={large}
+      onClick={() => onTool(id)}
+    />
+  );
+}
+
+function Sep() {
+  return <div className="h-12 w-px bg-gray-700 mx-1 self-center" />;
+}
+
+function GroupLabel({ label }: { label: string }) {
+  return (
+    <div className="w-full text-center text-[9px] text-gray-500 mt-0.5 border-t border-gray-700/50 pt-0.5 leading-tight">
+      {label}
+    </div>
+  );
+}
+
+function RibbonGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="flex items-start gap-0.5 flex-wrap justify-center px-1">
+        {children}
+      </div>
+      <GroupLabel label={label} />
+    </div>
+  );
 }
 
 export default function Cad2DToolbar({
+  tool, onTool,
   paperSize, strokeW, lineType, showGrid, snapGrid, showLayers, showProps,
   zoom, histIdx, histLen,
   onPaperSize, onStrokeW, onLineType,
@@ -41,100 +124,215 @@ export default function Cad2DToolbar({
   onZoom, onFitView,
   onUndo, onRedo, onCopy, onPaste, onDeleteSelected, onClearCanvas,
   onImportSVG, onExportDXF, onExportPNG,
+  onMirror, onRotate, onScale, onOffset, onTrim, onExtend, onFillet, onArray,
+  onGroupSelected, onUngroupSelected, onBringForward, onSendBackward,
+  onAlignLeft, onAlignCenter, onAlignRight,
 }: Props) {
+  const [tab, setTab] = useState<RibbonTab>("home");
+
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border-b border-gray-700 flex-wrap">
+    <div className="bg-[#1e2030] border-b border-gray-700 select-none">
 
-      {/* Размер листа */}
-      <select value={paperSize} onChange={(e) => onPaperSize(e.target.value)}
-        className="border border-gray-600 bg-gray-800 text-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none mr-1">
-        {Object.keys(PAPER_SIZES).map((k) => <option key={k} value={k}>{k}</option>)}
-      </select>
+      {/* Tabs */}
+      <div className="flex items-center gap-0.5 px-2 pt-1 border-b border-gray-700/60">
+        {([
+          { id: "home",     label: "Главная" },
+          { id: "annotate", label: "Аннотации" },
+          { id: "view",     label: "Вид" },
+          { id: "output",   label: "Вывод" },
+        ] as { id: RibbonTab; label: string }[]).map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-4 py-1 text-xs rounded-t-md transition-colors font-medium
+              ${tab === t.id
+                ? "bg-[#252840] text-white border border-gray-700 border-b-[#252840] -mb-px"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/40"}`}>
+            {t.label}
+          </button>
+        ))}
 
-      <div className="h-4 w-px bg-gray-700 mx-1" />
+        {/* Быстрый доступ справа */}
+        <div className="ml-auto flex items-center gap-1 pb-1">
+          <button onClick={onUndo} disabled={histIdx <= 0} title="Отменить (Ctrl+Z)"
+            className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:bg-gray-700 disabled:opacity-30">
+            <Icon name="Undo" size={13} />
+          </button>
+          <button onClick={onRedo} disabled={histIdx >= histLen - 1} title="Повторить (Ctrl+Y)"
+            className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:bg-gray-700 disabled:opacity-30">
+            <Icon name="Redo" size={13} />
+          </button>
+          <div className="h-3 w-px bg-gray-700 mx-0.5" />
+          <span className="text-[10px] text-gray-500">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => onZoom(-0.15)} className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:bg-gray-700">
+            <Icon name="Minus" size={10} />
+          </button>
+          <button onClick={() => onZoom(0.15)} className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:bg-gray-700">
+            <Icon name="Plus" size={10} />
+          </button>
+          <button onClick={onFitView} title="По размеру" className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:bg-gray-700">
+            <Icon name="Maximize2" size={10} />
+          </button>
+        </div>
+      </div>
 
-      {/* Толщина */}
-      <select value={strokeW} onChange={(e) => onStrokeW(Number(e.target.value))}
-        className="border border-gray-600 bg-gray-800 text-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none w-16">
-        {STROKES.map((s) => <option key={s} value={s}>{s} мм</option>)}
-      </select>
+      {/* Ribbon content */}
+      <div className="flex items-start gap-0 px-2 py-1.5 overflow-x-auto" style={{ background: "#252840" }}>
 
-      {/* Тип линии */}
-      <select value={lineType} onChange={(e) => onLineType(e.target.value)}
-        className="border border-gray-600 bg-gray-800 text-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none w-28">
-        {LINE_TYPES.map((lt) => <option key={lt} value={lt}>{lt}</option>)}
-      </select>
+        {/* ── ГЛАВНАЯ ── */}
+        {tab === "home" && (
+          <>
+            <RibbonGroup label="Буфер обмена">
+              <RibbonBtn icon="Clipboard" label="Вставить" large onClick={onPaste} />
+              <div className="flex flex-col gap-0.5">
+                <RibbonBtn icon="Copy"     label="Копировать"  onClick={onCopy} />
+                <RibbonBtn icon="Scissors" label="Вырезать"    onClick={() => { onCopy(); onDeleteSelected(); }} />
+              </div>
+            </RibbonGroup>
+            <Sep />
 
-      <div className="h-4 w-px bg-gray-700 mx-1" />
+            <RibbonGroup label="Рисование">
+              <ToolBtn id="line"     tool={tool} onTool={onTool} large />
+              <ToolBtn id="polyline" tool={tool} onTool={onTool} large />
+              <ToolBtn id="circle"   tool={tool} onTool={onTool} />
+              <ToolBtn id="arc"      tool={tool} onTool={onTool} />
+              <ToolBtn id="rect"     tool={tool} onTool={onTool} />
+              <ToolBtn id="ellipse"  tool={tool} onTool={onTool} />
+              <ToolBtn id="spline"   tool={tool} onTool={onTool} />
+              <ToolBtn id="hatch"    tool={tool} onTool={onTool} />
+            </RibbonGroup>
+            <Sep />
 
-      {/* Undo/Redo/Copy/Paste/Del/Clear */}
-      {[
-        { icon: "Undo",      title: "Отменить (Ctrl+Z)",   fn: onUndo,           disabled: histIdx <= 0 },
-        { icon: "Redo",      title: "Повторить (Ctrl+Y)",  fn: onRedo,           disabled: histIdx >= histLen - 1 },
-        { icon: "Copy",      title: "Копировать (Ctrl+C)", fn: onCopy,           disabled: false },
-        { icon: "Clipboard", title: "Вставить (Ctrl+V)",   fn: onPaste,          disabled: false },
-        { icon: "Trash2",    title: "Удалить (Del)",       fn: onDeleteSelected, disabled: false },
-        { icon: "RotateCcw", title: "Очистить всё",        fn: onClearCanvas,    disabled: false },
-      ].map((a) => (
-        <button key={a.icon} title={a.title} onClick={a.fn} disabled={a.disabled}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:bg-gray-700 disabled:opacity-30">
-          <Icon name={a.icon as Parameters<typeof Icon>[0]["name"]} size={14} />
-        </button>
-      ))}
+            <RibbonGroup label="Редактирование">
+              <ToolBtn id="move"    tool={tool} onTool={onTool} large />
+              <ToolBtn id="erase"   tool={tool} onTool={onTool} large />
+              <ToolBtn id="rotate"  tool={tool} onTool={onTool} />
+              <ToolBtn id="mirror"  tool={tool} onTool={onTool} />
+              <ToolBtn id="scale"   tool={tool} onTool={onTool} />
+              <ToolBtn id="offset"  tool={tool} onTool={onTool} />
+              <ToolBtn id="trim"    tool={tool} onTool={onTool} />
+              <ToolBtn id="extend"  tool={tool} onTool={onTool} />
+              <ToolBtn id="fillet"  tool={tool} onTool={onTool} />
+              <ToolBtn id="chamfer" tool={tool} onTool={onTool} />
+              <ToolBtn id="array"   tool={tool} onTool={onTool} />
+              <ToolBtn id="stretch" tool={tool} onTool={onTool} />
+              <ToolBtn id="break"   tool={tool} onTool={onTool} />
+            </RibbonGroup>
+            <Sep />
 
-      <div className="h-4 w-px bg-gray-700 mx-1" />
+            <RibbonGroup label="Слои">
+              <RibbonBtn icon="Layers"           label="Слои"         large active={showLayers} onClick={onToggleLayers} />
+              <RibbonBtn icon="SlidersHorizontal" label="Свойства"    active={showProps}  onClick={onToggleProps} />
+            </RibbonGroup>
+            <Sep />
 
-      {/* Сетка / Привязка */}
-      <button onClick={onToggleGrid} title="Показать/скрыть сетку"
-        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${showGrid ? "bg-blue-900/50 text-blue-300 border border-blue-700" : "text-gray-400 hover:bg-gray-700"}`}>
-        <Icon name="Grid3x3" size={13} />Сетка
-      </button>
-      <button onClick={onToggleSnap} title="Привязка к сетке"
-        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${snapGrid ? "bg-blue-900/50 text-blue-300 border border-blue-700" : "text-gray-400 hover:bg-gray-700"}`}>
-        <Icon name="Magnet" size={13} />Привязка
-      </button>
+            <RibbonGroup label="Свойства">
+              <div className="flex flex-col gap-1 px-1 py-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-400 w-14">Лист:</span>
+                  <select value={paperSize} onChange={(e) => onPaperSize(e.target.value)}
+                    className="border border-gray-600 bg-gray-800 text-gray-200 rounded px-1 py-0.5 text-[10px] focus:outline-none">
+                    {Object.keys(PAPER_SIZES).map((k) => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-400 w-14">Толщина:</span>
+                  <select value={strokeW} onChange={(e) => onStrokeW(Number(e.target.value))}
+                    className="border border-gray-600 bg-gray-800 text-gray-200 rounded px-1 py-0.5 text-[10px] focus:outline-none w-20">
+                    {STROKES.map((s) => <option key={s} value={s}>{s} мм</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-400 w-14">Линия:</span>
+                  <select value={lineType} onChange={(e) => onLineType(e.target.value)}
+                    className="border border-gray-600 bg-gray-800 text-gray-200 rounded px-1 py-0.5 text-[10px] focus:outline-none w-28">
+                    {LINE_TYPES.map((lt) => <option key={lt} value={lt}>{lt}</option>)}
+                  </select>
+                </div>
+              </div>
+            </RibbonGroup>
+          </>
+        )}
 
-      <div className="h-4 w-px bg-gray-700 mx-1" />
+        {/* ── АННОТАЦИИ ── */}
+        {tab === "annotate" && (
+          <>
+            <RibbonGroup label="Размеры">
+              <ToolBtn id="dimension"    tool={tool} onTool={onTool} large />
+              <ToolBtn id="dim-aligned"  tool={tool} onTool={onTool} large />
+              <ToolBtn id="dim-radius"   tool={tool} onTool={onTool} />
+              <ToolBtn id="dim-diameter" tool={tool} onTool={onTool} />
+              <ToolBtn id="dim-angular"  tool={tool} onTool={onTool} />
+              <ToolBtn id="leader"       tool={tool} onTool={onTool} />
+            </RibbonGroup>
+            <Sep />
 
-      {/* Слои / Свойства */}
-      <button onClick={onToggleLayers}
-        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${showLayers ? "bg-purple-900/50 text-purple-300 border border-purple-700" : "text-gray-400 hover:bg-gray-700"}`}>
-        <Icon name="Layers" size={13} />Слои
-      </button>
-      <button onClick={onToggleProps}
-        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${showProps ? "bg-green-900/50 text-green-300 border border-green-700" : "text-gray-400 hover:bg-gray-700"}`}>
-        <Icon name="SlidersHorizontal" size={13} />Свойства
-      </button>
+            <RibbonGroup label="Текст">
+              <ToolBtn id="text"  tool={tool} onTool={onTool} large />
+              <ToolBtn id="mtext" tool={tool} onTool={onTool} large />
+            </RibbonGroup>
+            <Sep />
 
-      <div className="h-4 w-px bg-gray-700 mx-1" />
+            <RibbonGroup label="Штриховка">
+              <ToolBtn id="hatch" tool={tool} onTool={onTool} large />
+            </RibbonGroup>
+          </>
+        )}
 
-      {/* Зум */}
-      <button onClick={() => onZoom(-0.15)} className="w-7 h-7 rounded flex items-center justify-center text-gray-300 hover:bg-gray-700">
-        <Icon name="Minus" size={13} />
-      </button>
-      <span className="text-xs text-gray-300 w-10 text-center">{Math.round(zoom * 100)}%</span>
-      <button onClick={() => onZoom(0.15)} className="w-7 h-7 rounded flex items-center justify-center text-gray-300 hover:bg-gray-700">
-        <Icon name="Plus" size={13} />
-      </button>
-      <button onClick={onFitView} title="По размеру" className="w-7 h-7 rounded flex items-center justify-center text-gray-300 hover:bg-gray-700">
-        <Icon name="Maximize2" size={13} />
-      </button>
+        {/* ── ВИД ── */}
+        {tab === "view" && (
+          <>
+            <RibbonGroup label="Навигация">
+              <RibbonBtn icon="Maximize2" label="По всем объектам" large onClick={onFitView} />
+              <div className="flex flex-col gap-0.5">
+                <RibbonBtn icon="ZoomIn"  label="Увел." onClick={() => onZoom(0.25)} />
+                <RibbonBtn icon="ZoomOut" label="Умен." onClick={() => onZoom(-0.25)} />
+              </div>
+            </RibbonGroup>
+            <Sep />
 
-      <div className="h-4 w-px bg-gray-700 mx-1" />
+            <RibbonGroup label="Сетка и привязка">
+              <RibbonBtn icon="Grid3x3" label="Сетка"    large active={showGrid}  onClick={onToggleGrid} />
+              <RibbonBtn icon="Magnet"  label="Привязка" large active={snapGrid}  onClick={onToggleSnap} />
+            </RibbonGroup>
+            <Sep />
 
-      {/* Импорт/Экспорт */}
-      <button onClick={onImportSVG} title="Импорт SVG"
-        className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-300 hover:bg-gray-700">
-        <Icon name="Upload" size={13} />SVG
-      </button>
-      <button onClick={onExportDXF}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">
-        <Icon name="Download" size={13} />DXF
-      </button>
-      <button onClick={onExportPNG}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-700 text-white rounded-lg text-xs font-medium hover:bg-gray-600">
-        <Icon name="Image" size={13} />PNG
-      </button>
+            <RibbonGroup label="Порядок объектов">
+              <RibbonBtn icon="BringToFront" label="На перед"  onClick={onBringForward} />
+              <RibbonBtn icon="SendToBack"   label="На зад"    onClick={onSendBackward} />
+            </RibbonGroup>
+            <Sep />
+
+            <RibbonGroup label="Группировка">
+              <RibbonBtn icon="Group"   label="Группировать"   onClick={onGroupSelected} />
+              <RibbonBtn icon="Ungroup" label="Разгруппировать" onClick={onUngroupSelected} />
+            </RibbonGroup>
+            <Sep />
+
+            <RibbonGroup label="Выравнивание">
+              <RibbonBtn icon="AlignLeft"           label="По левому" onClick={onAlignLeft} />
+              <RibbonBtn icon="AlignCenter"         label="По центру" onClick={onAlignCenter} />
+              <RibbonBtn icon="AlignRight"          label="По правому" onClick={onAlignRight} />
+            </RibbonGroup>
+          </>
+        )}
+
+        {/* ── ВЫВОД ── */}
+        {tab === "output" && (
+          <>
+            <RibbonGroup label="Печать / Экспорт">
+              <RibbonBtn icon="Printer"  label="Печать (PDF)" large onClick={onExportPNG} />
+              <RibbonBtn icon="Download" label="Экспорт DXF"  large onClick={onExportDXF} />
+              <RibbonBtn icon="Image"    label="Экспорт PNG"       onClick={onExportPNG} />
+              <RibbonBtn icon="Upload"   label="Импорт SVG"        onClick={onImportSVG} />
+            </RibbonGroup>
+            <Sep />
+
+            <RibbonGroup label="Очистка">
+              <RibbonBtn icon="RotateCcw" label="Очистить всё" large onClick={onClearCanvas} />
+              <RibbonBtn icon="Trash2"    label="Удалить выбр." onClick={onDeleteSelected} />
+            </RibbonGroup>
+          </>
+        )}
+      </div>
     </div>
   );
 }

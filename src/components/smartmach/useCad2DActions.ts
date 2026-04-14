@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useCallback, type MutableRefObject, type Dispatch, type SetStateAction } from "react";
-import { Canvas, Line, Circle, Rect, IText } from "fabric";
+import { Canvas, Line, Circle, Rect, IText, Group, ActiveSelection } from "fabric";
 import { type Tool, type Layer } from "@/components/smartmach/cad2d.data";
 
 interface ActionsDeps {
@@ -101,6 +101,143 @@ export function useCad2DActions({
     setZoom(1); fc.renderAll();
   }, [fabricRef, setZoom]);
 
+  // ── Зеркало (отражение по вертикальной оси) ───────────────────────
+  const mirrorSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().forEach((o) => {
+      o.set("flipX", !o.flipX);
+    });
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Поворот на 90° ────────────────────────────────────────────────
+  const rotateSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().forEach((o) => {
+      o.set("angle", ((o.angle ?? 0) + 90) % 360);
+    });
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Масштаб ×2 ────────────────────────────────────────────────────
+  const scaleSelected = useCallback((factor = 2) => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().forEach((o) => {
+      o.set({ scaleX: (o.scaleX ?? 1) * factor, scaleY: (o.scaleY ?? 1) * factor });
+    });
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Подобие (offset — сдвиг копии на 20px) ───────────────────────
+  const offsetSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    const objs = fc.getActiveObjects().filter((o) => !(o as any).__grid && !(o as any).__frame);
+    objs.forEach((obj) => {
+      obj.clone().then((c: any) => {
+        c.set({ left: (c.left ?? 0) + 20, top: (c.top ?? 0) + 20, opacity: 0.8 });
+        fc.add(c); fc.renderAll();
+      });
+    });
+    saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Обрезать (удалить выбранные объекты) ─────────────────────────
+  const trimSelected = useCallback(() => {
+    deleteSelected();
+  }, [deleteSelected]);
+
+  // ── Удлинить (stretch +10% по X) ──────────────────────────────────
+  const extendSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().forEach((o) => {
+      o.set("scaleX", (o.scaleX ?? 1) * 1.1);
+    });
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Сопряжение (скруглить углы — визуальный эффект) ───────────────
+  const filletSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().forEach((o) => {
+      if (o instanceof Rect) o.set("rx", 8);
+    });
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Массив (3×3 сетка копий) ──────────────────────────────────────
+  const arraySelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    const objs = fc.getActiveObjects().filter((o) => !(o as any).__grid && !(o as any).__frame);
+    const promises: Promise<void>[] = [];
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        if (row === 0 && col === 0) continue;
+        objs.forEach((obj) => {
+          promises.push(
+            obj.clone().then((c: any) => {
+              c.set({ left: (c.left ?? 0) + col * 80, top: (c.top ?? 0) + row * 80 });
+              fc.add(c);
+            })
+          );
+        });
+      }
+    }
+    Promise.all(promises).then(() => { fc.renderAll(); saveHistory(fc); });
+  }, [fabricRef, saveHistory]);
+
+  // ── Группировать ──────────────────────────────────────────────────
+  const groupSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    const active = fc.getActiveObject();
+    if (!active || !(active instanceof ActiveSelection)) return;
+    const group = active.toGroup();
+    fc.setActiveObject(group);
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Разгруппировать ───────────────────────────────────────────────
+  const ungroupSelected = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    const active = fc.getActiveObject();
+    if (!active || !(active instanceof Group)) return;
+    active.toActiveSelection();
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── На передний план ──────────────────────────────────────────────
+  const bringForward = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().forEach((o) => fc.bringObjectToFront(o));
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── На задний план ────────────────────────────────────────────────
+  const sendBackward = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return;
+    fc.getActiveObjects().filter((o) => !(o as any).__grid && !(o as any).__frame)
+      .forEach((o) => fc.sendObjectToBack(o));
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Выравнивание ─────────────────────────────────────────────────
+  const alignObjects = useCallback((dir: "left" | "center" | "right") => {
+    const fc = fabricRef.current; if (!fc) return;
+    const objs = fc.getActiveObjects().filter((o) => !(o as any).__grid);
+    if (objs.length < 2) return;
+    const bounds = objs.map((o) => ({ left: o.left ?? 0, width: (o.width ?? 0) * (o.scaleX ?? 1) }));
+    const minLeft = Math.min(...bounds.map((b) => b.left));
+    const maxRight = Math.max(...bounds.map((b) => b.left + b.width));
+    const centerX = (minLeft + maxRight) / 2;
+    objs.forEach((o, i) => {
+      const w = (o.width ?? 0) * (o.scaleX ?? 1);
+      if (dir === "left")   o.set("left", minLeft);
+      if (dir === "center") o.set("left", centerX - w / 2);
+      if (dir === "right")  o.set("left", maxRight - w);
+    });
+    fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  // ── Экспорт DXF ───────────────────────────────────────────────────
   const exportDXF = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
     const objs = fc.getObjects().filter((o) => !(o as any).__grid && !(o as any).__frame);
@@ -140,8 +277,8 @@ export function useCad2DActions({
       reader.onload = (ev) => {
         const fc = fabricRef.current; if (!fc) return;
         const svgStr = ev.target?.result as string;
-        const img = new Image();
         const blob = new Blob([svgStr], { type: "image/svg+xml" });
+        const img = new Image();
         img.src = URL.createObjectURL(blob);
         img.onload = () => {
           const fabricImg = new (window as any).fabric.Image(img, { left: 50, top: 50 });
@@ -166,16 +303,21 @@ export function useCad2DActions({
       if ((e.ctrlKey || e.metaKey) && e.key === "y") { redo(); e.preventDefault(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "c") { copySelected(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "v") { pasteSelected(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === "g") { groupSelected(); e.preventDefault(); }
       if ((e.ctrlKey || e.metaKey) && e.key === "a") {
         fc.getObjects().filter((o) => !(o as any).__grid && !(o as any).__frame).forEach((o) => fc.setActiveObject(o));
         e.preventDefault();
       }
-      const toolKeys: Record<string, Tool> = { v: "select", m: "move", l: "line", p: "polyline", r: "rect", c: "circle", e: "ellipse", a: "arc", d: "dimension", t: "text", h: "hatch" };
+      const toolKeys: Record<string, Tool> = {
+        v: "select", m: "move", l: "line", p: "polyline",
+        r: "rect", c: "circle", a: "arc", d: "dimension",
+        t: "text", h: "hatch",
+      };
       if (!e.ctrlKey && !e.metaKey && toolKeys[e.key]) setTool(toolKeys[e.key]);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saveHistory, undo, redo, copySelected, pasteSelected, setTool, fabricRef, polyPointsRef, drawingRef]);  
+  }, [saveHistory, undo, redo, copySelected, pasteSelected, setTool, fabricRef, polyPointsRef, drawingRef, groupSelected]);
 
   return {
     undo, redo,
@@ -184,5 +326,13 @@ export function useCad2DActions({
     toggleLayer,
     handleZoom, fitView,
     exportDXF, exportPNG, importSVG,
+    mirrorSelected, rotateSelected, scaleSelected,
+    offsetSelected, trimSelected, extendSelected,
+    filletSelected, arraySelected,
+    groupSelected, ungroupSelected,
+    bringForward, sendBackward,
+    alignLeft:   () => alignObjects("left"),
+    alignCenter: () => alignObjects("center"),
+    alignRight:  () => alignObjects("right"),
   };
 }

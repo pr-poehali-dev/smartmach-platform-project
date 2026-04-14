@@ -11,16 +11,20 @@ interface ToolbarProps {
 }
 export function Cad2DToolPanel({ tool, onTool }: ToolbarProps) {
   return (
-    <div className="w-12 flex flex-col items-center py-2 gap-1 bg-gray-900 border-r border-gray-700 overflow-y-auto">
+    <div className="w-11 flex flex-col items-center py-1.5 gap-0.5 bg-[#1a1c2e] border-r border-gray-700/60 overflow-y-auto">
       {TOOL_GROUPS.map((grp, gi) => (
         <div key={gi} className="w-full">
-          {gi > 0 && <div className="my-1 border-t border-gray-700 mx-2" />}
+          {gi > 0 && <div className="my-1 border-t border-gray-700/60 mx-1.5" />}
           {grp.ids.map((tid) => {
-            const t = TOOLS.find((t2) => t2.id === tid)!;
+            const t = TOOLS.find((t2) => t2.id === tid);
+            if (!t) return null;
             return (
               <button key={t.id} title={t.label} onClick={() => onTool(t.id as Tool)}
-                className={`w-10 h-10 mx-1 rounded-lg flex items-center justify-center transition-colors ${tool === t.id ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>
-                <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={16} />
+                className={`w-9 h-9 mx-1 rounded flex items-center justify-center transition-colors
+                  ${tool === t.id
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "text-gray-400 hover:bg-gray-700 hover:text-gray-200"}`}>
+                <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={15} />
               </button>
             );
           })}

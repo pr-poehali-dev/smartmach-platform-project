@@ -32,6 +32,7 @@ function NavBar({ onEnter }: { onEnter: () => void }) {
           <a href="#modules"    className="hover:text-foreground transition-colors">Модули</a>
           <a href="#niocr"      className="hover:text-foreground transition-colors">НИОКР</a>
           <a href="#about"      className="hover:text-foreground transition-colors">О компании</a>
+          <a href="#pricing"    className="hover:text-foreground transition-colors">Тарифы</a>
           <a href="#contact"    className="hover:text-foreground transition-colors">Контакты</a>
         </nav>
         <button onClick={onEnter}

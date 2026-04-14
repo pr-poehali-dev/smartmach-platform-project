@@ -14,7 +14,7 @@ export default function Landing() {
     <div className="min-h-screen bg-white text-foreground overflow-x-hidden" style={FONT}>
       <SeoHead {...PAGE_SEO.landing} />
       <LandingHero onEnter={onEnter} />
-      <LandingSections onEnter={onEnter} />
+      <LandingSections onEnter={onEnter} onContact={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })} />
       <LandingContact onEnter={onEnter} />
     </div>
   );

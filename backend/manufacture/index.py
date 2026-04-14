@@ -93,11 +93,28 @@ def handler(event: dict, context) -> dict:
             if method == "GET":
                 only_templates = qs.get("templates") == "1"
                 only_mine = qs.get("templates") == "0"
-                where = ""
+                search = (qs.get("search") or "").strip()
+                limit = min(int(qs.get("limit") or 50), 200)
+                offset = max(int(qs.get("offset") or 0), 0)
+
+                conditions = []
+                params = []
                 if only_templates:
-                    where = "WHERE p.is_template = TRUE"
+                    conditions.append("p.is_template = TRUE")
                 elif only_mine:
-                    where = "WHERE p.is_template = FALSE"
+                    conditions.append("p.is_template = FALSE")
+                if search:
+                    conditions.append(
+                        "(p.name ILIKE %s OR p.code ILIKE %s OR p.material ILIKE %s)"
+                    )
+                    like = f"%{search}%"
+                    params += [like, like, like]
+
+                where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+                cur.execute(f"SELECT COUNT(*) AS cnt FROM {S}.parts p {where}", params)
+                total = cur.fetchone()["cnt"]
+
                 cur.execute(f"""
                     SELECT p.id, p.code, p.name, p.material, p.version, p.status,
                            p.collisions, p.notes, p.category, p.is_template,
@@ -110,8 +127,9 @@ def handler(event: dict, context) -> dict:
                     LEFT JOIN {S}.products pr ON pr.id = p.product_id
                     {where}
                     ORDER BY p.category, p.name
-                """)
-                return ok(list(cur.fetchall()))
+                    LIMIT %s OFFSET %s
+                """, params + [limit, offset])
+                return ok({"items": list(cur.fetchall()), "total": total, "limit": limit, "offset": offset})
 
             if method == "POST":
                 cur.execute(f"""

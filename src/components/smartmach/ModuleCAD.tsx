@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, lazy, Suspense } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
-import { mGet, mPost, mPut, Part, User } from "@/lib/manufacture";
+import { mGetParts, mGet, mPost, mPut, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import { PartCard, DetailPanel } from "@/components/smartmach/CadPartCard";
 import CadForm from "@/components/smartmach/CadForm";
@@ -12,54 +12,74 @@ import {
 const CadEditor2D = lazy(() => import("@/components/smartmach/CadEditor2D"));
 const CadEditor3D = lazy(() => import("@/components/smartmach/CadEditor3D"));
 
+const PAGE_SIZE = 24;
+
 type MainTab = "library" | "2d" | "3d";
 type LibTab  = "templates" | "mine";
 
 export default function ModuleCAD() {
   const [mainTab, setMainTab] = useState<MainTab>("library");
-  const [templates, setTemplates] = useState<Part[]>([]);
-  const [mine, setMine] = useState<Part[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [parts, setParts]     = useState<Part[]>([]);
+  const [total, setTotal]     = useState(0);
+  const [page, setPage]       = useState(0);
+  const [users, setUsers]     = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
-  const [tab, setTab] = useState<LibTab>("templates");
+  const [tab, setTab]           = useState<LibTab>("templates");
   const [catFilter, setCatFilter] = useState<string>("Все");
-  const [search, setSearch] = useState("");
+  const [search, setSearch]     = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [selected, setSelected] = useState<Part | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(EMPTY);
+  const [saving, setSaving]     = useState(false);
+  const [form, setForm]         = useState(EMPTY);
 
-  async function load() {
+  const loadParts = useCallback(async (opts: {
+    tab: LibTab; search: string; page: number;
+  }) => {
     setLoading(true); setError(null);
     try {
-      const [t, m, u] = await Promise.all([
-        mGet<Part[]>("parts", "templates=1"),
-        mGet<Part[]>("parts", "templates=0"),
-        mGet<User[]>("users"),
-      ]);
-      setTemplates(t); setMine(m); setUsers(u);
+      const result = await mGetParts({
+        templates: opts.tab === "templates",
+        search: opts.search,
+        limit: PAGE_SIZE,
+        offset: opts.page * PAGE_SIZE,
+      });
+      setParts(result.items);
+      setTotal(result.total);
     } catch { setError("Не удалось загрузить данные"); }
     finally { setLoading(false); }
-  }
-  useEffect(() => { load(); }, []);
+  }, []);
 
-  const list = tab === "templates" ? templates : mine;
+  useEffect(() => {
+    mGet<User[]>("users").then(setUsers).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadParts({ tab, search, page });
+  }, [tab, search, page, loadParts]);
+
+  // debounce поиска
+  function handleSearchInput(val: string) {
+    setSearchInput(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setPage(0);
+      setSearch(val);
+    }, 400);
+  }
+
+  function handleTabChange(t: LibTab) {
+    setTab(t); setSelected(null); setCatFilter("Все"); setPage(0);
+  }
 
   const filtered = useMemo(() => {
-    let res = list;
-    if (catFilter !== "Все") res = res.filter((p) => p.category === catFilter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      res = res.filter((p) =>
-        p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) ||
-        (p.material ?? "").toLowerCase().includes(q)
-      );
-    }
-    return res;
-  }, [list, catFilter, search]);
+    if (catFilter === "Все") return parts;
+    return parts.filter((p) => p.category === catFilter);
+  }, [parts, catFilter]);
 
   const grouped = useMemo(() => {
     const map: Record<string, Part[]> = {};
@@ -69,6 +89,15 @@ export default function ModuleCAD() {
     }
     return map;
   }, [filtered]);
+
+  const availableCats = useMemo(() => {
+    const cats = new Set(parts.map((p) => p.category));
+    return ["Все", ...CATEGORIES.filter((c) => cats.has(c))];
+  }, [parts]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  async function reload() { await loadParts({ tab, search, page }); }
 
   async function handleUseAsBase(tmpl: Part) {
     setSaving(true);
@@ -81,7 +110,7 @@ export default function ModuleCAD() {
         notes: `На основе шаблона: ${tmpl.name} (${tmpl.code})`,
         collisions: 0, is_template: false,
       });
-      await load(); setTab("mine"); setSelected(null);
+      handleTabChange("mine");
     } catch { alert("Ошибка при создании копии"); }
     finally { setSaving(false); }
   }
@@ -89,7 +118,7 @@ export default function ModuleCAD() {
   async function handleStatus(part: Part, status: string) {
     try {
       await mPut("parts", part.id, { status });
-      await load();
+      await reload();
       setSelected((p) => p?.id === part.id ? { ...p, status } : p);
     } catch { alert("Ошибка при обновлении статуса"); }
   }
@@ -107,22 +136,14 @@ export default function ModuleCAD() {
         author_id: form.author_id ? Number(form.author_id) : null,
         status: "ok", collisions: 0, is_template: false,
       });
-      setForm(EMPTY); setShowForm(false); setTab("mine"); await load();
+      setForm(EMPTY); setShowForm(false); handleTabChange("mine");
     } catch { alert("Ошибка при создании"); }
     finally { setSaving(false); }
   }
 
   const f = (k: keyof typeof EMPTY, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  const availableCats = useMemo(() => {
-    const cats = new Set(list.map((p) => p.category));
-    return ["Все", ...CATEGORIES.filter((c) => cats.has(c))];
-  }, [list]);
-
-  // Открыть выбранную деталь в редакторе
-  const openInEditor = (tab: "2d" | "3d") => {
-    setMainTab(tab);
-  };
+  const openInEditor = (t: "2d" | "3d") => { setMainTab(t); };
 
   return (
     <div className="p-6 space-y-5">
@@ -134,7 +155,7 @@ export default function ModuleCAD() {
           <p className="text-muted-foreground text-sm mt-0.5">Библиотека деталей · 2D-чертежи · 3D-моделирование</p>
         </div>
         {mainTab === "library" && (
-          <button onClick={() => { setShowForm(true); setTab("mine"); }}
+          <button onClick={() => { setShowForm(true); handleTabChange("mine"); }}
             className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
             <Icon name="Plus" size={16} />Новая деталь
           </button>
@@ -187,37 +208,46 @@ export default function ModuleCAD() {
         />
       )}
 
-      {/* поиск + фильтр — только для библиотеки */}
-      {mainTab === "library" && <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по названию, коду, материалу…"
-            className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+      {/* поиск + фильтр */}
+      {mainTab === "library" && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input value={searchInput} onChange={(e) => handleSearchInput(e.target.value)}
+              placeholder="Поиск по названию, коду, материалу…"
+              className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {availableCats.map((c) => (
+              <button key={c} onClick={() => setCatFilter(c)}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${catFilter === c ? "bg-primary text-primary-foreground border-primary" : "bg-white border-border text-muted-foreground hover:border-primary/50"}`}>
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {availableCats.map((c) => (
-            <button key={c} onClick={() => setCatFilter(c)}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${catFilter === c ? "bg-primary text-primary-foreground border-primary" : "bg-white border-border text-muted-foreground hover:border-primary/50"}`}>
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>}
+      )}
 
       {/* внутренние вкладки библиотеки */}
       {mainTab === "library" && (
-        <div className="flex gap-1 bg-secondary/50 p-1 rounded-xl w-fit">
-          {([["templates", "Библиотека шаблонов", "Library"], ["mine", "Мои детали", "FolderOpen"]] as const).map(([id, label, icon]) => (
-            <button key={id} onClick={() => { setTab(id); setSelected(null); setCatFilter("Все"); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                ${tab === id ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-              <Icon name={icon} size={15} />{label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === id ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
-                {id === "templates" ? templates.length : mine.length}
-              </span>
-            </button>
-          ))}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1 bg-secondary/50 p-1 rounded-xl w-fit">
+            {([["templates", "Библиотека шаблонов", "Library"], ["mine", "Мои детали", "FolderOpen"]] as const).map(([id, label, icon]) => (
+              <button key={id} onClick={() => handleTabChange(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                  ${tab === id ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <Icon name={icon} size={15} />{label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === id ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                  {total}
+                </span>
+              </button>
+            ))}
+          </div>
+          {total > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {total} {total === 1 ? "деталь" : total < 5 ? "детали" : "деталей"}
+            </span>
+          )}
         </div>
       )}
 
@@ -229,7 +259,7 @@ export default function ModuleCAD() {
       ) : error ? (
         <div className="py-16 text-center text-red-500 text-sm">
           <Icon name="AlertTriangle" size={32} className="mx-auto mb-3" />{error}
-          <button onClick={load} className="mt-2 block mx-auto text-xs underline text-muted-foreground">Повторить</button>
+          <button onClick={reload} className="mt-2 block mx-auto text-xs underline text-muted-foreground">Повторить</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -258,6 +288,32 @@ export default function ModuleCAD() {
                 </div>
               </div>
             ))}
+
+            {/* пагинация */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="p-2 rounded-lg border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed">
+                  <Icon name="ChevronLeft" size={16} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i).map((i) => (
+                  <button key={i} onClick={() => setPage(i)}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium border transition-all ${
+                      i === page ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary text-muted-foreground"
+                    }`}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="p-2 rounded-lg border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed">
+                  <Icon name="ChevronRight" size={16} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* карточка */}

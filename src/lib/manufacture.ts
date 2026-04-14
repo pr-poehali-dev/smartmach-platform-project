@@ -6,6 +6,22 @@ export async function mGet<T>(resource: string, extra?: string): Promise<T> {
   return apiGet<T>("manufacture", "/", params);
 }
 
+export interface PartsPage { items: Part[]; total: number; limit: number; offset: number; }
+
+export async function mGetParts(opts: {
+  templates?: boolean;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<PartsPage> {
+  const params: Record<string, string | number> = { resource: "parts" };
+  if (opts.templates !== undefined) params.templates = opts.templates ? "1" : "0";
+  if (opts.search?.trim()) params.search = opts.search.trim();
+  if (opts.limit !== undefined) params.limit = opts.limit;
+  if (opts.offset !== undefined) params.offset = opts.offset;
+  return apiGet<PartsPage>("manufacture", "/", params);
+}
+
 export async function mPost<T>(resource: string, body: object): Promise<T> {
   return apiPost<T>("manufacture", body, { resource });
 }

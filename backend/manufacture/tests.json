@@ -15,9 +15,23 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "GET parts",
+      "name": "GET parts (paginated)",
       "method": "GET",
-      "path": "/?resource=parts",
+      "path": "/?resource=parts&limit=10&offset=0",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET parts templates",
+      "method": "GET",
+      "path": "/?resource=parts&templates=1&limit=10",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET parts search",
+      "method": "GET",
+      "path": "/?resource=parts&search=болт&limit=10",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
     },

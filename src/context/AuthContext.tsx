@@ -36,7 +36,9 @@ function clearSid() { localStorage.removeItem(SESSION_KEY); }
 
 function authFetch(path: string, opts: RequestInit = {}) {
   const sid = getSid();
-  return fetch(`${AUTH_URL}${path}`, {
+  // action передаётся через ?action=, а не через путь
+  const action = path.replace("/", "") || "me";
+  return fetch(`${AUTH_URL}?action=${action}`, {
     ...opts,
     headers: {
       "Content-Type": "application/json",

@@ -5,6 +5,12 @@
       "method": "OPTIONS",
       "path": "/",
       "expectedStatus": 200
+    },
+    {
+      "name": "GET me without session returns 401",
+      "method": "GET",
+      "path": "/?action=me",
+      "expectedStatus": 401
     }
   ]
 }

@@ -77,15 +77,18 @@ def get_or_create_company(conn, name):
 def handler(event: dict, context) -> dict:
     """Auth: регистрация, вход, выход, профиль с поддержкой мультитенантности предприятий."""
     method = event.get("httpMethod", "GET")
+    qs     = event.get("queryStringParameters") or {}
     path   = event.get("path", "/")
+    # Поддерживаем оба варианта: ?action=register и /register
+    action = qs.get("action") or path.rstrip("/").split("/")[-1] or "me"
 
     if method == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     conn = get_conn()
     try:
-        # ── POST /register ───────────────────────────────────────────
-        if method == "POST" and path.endswith("/register"):
+        # ── POST register ────────────────────────────────────────────
+        if method == "POST" and action == "register":
             body     = json.loads(event.get("body") or "{}")
             name     = (body.get("name") or "").strip()
             email    = (body.get("email") or "").strip().lower()
@@ -131,8 +134,8 @@ def handler(event: dict, context) -> dict:
             return {"statusCode": 200, "headers": CORS,
                     "body": json.dumps({"session_id": sid, "user": user})}
 
-        # ── POST /login ──────────────────────────────────────────────
-        if method == "POST" and path.endswith("/login"):
+        # ── POST login ───────────────────────────────────────────────
+        if method == "POST" and action == "login":
             body     = json.loads(event.get("body") or "{}")
             email    = (body.get("email") or "").strip().lower()
             password = body.get("password") or ""
@@ -161,8 +164,8 @@ def handler(event: dict, context) -> dict:
             return {"statusCode": 200, "headers": CORS,
                     "body": json.dumps({"session_id": sid, "user": user})}
 
-        # ── POST /logout ─────────────────────────────────────────────
-        if method == "POST" and path.endswith("/logout"):
+        # ── POST logout ──────────────────────────────────────────────
+        if method == "POST" and action == "logout":
             sid = event.get("headers", {}).get("X-Session-Id") or ""
             if sid:
                 with conn.cursor() as cur:
@@ -170,16 +173,16 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
-        # ── GET /me ──────────────────────────────────────────────────
-        if method == "GET" and path.endswith("/me"):
+        # ── GET me ───────────────────────────────────────────────────
+        if method == "GET" and action in ("me", ""):
             sid  = event.get("headers", {}).get("X-Session-Id") or ""
             user = get_user_by_session(conn, sid) if sid else None
             if not user:
                 return {"statusCode": 401, "headers": CORS, "body": json.dumps({"error": "Не авторизован."})}
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"user": user})}
 
-        # ── POST /company — создать предприятие ──────────────────────
-        if method == "POST" and path.endswith("/company"):
+        # ── POST company ─────────────────────────────────────────────
+        if method == "POST" and action == "company":
             sid  = event.get("headers", {}).get("X-Session-Id") or ""
             user = get_user_by_session(conn, sid) if sid else None
             if not user:

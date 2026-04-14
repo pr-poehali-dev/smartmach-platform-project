@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useRef } from "react";
+import type { MutableRefObject, Dispatch, SetStateAction } from "react";
 import Icon from "@/components/ui/icon";
 import { type Tool, type Layer, TOOLS, TOOL_GROUPS, LAYER_COLORS } from "@/components/smartmach/cad2d.data";
 import { type PartInfo } from "@/components/smartmach/cad.data";
@@ -34,9 +34,9 @@ export function Cad2DToolPanel({ tool, onTool }: ToolbarProps) {
 interface LayersProps {
   layers: Layer[];
   activeLayer: string;
-  activeLayerRef: React.MutableRefObject<string>;
+  activeLayerRef: MutableRefObject<string>;
   onSetActiveLayer: (id: string) => void;
-  onSetLayers: React.Dispatch<React.SetStateAction<Layer[]>>;
+  onSetLayers: Dispatch<SetStateAction<Layer[]>>;
   onToggleLayer: (id: string) => void;
 }
 export function Cad2DLayersPanel({
@@ -81,7 +81,7 @@ export function Cad2DLayersPanel({
 interface PropsPanel {
   selectedObj: any;
   layers: Layer[];
-  fabricRef: React.MutableRefObject<any>;
+  fabricRef: MutableRefObject<any>;
   onSaveHistory: (fc: any) => void;
 }
 export function Cad2DPropsPanel({ selectedObj, layers, fabricRef, onSaveHistory }: PropsPanel) {

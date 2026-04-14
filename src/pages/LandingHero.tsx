@@ -84,9 +84,9 @@ export default function LandingHero({ onEnter }: LandingHeroProps) {
               Продукт ООО «МАТ-Лабс» · Российское программное обеспечение
             </div>
             <h1 className="text-5xl sm:text-6xl font-bold text-foreground leading-tight tracking-tight mb-6" style={FONT}>
-              Сквозная интеграция<br />
-              <span className="text-primary">КД–CAE–CAM–MES</span><br />
-              на единой цифровой модели
+              Цифровая система<br />
+              <span className="text-primary">управления производством</span><br />
+              в станкостроении
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed mb-8 max-w-2xl">
               «СмартМаш» решает фундаментальную проблему станкостроения — разрыв между контурами

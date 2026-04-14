@@ -89,6 +89,40 @@ export const MATERIALS = [
   "Латунь Л63",
 ];
 
+/** Плотности материалов, кг/м³ (для автоматического расчёта массы) */
+export const MATERIAL_DENSITY: Record<string, number> = {
+  "Сталь 45":         7850,
+  "Сталь 40Х":        7850,
+  "Сталь 20":         7850,
+  "Сталь 12Х18Н10Т":  7920,
+  "Сталь 65Г":        7850,
+  "Сталь 30ХГСА":     7850,
+  "Алюминий АМГ6":    2640,
+  "Алюминий Д16Т":    2780,
+  "Алюминий АД31":    2710,
+  "Титан ВТ6":        4430,
+  "Чугун СЧ20":       7200,
+  "Чугун ВЧ50":       7100,
+  "Бронза БрАЖ9-4":   7600,
+  "Латунь Л63":       8440,
+};
+
+/**
+ * Рассчитывает массу параллелепипеда (кг) по размерам в мм и плотности кг/м³.
+ * Объём в м³ = L(мм) × W(мм) × H(мм) / 1e9
+ */
+export function calcMass(L: number, W: number, H: number, densityKgM3: number): number {
+  if (!L || !W || !H || !densityKgM3) return 0;
+  const volumeM3 = (L * W * H) / 1e9;
+  return Math.round(volumeM3 * densityKgM3 * 1000) / 1000; // округление до г
+}
+
+/** Форматирует габариты в строку по ГОСТ — «L × W × H мм» */
+export function formatDimensions(L: string, W: string, H: string): string {
+  const parts = [L, W, H].filter(Boolean).map((v) => `${parseFloat(v)}`);
+  return parts.length === 3 ? `${parts[0]} × ${parts[1]} × ${parts[2]} мм` : parts.join(" × ");
+}
+
 export const EMPTY = {
   code: "", name: "", category: "Прочее", material: "", version: "v1.0",
   dimensions: "", weight_kg: "", standard: "", notes: "", author_id: "",

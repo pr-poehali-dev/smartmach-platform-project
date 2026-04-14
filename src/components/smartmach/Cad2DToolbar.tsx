@@ -49,6 +49,9 @@ interface Props {
   onAlignCenter: () => void;
   onAlignRight: () => void;
   onOpenGost: () => void;
+  onSaveDrawing: () => void;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
 }
 
 /* ── Выпадающее меню ── */
@@ -154,7 +157,8 @@ export default function Cad2DToolbar({
   onImportSVG, onExportDXF, onExportPNG,
   onMirror, onRotate, onScale, onOffset, onTrim, onExtend, onFillet, onArray,
   onGroupSelected, onUngroupSelected, onBringForward, onSendBackward,
-  onAlignLeft, onAlignCenter, onAlignRight, onOpenGost,
+  onAlignLeft, onAlignCenter, onAlignRight, onOpenGost, onSaveDrawing,
+  theme, onToggleTheme,
 }: Props) {
 
   const drawTools: Tool[] = ["line", "polyline", "rect", "circle", "arc", "ellipse", "spline"];
@@ -296,11 +300,32 @@ export default function Cad2DToolbar({
 
       <Sep />
 
+      {/* Тема */}
+      <button onClick={onToggleTheme} title={theme === "light" ? "Тёмный фон" : "Светлый фон"}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors border
+          ${theme === "dark"
+            ? "bg-gray-900 text-gray-200 border-gray-500"
+            : "bg-white/10 text-gray-300 border-gray-600 hover:border-gray-500"}`}>
+        <Icon name={theme === "dark" ? "Moon" : "Sun"} size={13} />
+        {theme === "dark" ? "Тёмный" : "Светлый"}
+      </button>
+
+      <Sep />
+
       {/* Рамка ГОСТ */}
       <button onClick={onOpenGost}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors text-amber-300 hover:bg-amber-900/30 border border-amber-700/40 hover:border-amber-600/60">
         <Icon name="Frame" size={13} />
         Рамка ГОСТ
+      </button>
+
+      <Sep />
+
+      {/* Сохранить чертёж */}
+      <button onClick={onSaveDrawing}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors bg-green-600 hover:bg-green-500 text-white">
+        <Icon name="Save" size={13} />
+        Сохранить
       </button>
 
     </div>

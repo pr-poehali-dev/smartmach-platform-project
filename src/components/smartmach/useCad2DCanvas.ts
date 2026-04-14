@@ -27,7 +27,7 @@ export function drawGostFrame(fc: Canvas, pw: number, ph: number, opts: GostFram
   const rect = (l: number, t: number, w: number, h: number, sw = 0.5) =>
     add(new Rect({ left: l, top: t, width: w, height: h, stroke: "#000", strokeWidth: sw, fill: "transparent", selectable: false, evented: false }));
   const text = (str: string, x: number, y: number, size = 8, align: "left" | "center" | "right" = "center") =>
-    add(new IText(str || "", { left: x, top: y, fontSize: size, fontFamily: "GOST Type A, Arial, sans-serif", fill: "#000", selectable: false, evented: false, textAlign: align, originX: align === "center" ? "center" : "left" }));
+    add(new IText(str || "", { left: x, top: y, fontSize: size, fontFamily: "Courier Prime, Courier New, monospace", fill: "#000", selectable: false, evented: false, textAlign: align, originX: align === "center" ? "center" : "left" }));
 
   // Масштаб px/мм. A4 горизонт = 1122×794px ≈ 297×210мм
   // Для вертикальных форматов меняем оси
@@ -163,18 +163,28 @@ export function useCad2DCanvas() {
   const [showProps,     setShowProps]        = useState(false);
   const [selectedObj,   setSelectedObj]      = useState<any>(null);
   const [showPartPanel, setShowPartPanel]    = useState(false);
+  const [theme,         setTheme]            = useState<"light" | "dark">("light");
+
+  const themeRef = useRef<"light" | "dark">("light");
 
   const getColor = useCallback(() => {
     const l = layers.find((lay) => lay.id === activeLayerRef.current);
+    if (themeRef.current === "dark") {
+      const c = l?.color ?? "#000000";
+      return c === "#000000" ? "#ffffff" : c;
+    }
     return l?.color ?? "#000000";
   }, [layers]);
 
   const drawGrid = useCallback((fc: Canvas, w: number, h: number) => {
     if (!showGridRef.current) return;
+    const isDark = themeRef.current === "dark";
+    const major = isDark ? "#3a3a5c" : "#c8d0e0";
+    const minor = isDark ? "#252540" : "#e8edf5";
     for (let x = 0; x <= w; x += GRID) {
       const isMajor = x % GRID_MAJOR === 0;
       const l = new Line([x, 0, x, h], {
-        stroke: isMajor ? "#c8d0e0" : "#e8edf5",
+        stroke: isMajor ? major : minor,
         strokeWidth: isMajor ? 0.6 : 0.3,
         selectable: false, evented: false,
       });
@@ -184,7 +194,7 @@ export function useCad2DCanvas() {
     for (let y = 0; y <= h; y += GRID) {
       const isMajor = y % GRID_MAJOR === 0;
       const l = new Line([0, y, w, y], {
-        stroke: isMajor ? "#c8d0e0" : "#e8edf5",
+        stroke: isMajor ? major : minor,
         strokeWidth: isMajor ? 0.6 : 0.3,
         selectable: false, evented: false,
       });
@@ -249,6 +259,25 @@ export function useCad2DCanvas() {
     }
   }, [paperSize, drawGrid]);
 
+  /* ── тема (тёмный/светлый фон) ── */
+  useEffect(() => {
+    themeRef.current = theme;
+    const fc = fabricRef.current; if (!fc) return;
+    const bg  = theme === "dark" ? "#12131f" : "#ffffff";
+    const frm = theme === "dark" ? "#ffffff" : "#000000";
+    fc.backgroundColor = bg;
+    // Перерисовываем сетку
+    fc.getObjects().filter((o) => (o as any).__grid).forEach((o) => fc.remove(o));
+    if (showGridRef.current) drawGrid(fc, fc.width!, fc.height!);
+    // Перекрашиваем рамку
+    fc.getObjects().filter((o) => (o as any).__frame).forEach((o: any) => {
+      if (o.stroke !== undefined) o.set("stroke", frm);
+      if (o.fill !== undefined && o.fill !== "transparent" && o.fill !== "") o.set("fill", frm === "#ffffff" ? "#12131f" : "#000000");
+      if (o.type === "i-text" || o.type === "text") o.set("fill", frm);
+    });
+    fc.renderAll();
+  }, [theme, drawGrid]);
+
   /* ── синхронизация инструментов ── */
   useEffect(() => {
     const fc = fabricRef.current; if (!fc) return;
@@ -293,6 +322,8 @@ export function useCad2DCanvas() {
     showProps, setShowProps,
     selectedObj, setSelectedObj,
     showPartPanel, setShowPartPanel,
+    theme, setTheme,
+    themeRef,
     getColor, drawGrid, saveHistory,
   };
 }

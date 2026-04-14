@@ -3,6 +3,7 @@ import { PAPER_SIZES } from "@/components/smartmach/cad2d.data";
 import { type PartInfo } from "@/components/smartmach/cad.data";
 import Cad2DToolbar from "@/components/smartmach/Cad2DToolbar";
 import Cad2DGostDialog from "@/components/smartmach/Cad2DGostDialog";
+import Cad2DSaveDialog from "@/components/smartmach/Cad2DSaveDialog";
 import {
   Cad2DLayersPanel,
   Cad2DPropsPanel,
@@ -29,6 +30,9 @@ const TOOL_LABELS: Record<string, string> = {
 export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
   const canvas = useCad2DCanvas();
   const [showGost, setShowGost] = useState(false);
+  const [showSave, setShowSave] = useState(false);
+  const [savePreview, setSavePreview] = useState<string>("");
+  const [lastGostMeta, setLastGostMeta] = useState<Record<string, string> | null>(null);
 
   const { insertPartDrawing } = useCad2DDrawing({
     fabricRef:      canvas.fabricRef,
@@ -71,8 +75,8 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
           currentPaper={canvas.paperSize}
           onClose={() => setShowGost(false)}
           onApply={(opts) => {
+            setLastGostMeta(opts as unknown as Record<string, string>);
             canvas.setPaperSize(opts.paperSize);
-            // Небольшая задержка чтобы canvas пересчитал размеры после смены формата
             setTimeout(() => {
               const fc = canvas.fabricRef.current;
               if (!fc) return;
@@ -80,6 +84,18 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
               if (pw && ph) drawGostFrame(fc, pw, ph, opts);
             }, 150);
           }}
+        />
+      )}
+
+      {/* Диалог сохранения */}
+      {showSave && (
+        <Cad2DSaveDialog
+          canvasDataUrl={savePreview}
+          paperSize={canvas.paperSize}
+          theme={canvas.theme}
+          gostMeta={lastGostMeta}
+          onClose={() => setShowSave(false)}
+          onSaved={() => {}}
         />
       )}
 
@@ -141,6 +157,15 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
         onAlignCenter={actions.alignCenter}
         onAlignRight={actions.alignRight}
         onOpenGost={() => setShowGost(true)}
+        theme={canvas.theme}
+        onToggleTheme={() => canvas.setTheme((t) => t === "light" ? "dark" : "light")}
+        onSaveDrawing={() => {
+          const fc = canvas.fabricRef.current;
+          if (!fc) return;
+          const dataUrl = fc.toDataURL({ format: "png", multiplier: 2 });
+          setSavePreview(dataUrl);
+          setShowSave(true);
+        }}
       />
 
       <div className="flex flex-1 overflow-hidden">

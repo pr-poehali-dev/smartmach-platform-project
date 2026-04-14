@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiGet, apiPost, apiRaw } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,8 +41,6 @@ interface Machine {
   nextMaintenance: string;
   notes: string;
 }
-
-const API_URL = "https://functions.poehali.dev/ea23c122-5390-4ba0-8db8-032ba069c01b";
 
 const INITIAL_MACHINES: Machine[] = [
   {
@@ -229,8 +228,7 @@ export default function ModuleEquipment() {
   const [deleteTarget, setDeleteTarget] = useState<Machine | null>(null);
 
   useEffect(() => {
-    fetch(API_URL)
-      .then((r) => r.json())
+    apiGet<Machine[]>("equipment")
       .then((data) => { setMachines(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
@@ -269,17 +267,12 @@ export default function ModuleEquipment() {
   async function handleSave() {
     if (!formData.name.trim() || !formData.model.trim()) return;
     if (isNew) {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      const { id } = await res.json();
+      const result = await apiPost<{ id: number }>("equipment", formData);
+      const { id } = result;
       setMachines((prev) => [...prev, { id, ...formData }]);
     } else if (editMachine) {
-      await fetch(`${API_URL}/${editMachine.id}`, {
+      await apiRaw("equipment", `/${editMachine.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       setMachines((prev) => prev.map((m) => m.id === editMachine.id ? { ...m, ...formData } : m));
@@ -289,7 +282,7 @@ export default function ModuleEquipment() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
-    await fetch(`${API_URL}/${deleteTarget.id}`, { method: "DELETE" });
+    await apiRaw("equipment", `/${deleteTarget.id}`, { method: "DELETE" });
     setMachines((prev) => prev.filter((m) => m.id !== deleteTarget.id));
     setDeleteTarget(null);
     setViewMachine(null);

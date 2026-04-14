@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, FormEvent } from "react";
 import Icon from "@/components/ui/icon";
 import { useChatGPT } from "@/components/extensions/chatgpt-polza/useChatGPT";
+import { URLS } from "@/lib/api";
 
-const API_URL = "https://functions.poehali.dev/20be73af-7ca5-49c5-b5a2-7ab1a35cc5b5";
+const API_URL = URLS["chatgpt-polza-chatgpt"];
 const MODEL = "openai/gpt-4o-mini";
 
 interface Message {

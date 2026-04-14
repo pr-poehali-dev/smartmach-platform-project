@@ -1,7 +1,5 @@
 import { useCallback } from "react";
-import { getAuthHeaders } from "@/hooks/useAuth";
-
-const EVENT_LOG_URL = "https://functions.poehali.dev/318eff41-5ba7-4ff4-b7c1-0d5768543d88";
+import { apiPost, apiGet } from "@/lib/api";
 
 export interface EventLogEntry {
   id: number;
@@ -20,11 +18,7 @@ export function useEventLog() {
     details?: string,
   ) => {
     try {
-      await fetch(EVENT_LOG_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ action, entity_type, entity_id, details }),
-      });
+      await apiPost("event-log", { action, entity_type, entity_id, details });
     } catch {
       // silent
     }
@@ -32,11 +26,7 @@ export function useEventLog() {
 
   const fetchEvents = useCallback(async (limit = 50): Promise<EventLogEntry[]> => {
     try {
-      const res = await fetch(`${EVENT_LOG_URL}?limit=${limit}`, {
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
+      const data = await apiGet<{ events: EventLogEntry[] }>("event-log", "", { limit });
       return data.events ?? [];
     } catch {
       return [];

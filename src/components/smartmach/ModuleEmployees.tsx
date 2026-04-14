@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
-
-const API = "https://functions.poehali.dev/a33c6a45-ed8e-4ac0-a31c-508facb92751";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 
 interface Employee {
   id: number;
@@ -44,8 +43,7 @@ export default function ModuleEmployees() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`${API}?resource=employees`);
-      const data = await res.json();
+      const data = await apiGet<Employee[]>("economics", "", { resource: "employees" });
       setEmployees(Array.isArray(data) ? data : []);
     } catch { /* ignore */ }
     finally { setLoading(false); }
@@ -83,17 +81,9 @@ export default function ModuleEmployees() {
     setSaving(true);
     try {
       if (isNew) {
-        await fetch(`${API}?resource=employees`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
+        await apiPost("economics", form, { resource: "employees" });
       } else if (selected) {
-        await fetch(`${API}?resource=employees&id=${selected.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
+        await apiPut("economics", form, { resource: "employees", id: selected.id });
       }
       await load();
       setEditMode(false); setSelected(null);
@@ -103,7 +93,7 @@ export default function ModuleEmployees() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
-    await fetch(`${API}?resource=employees&id=${deleteTarget.id}`, { method: "DELETE" });
+    await apiDelete("economics", { resource: "employees", id: deleteTarget.id });
     await load();
     setDeleteTarget(null); setSelected(null);
   }

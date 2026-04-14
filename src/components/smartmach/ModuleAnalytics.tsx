@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, Stats, Job } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
+import { apiGet } from "@/lib/api";
 
 const AI_SYSTEM = `Ты — производственный менеджер и аналитик в системе СмартМаш. 
 Помогаешь с управлением производственными заданиями, расстановкой приоритетов, 
@@ -60,7 +61,7 @@ export default function ModuleAnalytics() {
     try {
       const [s, j, pr, pa, m, u] = await Promise.all([
         mGet<Stats>("stats"), mGet<Job[]>("jobs"),
-        fetch("https://functions.poehali.dev/cefa07dc-7ab3-4dc3-9fc9-31d458b0af27?resource=products").then((r) => r.json()),
+        apiGet<{ id: number; name: string; code: string }[]>("plm", "", { resource: "products" }),
         mGet<{ id: number; name: string; code: string }[]>("parts"),
         mGet<{ id: number; name: string }[]>("machines"),
         mGet<{ id: number; name: string }[]>("users"),

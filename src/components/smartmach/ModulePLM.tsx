@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import AiAssistant from "@/components/smartmach/AiAssistant";
-
-const API = "https://functions.poehali.dev/cefa07dc-7ab3-4dc3-9fc9-31d458b0af27";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 const AI_SYSTEM = `Ты — менеджер по управлению жизненным циклом изделий в системе СмартМаш. 
 Помогаешь с процессами согласования конструкторской документации, управлением версиями изделий, 
@@ -65,12 +64,10 @@ export default function ModulePLM() {
     setLoading(true);
     setError(null);
     try {
-      const [pRes, uRes] = await Promise.all([
-        fetch(`${API}?resource=products`),
-        fetch(`${API}?resource=users`),
+      const [pData, uData] = await Promise.all([
+        apiGet<Product[]>("plm", "", { resource: "products" }),
+        apiGet<User[]>("plm", "", { resource: "users" }),
       ]);
-      const pData = await pRes.json();
-      const uData = await uRes.json();
       setProducts(pData);
       setUsers(uData);
     } catch {
@@ -86,18 +83,13 @@ export default function ModulePLM() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`${API}?resource=products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: form.code,
-          name: form.name,
-          description: form.description || null,
-          stage: form.stage,
-          owner_id: form.owner_id ? Number(form.owner_id) : null,
-        }),
-      });
-      if (!res.ok) throw new Error();
+      await apiPost("plm", {
+        code: form.code,
+        name: form.name,
+        description: form.description || null,
+        stage: form.stage,
+        owner_id: form.owner_id ? Number(form.owner_id) : null,
+      }, { resource: "products" });
       setForm({ code: "", name: "", description: "", stage: "draft", owner_id: "" });
       setShowForm(false);
       await load();
@@ -110,11 +102,7 @@ export default function ModulePLM() {
 
   async function handleStageChange(productId: number, newStage: string) {
     try {
-      await fetch(`${API}?resource=products&id=${productId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage: newStage }),
-      });
+      await apiPut("plm", { stage: newStage }, { resource: "products", id: productId });
       await load();
       setSelected((prev) => prev ? { ...prev, stage: newStage, stage_label: stageLabel(newStage) } : null);
     } catch {

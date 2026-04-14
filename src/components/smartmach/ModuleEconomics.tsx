@@ -1,22 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-
-const API = "https://functions.poehali.dev/a33c6a45-ed8e-4ac0-a31c-508facb92751";
+import { apiGet as apiFetch, apiPost as apiPostFn } from "@/lib/api";
 
 interface Employee { id: number; full_name: string; position: string; department: string; status: string; }
 
-async function apiGet(key: string) {
-  const res = await fetch(`${API}?resource=economics_data`);
-  const data = await res.json();
-  return data[key] ?? null;
-}
-
-async function apiSave(key: string, value: unknown) {
-  await fetch(`${API}?resource=economics_data`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, value }),
-  });
+async function saveEconomicsKey(key: string, value: unknown) {
+  await apiPostFn("economics", { key, value }, { resource: "economics_data" });
 }
 
 /* ─── типы ──────────────────────────────────────────────────────── */
@@ -128,8 +117,8 @@ export default function ModuleEconomics() {
       setDbLoading(true);
       try {
         const [empRes, dataRes] = await Promise.all([
-          fetch(`${API}?resource=employees`).then((r) => r.json()),
-          fetch(`${API}?resource=economics_data`).then((r) => r.json()),
+          apiFetch("economics", "", { resource: "employees" }),
+          apiFetch("economics", "", { resource: "economics_data" }),
         ]);
         if (Array.isArray(empRes)) setEmployees(empRes.filter((e: Employee) => e.status !== "fired"));
         if (dataRes && typeof dataRes === "object") {
@@ -158,11 +147,11 @@ export default function ModuleEconomics() {
     setSaving(true);
     try {
       await Promise.all([
-        apiSave("materials", mats),
-        apiSave("workers",   wrks),
-        apiSave("overheads", ovhds),
-        apiSave("products",  prods),
-        apiSave("settings",  { workDays: wd, hoursDay: hd, vatPct: vat, profitPct: profit, responsibleId: resp }),
+        saveEconomicsKey("materials", mats),
+        saveEconomicsKey("workers",   wrks),
+        saveEconomicsKey("overheads", ovhds),
+        saveEconomicsKey("products",  prods),
+        saveEconomicsKey("settings",  { workDays: wd, hoursDay: hd, vatPct: vat, profitPct: profit, responsibleId: resp }),
       ]);
       setSaveMsg("Сохранено");
       setTimeout(() => setSaveMsg(""), 2000);

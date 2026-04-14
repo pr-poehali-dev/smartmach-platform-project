@@ -1,28 +1,17 @@
-const BASE = "https://functions.poehali.dev/57502842-91ce-445e-baba-dbedb1afa234";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
 
 export async function mGet<T>(resource: string, extra?: string): Promise<T> {
-  const res = await fetch(`${BASE}/?resource=${resource}${extra ? `&${extra}` : ""}`);
-  if (!res.ok) throw new Error(`Ошибка загрузки ${resource}`);
-  return res.json();
+  const params: Record<string, string> = { resource };
+  if (extra) extra.split("&").forEach((pair) => { const [k, v] = pair.split("="); if (k) params[k] = v ?? ""; });
+  return apiGet<T>("manufacture", "/", params);
 }
 
 export async function mPost<T>(resource: string, body: object): Promise<T> {
-  const res = await fetch(`${BASE}/?resource=${resource}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Ошибка создания ${resource}`);
-  return res.json();
+  return apiPost<T>("manufacture", body, { resource });
 }
 
 export async function mPut(resource: string, id: number, body: object): Promise<void> {
-  const res = await fetch(`${BASE}/?resource=${resource}&id=${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Ошибка обновления ${resource}`);
+  return apiPut<void>("manufacture", body, { resource, id });
 }
 
 export interface User { id: number; name: string; email: string; role: string }

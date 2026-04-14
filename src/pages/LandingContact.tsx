@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import Icon from "@/components/ui/icon";
 import { FONT } from "./landing.data";
+import { apiPost } from "@/lib/api";
 import { SectionLabel } from "./LandingHero";
 
 /* ── ContactForm ─────────────────────────────────────────────── */
@@ -15,12 +16,7 @@ function ContactForm() {
     e.preventDefault();
     setStatus("sending");
     try {
-      const res = await fetch("https://functions.poehali.dev/4ce7351a-e815-4a1d-8871-0dbc0ba4cb70", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error();
+      await apiPost("leads", form);
       setStatus("ok");
       setForm({ name: "", org: "", phone: "", question: "" });
     } catch {

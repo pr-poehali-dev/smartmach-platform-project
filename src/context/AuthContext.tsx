@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import func2url from "../../backend/func2url.json";
 
-const AUTH_URL    = "https://functions.poehali.dev/aabb2f13-13df-4e01-b27f-5f8daea40516";
+const AUTH_URL    = func2url["auth"];
 const SESSION_KEY = "sm_session_id";
 
 export interface AuthUser {

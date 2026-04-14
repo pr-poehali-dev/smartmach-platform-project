@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Sidebar from "@/components/smartmach/Sidebar";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import DashboardHome from "@/components/smartmach/DashboardHome";
 import ModuleCAD from "@/components/smartmach/ModuleCAD";
 import ModuleCAM from "@/components/smartmach/ModuleCAM";
@@ -42,7 +43,9 @@ export default function Index() {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <main className="flex-1 overflow-y-auto">
-        {renderModule()}
+        <ErrorBoundary key={activeModule} name={activeModule}>
+          {renderModule()}
+        </ErrorBoundary>
       </main>
     </div>
   );

@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const queryClient = new QueryClient();
 
@@ -37,17 +38,19 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary name="root">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

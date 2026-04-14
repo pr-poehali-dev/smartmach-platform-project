@@ -68,8 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Ошибка регистрации"); return false; }
       setSid(d.session_id); setUser(d.user); return true;
-    } catch {
-      setError("Нет соединения с сервером. Проверьте интернет и попробуйте снова."); return false;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError("Ошибка: " + msg); return false;
     }
   }, []);
 

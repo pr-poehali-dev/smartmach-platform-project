@@ -16,115 +16,250 @@ export interface GostFrameOptions {
   sheets: string;
 }
 
-/** Рисует рамку и основную надпись по ГОСТ 2.104-2006 */
+/**
+ * Рисует рамку и основную надпись по ГОСТ 2.104-2006 (форма 1).
+ * Линии рамки — по ГОСТ 2.303:
+ *   - Сплошная основная (S ≈ 0.8–1.4мм) — рамка поля чертежа, внешние контуры ОН
+ *   - Сплошная тонкая (S/3 ≈ 0.3мм) — разграфка ОН, внешняя граница листа
+ *
+ * Основная надпись — в правом нижнем углу.
+ * Для A4 верт. — вдоль короткой стороны (185×55мм).
+ * Поля: левое 20мм, остальные 5мм.
+ *
+ * Форма 1 (ГОСТ 2.104-2006), графы:
+ *   1  — наименование изделия
+ *   2  — обозначение документа
+ *   3  — обозначение материала (деталь)
+ *   4  — литера
+ *   5  — масса
+ *   6  — масштаб
+ *   7  — порядковый № листа
+ *   8  — общее кол-во листов
+ *   9  — наименование / индекс предприятия
+ *   10 — характер работы (разработал, проверил…) + подпись + дата
+ *   11 — нормоконтроль
+ *   12 — утвердил
+ */
 export function drawGostFrame(fc: Canvas, pw: number, ph: number, opts: GostFrameOptions) {
-  // Удаляем старые рамки
+  // Удаляем все старые объекты рамки
   fc.getObjects().filter((o) => (o as any).__frame).forEach((o) => fc.remove(o));
 
-  const add = (obj: any, tag = "__frame") => { (obj as any)[tag] = true; fc.add(obj); fc.sendObjectToBack(obj); return obj; };
-  const line = (x1: number, y1: number, x2: number, y2: number, w = 0.5) =>
-    add(new Line([x1, y1, x2, y2], { stroke: "#000", strokeWidth: w, selectable: false, evented: false }));
-  const rect = (l: number, t: number, w: number, h: number, sw = 0.5) =>
-    add(new Rect({ left: l, top: t, width: w, height: h, stroke: "#000", strokeWidth: sw, fill: "transparent", selectable: false, evented: false }));
-  const text = (str: string, x: number, y: number, size = 8, align: "left" | "center" | "right" = "center") =>
-    add(new IText(str || "", { left: x, top: y, fontSize: size, fontFamily: "Courier Prime, Courier New, monospace", fill: "#000", selectable: false, evented: false, textAlign: align, originX: align === "center" ? "center" : "left" }));
+  // ── Вспомогательные функции ─────────────────────────────────────
+  const FONT = "Courier Prime, Courier New, monospace";
+  const INK  = "#000000";
 
-  // Масштаб px/мм. A4 горизонт = 1122×794px ≈ 297×210мм
-  // Для вертикальных форматов меняем оси
+  const add = (obj: any) => {
+    (obj as any).__frame = true;
+    fc.add(obj);
+    fc.sendObjectToBack(obj);
+    return obj;
+  };
+
+  // Сплошная тонкая (ГОСТ 2.303, тип 01) — для разграфки, границы листа
+  const thinLine = (x1: number, y1: number, x2: number, y2: number) =>
+    add(new Line([x1, y1, x2, y2], {
+      stroke: INK, strokeWidth: 0.4,
+      selectable: false, evented: false,
+    }));
+
+  // Сплошная основная (ГОСТ 2.303, тип 01) — для рамки поля чертежа и внешних контуров ОН
+  const mainLine = (x1: number, y1: number, x2: number, y2: number) =>
+    add(new Line([x1, y1, x2, y2], {
+      stroke: INK, strokeWidth: 1.4,
+      selectable: false, evented: false,
+    }));
+
+  // Текст по ГОСТ 2.304-81 (Courier Prime как ближайший аналог)
+  const txt = (
+    str: string, cx: number, cy: number,
+    size = 7, bold = false,
+  ) => {
+    const obj = new IText(str || "", {
+      left: cx, top: cy,
+      fontSize: size,
+      fontFamily: FONT,
+      fontWeight: bold ? "bold" : "normal",
+      fill: INK,
+      selectable: false, evented: false,
+      originX: "center", originY: "center",
+    });
+    return add(obj);
+  };
+
+  // Маленький подписной текст (графы-подписи внутри ячеек)
+  const label = (str: string, lx: number, ty: number, size = 5) => {
+    const obj = new IText(str, {
+      left: lx + 1.5 * mX, top: ty + 0.8 * mY,
+      fontSize: size, fontFamily: FONT,
+      fill: INK, selectable: false, evented: false,
+      originX: "left", originY: "top",
+    });
+    return add(obj);
+  };
+
+  // ── Масштаб: px/мм ──────────────────────────────────────────────
+  // A4 горизонт = 297×210мм → 1122×794px → 1px ≈ 0.265мм
+  // Определяем по фактическому размеру канваса
   const isVert = ph > pw;
+  // Для вертикального A4: pw=794px≈210мм, ph=1122px≈297мм
   const mX = isVert ? ph / 297 : pw / 297;
   const mY = isVert ? pw / 210 : ph / 210;
 
-  const L = 20 * mX;   // левое поле
-  const T = 5  * mY;   // верхнее
-  const R = pw - 5 * mX; // правый край рамки
-  const B = ph - 5 * mY; // нижний край рамки
+  // ── Поля (ГОСТ) ──────────────────────────────────────────────────
+  // Левое — 20мм, остальные — 5мм
+  const fL = 20 * mX;   // левое поле  (левый край рамки чертежа)
+  const fT = 5  * mY;   // верхнее поле
+  const fR = pw - 5 * mX; // правый край рамки
+  const fB = ph - 5 * mY; // нижний край рамки
 
-  // Внешняя граница листа
-  rect(0, 0, pw - 1, ph - 1, 0.3);
+  // ── 1. Внешняя граница листа (тонкая линия) ──────────────────────
+  add(new Rect({
+    left: 0, top: 0, width: pw - 0.5, height: ph - 0.5,
+    stroke: INK, strokeWidth: 0.4, fill: "transparent",
+    selectable: false, evented: false,
+  }));
 
-  // Основная рамка (толстая)
-  add(new Rect({ left: L, top: T, width: R - L, height: B - T, stroke: "#000", strokeWidth: 1.5, fill: "transparent", selectable: false, evented: false }));
+  // ── 2. Рамка поля чертежа (сплошная основная) ────────────────────
+  // Левая сторона — толще (20мм от края)
+  mainLine(fL, fT, fL, fB); // левая
+  mainLine(fL, fT, fR, fT); // верхняя
+  mainLine(fR, fT, fR, fB); // правая
+  mainLine(fL, fB, fR, fB); // нижняя
 
-  // ── Основная надпись ГОСТ 2.104-2006 (форма 1) ──────────────────
-  // Высота основной надписи = 55мм, ширина = 185мм (вправо от рамки)
-  const stampH = 55 * mY;
-  const stampW = 185 * mX;
-  const stampL = R - stampW;
-  const stampT = B - stampH;
+  // ── 3. Основная надпись (форма 1, ГОСТ 2.104-2006) ──────────────
+  //
+  // Размеры по ГОСТ (в мм):
+  //   Ширина = 185мм, Высота = 55мм
+  //   Ширина зоны подписей (гр.10-13) = 7+10+23 = 40мм (левая часть)
+  //   Ширина зоны наименования/обозначения = 70мм (графы 1,2)  + 70мм (инфо) = 145мм
+  //
+  // Разграфка по горизонтали (от левого края ОН, мм):
+  //   | 7 | 10 | 23 | 15 | 10 |   70   | 14 | 10 | 16 | 10 |
+  //   col0=0  col1=7  col2=17  col3=40  col4=55  col5=65  col6=135  col7=149  col8=159  col9=175  col10=185
+  //
+  // Разграфка по вертикали (от верха ОН, мм):
+  //   row0=0 (верх ОН)
+  //   row1=8  (наименование — строка 1, h=8)
+  //   row2=16 (обозначение — строка 2, h=8)
+  //   row3=23 (разраб — h=7)
+  //   row4=30 (пров)
+  //   row5=37 (т.контр / н.контр)
+  //   row6=44 (утв)
+  //   row7=55 (низ ОН = fB)
 
-  // Фон основной надписи (белый)
-  add(new Rect({ left: stampL, top: stampT, width: stampW, height: stampH, fill: "#fff", stroke: "#000", strokeWidth: 0.5, selectable: false, evented: false }));
+  const SW = 185 * mX; // ширина штампа
+  const SH = 55  * mY; // высота штампа
+  const SL = fR - SW;  // левый край штампа
+  const ST = fB - SH;  // верхний край штампа
 
-  // Вертикальные линии основной надписи
-  const cols = [7, 17, 23, 15, 10, 14, 53, 13, 15, 12, 11].map((mm, i) => {
-    const prev = [7, 17, 23, 15, 10, 14, 53, 13, 15, 12].slice(0, i).reduce((a, b) => a + b, 0);
-    return stampL + prev * mX;
+  // Абсолютные координаты вертикальных делителей (от SL, мм)
+  const C = [0, 7, 17, 40, 55, 65, 135, 149, 159, 175, 185].map((mm) => SL + mm * mX);
+  // Абсолютные координаты горизонтальных делителей (от ST, мм)
+  const R2 = [0, 15, 30, 37, 44, 51, 55].map((mm) => ST + mm * mY);
+  // R2[0]=ST(верх), R2[1]=строка1, R2[2]=строка2, R2[3]=разраб, R2[4]=пров, R2[5]=н.контр/т.контр, R2[6]=fB(низ)
+
+  // Внешний контур ОН (сплошная основная)
+  mainLine(SL, ST, fR, ST); // верх ОН
+  mainLine(SL, ST, SL, fB); // левая сторона ОН
+  // Правая и нижняя — уже совпадают с рамкой чертежа
+
+  // Горизонтальные линии внутри ОН (тонкие)
+  R2.slice(1, -1).forEach((y) => thinLine(SL, y, fR, y));
+
+  // Вертикальные линии внутри ОН (тонкие)
+  // Полные (от верха до низа ОН):
+  [C[1], C[2], C[5], C[6], C[7], C[8], C[9]].forEach((x) => {
+    if (x > SL && x < fR) thinLine(x, ST, x, fB);
+  });
+  // C[3] и C[4] — только в нижней части (строки подписей)
+  [C[3], C[4]].forEach((x) => {
+    if (x > SL && x < fR) thinLine(x, R2[2], x, fB);
   });
 
-  // Горизонтальные строки (высоты по ГОСТ): 7, 8, 8, 8, 8, 8, 8мм
-  const rows = [7, 8, 8, 8, 8, 8].map((mm, i) => {
-    const prev = [7, 8, 8, 8, 8].slice(0, i).reduce((a, b) => a + b, 0);
-    return stampT + prev * mY;
+  // ── 4. Тексты основной надписи ───────────────────────────────────
+  const mid = (a: number, b: number) => (a + b) / 2;
+
+  // Гр. 1 — Наименование (строка 1, крупный шрифт h=5 по ГОСТ)
+  txt(opts.drawingName || "Наименование изделия",
+    mid(C[5], fR), mid(R2[0], R2[1]), 9, true);
+
+  // Гр. 2 — Обозначение документа (строка 2)
+  txt(opts.drawingNumber || "XXXX.XXXXXX.XXX",
+    mid(C[5], fR), mid(R2[1], R2[2]), 8, false);
+
+  // Гр. 5 — Масса
+  txt(opts.mass || "—",    mid(C[6], C[7]), mid(R2[1], R2[2]), 7);
+  label("Масса",           C[6], R2[0], 5);
+
+  // Гр. 6 — Масштаб
+  txt(opts.scale || "1:1", mid(C[7], C[8]), mid(R2[1], R2[2]), 7);
+  label("Масштаб",         C[7], R2[0], 5);
+
+  // Гр. 7 — Лист
+  txt(opts.sheet || "1",   mid(C[8], C[9]), mid(R2[1], R2[2]), 7);
+  label("Лист",            C[8], R2[0], 5);
+
+  // Гр. 8 — Листов
+  txt(opts.sheets || "1",  mid(C[9], fR),   mid(R2[1], R2[2]), 7);
+  label("Листов",          C[9], R2[0], 5);
+
+  // Гр. 9 — Наименование предприятия (правый нижний блок)
+  txt(opts.company || "Предприятие",
+    mid(C[5], fR), mid(R2[2], fB), 7);
+
+  // Подписи (левая колонка, гр. 11-13): Разраб / Пров / Т.контр / Н.контр / Утв
+  const rowLabels = [
+    ["Разраб.",  opts.designer || "", R2[2], R2[3]],
+    ["Пров.",    opts.checker  || "", R2[3], R2[4]],
+    ["Т.контр.", "",                  R2[4], R2[5]],
+    ["Н.контр.", "",                  R2[5], R2[6] ?? fB],
+    ["Утв.",     "",                  R2[6] ?? fB, fB],
+  ] as [string, string, number, number][];
+
+  rowLabels.forEach(([lbl, name, y0, y1]) => {
+    if (y0 >= fB) return;
+    label(lbl, SL, y0, 5);
+    txt(name, mid(C[1], C[2]), mid(y0, y1), 6);   // ФИО
+    // Подпись и дата — пустые графы (визуальные разделители уже есть)
   });
-  rows.push(stampT + 47 * mY);
-  rows.push(B);
 
-  // Рисуем горизонтальные линии основной надписи
-  rows.forEach((y) => line(stampL, y, R, y, 0.5));
+  // Подписи-заголовки колонок (маленький текст 5)
+  label("Фамилия",  C[1], R2[2], 4);
+  label("Подпись",  C[2], R2[2], 4);
+  label("Дата",     C[3], R2[2], 4);
 
-  // Вертикальные делители
-  const vCols = [stampL + 7*mX, stampL + 17*mX, stampL + 23*mX, stampL + 38*mX, stampL + 48*mX, stampL + 62*mX, stampL + 76*mX, stampL + 100*mX, stampL + 113*mX, stampL + 128*mX, stampL + 140*mX, stampL + 151*mX, stampL + 162*mX, stampL + 173*mX];
-  vCols.forEach((x) => { if (x > stampL && x < R) line(x, stampT, x, B, 0.5); });
-
-  // Левая дополнительная колонка 14мм (зоны, обозначения изменений)
-  const addColL = stampL - 14 * mX;
-  if (addColL >= L) {
-    add(new Rect({ left: addColL, top: stampT, width: 14 * mX, height: stampH, fill: "#fff", stroke: "#000", strokeWidth: 0.5, selectable: false, evented: false }));
-    line(addColL, stampT, addColL, B, 0.5);
-    text("Изм.", addColL + 7*mX, stampT + 3*mY, 6);
+  // ── 5. Таблица изменений (графы 14–19) слева от ОН ──────────────
+  // ГОСТ допускает. Рисуем если есть место (формат ≥ A3).
+  const changeW = 12 * mX; // ширина одной графы изменений ≈ 7мм
+  const changeX = SL - 55 * mX; // левый край таблицы изменений
+  if (changeX >= fL) {
+    const CHW = 55 * mX; // суммарная ширина таблицы изменений
+    // Внешний контур
+    mainLine(changeX, ST, SL, ST);
+    mainLine(changeX, ST, changeX, fB);
+    // Разграфка внутри (тонкая)
+    // Колонки: Изм | Лист докум. | Подп. | Дата | № докум. | Подп. | Дата
+    const chCols = [0, 7, 14, 21, 28, 42, 49, 55].map((mm) => changeX + mm * mX);
+    chCols.slice(1, -1).forEach((x) => thinLine(x, ST, x, fB));
+    thinLine(changeX, R2[1], SL, R2[1]); // горизонт. линия заголовка
+    // Заголовки
+    const chLabels = ["Изм.", "Лист", "№ докум.", "Подп.", "Дата"];
+    const chMids = [mid(chCols[0],chCols[1]), mid(chCols[1],chCols[2]), mid(chCols[2],chCols[4]), mid(chCols[4],chCols[5]), mid(chCols[5],chCols[7])];
+    chLabels.forEach((l, i) => txt(l, chMids[i], mid(ST, R2[1]), 5));
   }
 
-  // Тексты основной надписи
-  const cx = (a: number, b: number) => (a + b) / 2;
-  const cy = (a: number, b: number) => (a + b) / 2;
-
-  // Заголовок — наименование документа (крупный)
-  text(opts.drawingName || "Наименование", cx(stampL + 62*mX, R), cy(rows[0], rows[1]), 10, "center");
-
-  // Обозначение документа
-  text(opts.drawingNumber || "ХXXХ.ХXXХ.ХXX", cx(stampL + 62*mX, R), cy(rows[1], rows[2]), 8, "center");
-
-  // Подписи
-  const labelSize = 6;
-  text("Разраб.", stampL + 2*mX, cy(rows[2], rows[3]), labelSize, "left");
-  text("Пров.",   stampL + 2*mX, cy(rows[3], rows[4]), labelSize, "left");
-  text("Т.контр.", stampL + 2*mX, cy(rows[4], rows[5]), labelSize, "left");
-  text("Н.контр.", stampL + 2*mX, cy(rows[5], rows[6]), labelSize, "left");
-  text("Утв.",     stampL + 2*mX, cy(rows[6], rows[7]), labelSize, "left");
-
-  // ФИО
-  text(opts.designer || "", cx(stampL + 7*mX, stampL + 17*mX), cy(rows[2], rows[3]), 7, "center");
-  text(opts.checker  || "", cx(stampL + 7*mX, stampL + 17*mX), cy(rows[3], rows[4]), 7, "center");
-
-  // Предприятие
-  text(opts.company || "Предприятие", cx(stampL + 100*mX, R), cy(rows[4], rows[6]), 7, "center");
-
-  // Масса / Масштаб / Лист-Листов
-  text("Масса",   cx(stampL + 62*mX, stampL + 76*mX), stampT + 2*mY, labelSize, "center");
-  text("Масштаб", cx(stampL + 76*mX, stampL + 100*mX), stampT + 2*mY, labelSize, "center");
-  text("Лист",    cx(stampL + 100*mX, stampL + 113*mX), stampT + 2*mY, labelSize, "center");
-  text("Листов",  cx(stampL + 113*mX, stampL + 128*mX), stampT + 2*mY, labelSize, "center");
-
-  text(opts.mass  || "",   cx(stampL + 62*mX, stampL + 76*mX),  rows[1] + 2*mY, 8, "center");
-  text(opts.scale || "1:1", cx(stampL + 76*mX, stampL + 100*mX), rows[1] + 2*mY, 8, "center");
-  text(opts.sheet  || "1",  cx(stampL + 100*mX, stampL + 113*mX), rows[1] + 2*mY, 8, "center");
-  text(opts.sheets || "1",  cx(stampL + 113*mX, stampL + 128*mX), rows[1] + 2*mY, 8, "center");
-
-  // Угловой штамп (ГОСТ требует): зона справа вверху
-  const zoneW = 5 * mX;
-  line(R - zoneW, T, R - zoneW, T + 5*mY, 0.5);
-  line(R, T + 5*mY, R - zoneW, T + 5*mY, 0.5);
+  // ── 6. Угловой штамп (маркировка зон) ────────────────────────────
+  // ГОСТ допускает: маленькие делители по краям для обозначения зон
+  // Верхняя линейка зон (каждые 25мм по горизонтали)
+  for (let x = fL + 25*mX; x < fR - 25*mX; x += 25*mX) {
+    thinLine(x, fT, x, fT + 5*mY);
+    thinLine(x, fB, x, fB - 5*mY);
+  }
+  // Боковая линейка зон (каждые 25мм по вертикали)
+  for (let y = fT + 25*mY; y < fB - 25*mY; y += 25*mY) {
+    thinLine(fL, y, fL + 5*mX, y);
+    thinLine(fR, y, fR - 5*mX, y);
+  }
 
   fc.renderAll();
 }
@@ -249,12 +384,21 @@ export function useCad2DCanvas() {
       fc.setDimensions({ width: pw, height: ph });
       fc.getObjects().filter((o) => (o as any).__grid).forEach((o) => fc.remove(o));
       if (showGridRef.current) drawGrid(fc, pw, ph);
-      const existing = fc.getObjects().filter((o) => (o as any).__frame);
-      existing.forEach((o) => fc.remove(o));
-      const frame = new Rect({ left: 20, top: 5, width: pw - 25, height: ph - 10, stroke: "#000", strokeWidth: 1.5, fill: "transparent", selectable: false, evented: false });
-      (frame as any).__frame = true;
-      fc.add(frame);
-      fc.sendObjectToBack(frame);
+      fc.getObjects().filter((o) => (o as any).__frame).forEach((o) => fc.remove(o));
+      // Граница листа — тонкая линия (ГОСТ 2.303)
+      const border = new Rect({ left: 0, top: 0, width: pw - 0.5, height: ph - 0.5, stroke: "#000", strokeWidth: 0.4, fill: "transparent", selectable: false, evented: false });
+      (border as any).__frame = true; fc.add(border); fc.sendObjectToBack(border);
+      // Рамка поля чертежа — основная линия, поля 20/5/5/5 мм
+      const isV = ph > pw;
+      const mX2 = isV ? ph / 297 : pw / 297;
+      const mY2 = isV ? pw / 210 : ph / 210;
+      const fL = 20 * mX2, fT = 5 * mY2, fR = pw - 5 * mX2, fB = ph - 5 * mY2;
+      const mkLine = (x1: number, y1: number, x2: number, y2: number) => {
+        const l = new Line([x1, y1, x2, y2], { stroke: "#000", strokeWidth: 1.4, selectable: false, evented: false });
+        (l as any).__frame = true; fc.add(l); fc.sendObjectToBack(l);
+      };
+      mkLine(fL, fT, fL, fB); mkLine(fL, fT, fR, fT);
+      mkLine(fR, fT, fR, fB); mkLine(fL, fB, fR, fB);
       fc.renderAll();
     }
   }, [paperSize, drawGrid]);

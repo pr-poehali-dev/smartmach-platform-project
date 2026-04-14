@@ -7,7 +7,7 @@ import { type PartInfo } from "@/components/smartmach/cad.data";
 import {
   makeGeometry, makeMaterial, makeTextSprite,
   COLORS, CAMERA_VIEWS,
-  type ShapeType, type ViewMode, type CameraView, type MatType,
+  type ShapeType, type ViewMode, type CameraView, type MatType, type TransformMode,
   type SceneObject, type SceneLight,
 } from "@/components/smartmach/cad3d.types";
 import Cad3DLeftPanel from "@/components/smartmach/Cad3DLeftPanel";
@@ -38,11 +38,13 @@ export default function CadEditor3D({ part }: { part?: PartInfo | null }) {
   const [cameraView, setCameraView] = useState<CameraView>("perspective");
   const [lights,     setLights]     = useState<SceneLight>({ ambient: 0.5, directional: 1.2 });
   const [dims,       setDims]       = useState({ w: 1, h: 1, d: 1 });
-  const [measureMode, setMeasureMode] = useState(false);
-  const [measurePts,  setMeasurePts]  = useState<THREE.Vector3[]>([]);
-  const [measureDist, setMeasureDist] = useState<number | null>(null);
-  const axesRef   = useRef<THREE.AxesHelper | null>(null);
-  const gridRef   = useRef<THREE.GridHelper | null>(null);
+  const [measureMode,    setMeasureMode]    = useState(false);
+  const [measurePts,     setMeasurePts]     = useState<THREE.Vector3[]>([]);
+  const [measureDist,    setMeasureDist]    = useState<number | null>(null);
+  const [transformMode,  setTransformMode]  = useState<TransformMode>("translate");
+  const [snapEnabled,    setSnapEnabled]    = useState(false);
+  const axesRef = useRef<THREE.AxesHelper | null>(null);
+  const gridRef = useRef<THREE.GridHelper | null>(null);
 
   /* ── инициализация Three.js ── */
   useEffect(() => {
@@ -396,6 +398,85 @@ export default function CadEditor3D({ part }: { part?: PartInfo | null }) {
     setSelected((prev) => prev === id ? null : id);
   };
 
+  const toggleLock = useCallback((id: string) => {
+    const obj = objectsRef.current.find((o) => o.id === id); if (!obj) return;
+    obj.locked = !obj.locked;
+    setObjects([...objectsRef.current]);
+  }, []);
+
+  const renameObject = useCallback((id: string, label: string) => {
+    const obj = objectsRef.current.find((o) => o.id === id); if (!obj) return;
+    obj.label = label;
+    setObjects([...objectsRef.current]);
+  }, []);
+
+  const moveObjectUp = useCallback((id: string) => {
+    const idx = objectsRef.current.findIndex((o) => o.id === id);
+    if (idx <= 0) return;
+    const arr = [...objectsRef.current];
+    [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+    objectsRef.current = arr;
+    setObjects([...arr]);
+  }, []);
+
+  const moveObjectDown = useCallback((id: string) => {
+    const idx = objectsRef.current.findIndex((o) => o.id === id);
+    if (idx < 0 || idx >= objectsRef.current.length - 1) return;
+    const arr = [...objectsRef.current];
+    [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+    objectsRef.current = arr;
+    setObjects([...arr]);
+  }, []);
+
+  const alignGround = useCallback(() => {
+    const sel = selected ? objectsRef.current.find((o) => o.id === selected) : null;
+    const targets = sel ? [sel] : objectsRef.current;
+    targets.forEach((o) => { o.mesh.position.y = o.dims.h / 2; });
+  }, [selected]);
+
+  const centerSelected = useCallback(() => {
+    const sel = selected ? objectsRef.current.find((o) => o.id === selected) : null;
+    const targets = sel ? [sel] : objectsRef.current;
+    targets.forEach((o) => { o.mesh.position.set(0, o.mesh.position.y, 0); });
+  }, [selected]);
+
+  const mirrorX = useCallback(() => {
+    const obj = selected ? objectsRef.current.find((o) => o.id === selected) : null;
+    if (!obj) return;
+    obj.mesh.scale.x *= -1;
+  }, [selected]);
+
+  const mirrorZ = useCallback(() => {
+    const obj = selected ? objectsRef.current.find((o) => o.id === selected) : null;
+    if (!obj) return;
+    obj.mesh.scale.z *= -1;
+  }, [selected]);
+
+  const exportSTL = useCallback(() => {
+    let stl = "solid SmartMach\n";
+    objectsRef.current.forEach((o) => {
+      const geo = o.mesh.geometry.clone().applyMatrix4(o.mesh.matrixWorld);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        stl += `  facet normal 0 0 0\n    outer loop\n`;
+        for (let j = 0; j < 3; j++) {
+          stl += `      vertex ${pos.getX(i+j).toFixed(4)} ${pos.getY(i+j).toFixed(4)} ${pos.getZ(i+j).toFixed(4)}\n`;
+        }
+        stl += `    endloop\n  endfacet\n`;
+      }
+    });
+    stl += "endsolid SmartMach\n";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([stl], { type: "text/plain" }));
+    a.download = "model.stl"; a.click();
+  }, []);
+
+  const resetCamera = useCallback(() => {
+    const cam = camRef.current; const ctrl = ctrlRef.current; if (!cam || !ctrl) return;
+    cam.position.set(4, 3, 5); ctrl.target.set(0, 0, 0); ctrl.update();
+    setCameraView("perspective");
+  }, []);
+
   const selectedObj = objects.find((o) => o.id === selected);
 
   return (
@@ -440,8 +521,12 @@ export default function CadEditor3D({ part }: { part?: PartInfo | null }) {
           onAddObject={addObject}
           onSelect={handleSelect}
           onToggleVisibility={toggleVisibility}
+          onToggleLock={toggleLock}
           onRemove={removeObject}
           onClearAll={clearAll}
+          onRenameObject={renameObject}
+          onMoveUp={moveObjectUp}
+          onMoveDown={moveObjectDown}
         />
 
         {/* ── Viewport ── */}
@@ -456,14 +541,28 @@ export default function CadEditor3D({ part }: { part?: PartInfo | null }) {
             measureDist={measureDist}
             lights={lights}
             objectCount={objects.length}
+            selectedCount={selected ? 1 : 0}
+            transformMode={transformMode}
+            snapEnabled={snapEnabled}
             onViewMode={setViewMode}
             onCameraView={setCam}
             onToggleAxes={() => setShowAxes((v) => !v)}
             onToggleGrid={() => setShowGrid((v) => !v)}
             onToggleMeasure={() => { setMeasureMode((v) => !v); setMeasurePts([]); setMeasureDist(null); }}
+            onToggleSnap={() => setSnapEnabled((v) => !v)}
+            onTransformMode={setTransformMode}
             onExportOBJ={exportOBJ}
             onExportPNG={exportPNG}
+            onExportSTL={exportSTL}
             onLights={setLights}
+            onDuplicateSelected={() => { if (selected) duplicateObject(selected); }}
+            onDeleteSelected={() => { if (selected) removeObject(selected); }}
+            onGroupSelected={() => {}}
+            onAlignGround={alignGround}
+            onCenterSelected={centerSelected}
+            onMirrorX={mirrorX}
+            onMirrorZ={mirrorZ}
+            onResetCamera={resetCamera}
           />
 
           {/* Canvas + правая панель */}

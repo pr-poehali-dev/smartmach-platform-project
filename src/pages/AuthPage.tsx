@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Icon from "@/components/ui/icon";
+import SeoHead from "@/components/ui/seo-head";
+import { PAGE_SEO } from "@/lib/seo.data";
 
 type Mode = "login" | "register";
 
@@ -39,6 +41,7 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f1a] flex items-center justify-center p-4">
+      <SeoHead {...PAGE_SEO.auth} />
       <div className="w-full max-w-md">
 
         {/* Логотип */}

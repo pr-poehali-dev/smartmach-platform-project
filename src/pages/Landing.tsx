@@ -3,6 +3,8 @@ import { FONT } from "./landing.data";
 import LandingHero from "./LandingHero";
 import LandingSections from "./LandingSections";
 import LandingContact from "./LandingContact";
+import SeoHead from "@/components/ui/seo-head";
+import { PAGE_SEO } from "@/lib/seo.data";
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -10,6 +12,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-white text-foreground overflow-x-hidden" style={FONT}>
+      <SeoHead {...PAGE_SEO.landing} />
       <LandingHero onEnter={onEnter} />
       <LandingSections onEnter={onEnter} />
       <LandingContact onEnter={onEnter} />

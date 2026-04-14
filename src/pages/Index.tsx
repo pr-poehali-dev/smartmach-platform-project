@@ -11,6 +11,9 @@ import ModuleAnalytics from "@/components/smartmach/ModuleAnalytics";
 import ModuleEquipment from "@/components/smartmach/ModuleEquipment";
 import ModuleEconomics from "@/components/smartmach/ModuleEconomics";
 import ModuleEmployees from "@/components/smartmach/ModuleEmployees";
+import SeoHead from "@/components/ui/seo-head";
+import Breadcrumbs from "@/components/ui/breadcrumbs";
+import { MODULE_SEO, MODULE_BREADCRUMB } from "@/lib/seo.data";
 
 export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics" | "employees";
 
@@ -34,8 +37,19 @@ export default function Index() {
     }
   };
 
+  const seo = MODULE_SEO[activeModule];
+  const crumbLabels = MODULE_BREADCRUMB[activeModule];
+
+  const breadcrumbs = [
+    { label: "СмартМаш", onClick: () => setActiveModule("home") },
+    ...(activeModule === "home"
+      ? []
+      : crumbLabels.map((label) => ({ label }))),
+  ];
+
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
+      <SeoHead {...seo} />
       <Sidebar
         active={activeModule}
         collapsed={sidebarCollapsed}
@@ -43,6 +57,12 @@ export default function Index() {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <main className="flex-1 overflow-y-auto">
+        {/* Хлебные крошки */}
+        {!sidebarCollapsed && breadcrumbs.length > 1 && (
+          <div className="px-6 pt-4 pb-0">
+            <Breadcrumbs items={breadcrumbs} />
+          </div>
+        )}
         <ErrorBoundary key={activeModule} name={activeModule}>
           {renderModule()}
         </ErrorBoundary>

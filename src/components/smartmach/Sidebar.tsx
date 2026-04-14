@@ -131,6 +131,16 @@ export default function Sidebar({ active, collapsed, onNavigate, onToggle }: Pro
             {!collapsed && <span>Войти</span>}
           </button>
         )}
+        {user && (
+          <button
+            onClick={() => navigate("/company")}
+            className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 rounded-lg hover:bg-secondary/60"
+            title={collapsed ? "Предприятие" : undefined}
+          >
+            <Icon name="Building2" size={14} />
+            {!collapsed && <span>Предприятие</span>}
+          </button>
+        )}
         {user && !collapsed && (
           <button
             onClick={async () => { await logout(); navigate("/auth"); }}

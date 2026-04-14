@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
+import CompanyPage from "./pages/CompanyPage";
+import InvitePage from "./pages/InvitePage";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
@@ -32,6 +34,10 @@ function AppRoutes() {
       <Route path="/profile" element={
         <ProtectedRoute><ProfilePage /></ProtectedRoute>
       } />
+      <Route path="/company" element={
+        <ProtectedRoute><CompanyPage /></ProtectedRoute>
+      } />
+      <Route path="/invite/:token" element={<InvitePage />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -36,6 +36,6 @@ export const CYCLE_STEPS = [
 ];
 
 export const EMPTY_JOB = {
-  product_id: "", part_id: "", machine_id: "", status: "new",
+  product_id: "", part_id: "", program_id: "", machine_id: "", status: "new",
   priority: "normal", qty: "1", due_date: "", notes: "",
 };

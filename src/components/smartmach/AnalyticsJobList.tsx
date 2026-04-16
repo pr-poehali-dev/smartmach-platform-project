@@ -8,9 +8,14 @@ interface Props {
   error: string | null;
   onRetry: () => void;
   onAdvance: (job: Job) => void;
+  onNavigateToPart?:    () => void;
+  onNavigateToProgram?: (programId: number) => void;
 }
 
-export default function AnalyticsJobList({ jobs, loading, error, onRetry, onAdvance }: Props) {
+export default function AnalyticsJobList({
+  jobs, loading, error, onRetry, onAdvance,
+  onNavigateToPart, onNavigateToProgram,
+}: Props) {
   const ORDER = ["new", "cad", "cae", "cam", "cnc", "done"];
 
   return (
@@ -38,34 +43,72 @@ export default function AnalyticsJobList({ jobs, loading, error, onRetry, onAdva
             const scfg = JOB_STATUS[j.status] ?? JOB_STATUS.new;
             const pcfg = PRIO[j.priority] ?? PRIO.normal;
             const canAdvance = ORDER.indexOf(j.status) < ORDER.length - 1;
+
             return (
-              <div key={j.id} className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/20 transition-colors">
-                <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Icon name="ClipboardList" size={16} className="text-orange-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {j.product_name ?? j.part_name ?? `Задание #${j.id}`}
+              <div key={j.id} className="px-4 py-3 hover:bg-secondary/20 transition-colors">
+                {/* Верхняя строка */}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Icon name="ClipboardList" size={16} className="text-orange-600" />
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {[j.part_name, j.machine_name, j.assignee_name,
-                      j.qty > 1 ? `${j.qty} шт.` : null,
-                      j.due_date ? `до ${j.due_date.slice(0, 10)}` : null,
-                    ].filter(Boolean).join(" · ")}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {j.product_name ?? j.part_name ?? `Задание #${j.id}`}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {[
+                        j.machine_name,
+                        j.assignee_name,
+                        j.qty > 1 ? `${j.qty} шт.` : null,
+                        j.due_date ? `до ${j.due_date.slice(0, 10)}` : null,
+                      ].filter(Boolean).join(" · ")}
+                    </div>
                   </div>
+                  <span className={`text-xs font-medium border px-2 py-0.5 rounded-full flex-shrink-0 ${pcfg.color}`}>
+                    {pcfg.label}
+                  </span>
+                  {canAdvance && (
+                    <button onClick={() => onAdvance(j)}
+                      className="text-xs bg-primary text-primary-foreground px-2.5 py-1 rounded-lg hover:opacity-90 flex-shrink-0 flex items-center gap-1">
+                      <Icon name="ChevronRight" size={12} />Далее
+                    </button>
+                  )}
+                  <span className={`text-xs font-medium border px-2 py-0.5 rounded-full flex-shrink-0 ${scfg.color}`}>
+                    {scfg.label}
+                  </span>
                 </div>
-                <span className={`text-xs font-medium border px-2 py-0.5 rounded-full flex-shrink-0 ${pcfg.color}`}>
-                  {pcfg.label}
-                </span>
-                {canAdvance && (
-                  <button onClick={() => onAdvance(j)}
-                    className="text-xs bg-primary text-primary-foreground px-2.5 py-1 rounded-lg hover:opacity-90 flex-shrink-0 flex items-center gap-1">
-                    <Icon name="ChevronRight" size={12} />Далее
-                  </button>
+
+                {/* Нижняя строка — ссылки на деталь и программу */}
+                {(j.part_name || j.program_name) && (
+                  <div className="flex items-center gap-2 mt-1.5 pl-11 flex-wrap">
+                    {j.part_name && onNavigateToPart && (
+                      <button
+                        onClick={onNavigateToPart}
+                        className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                      >
+                        <Icon name="Box" size={11} />
+                        {j.part_name}
+                      </button>
+                    )}
+                    {j.part_name && !onNavigateToPart && (
+                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Icon name="Box" size={11} />{j.part_name}
+                      </span>
+                    )}
+                    {j.program_name && onNavigateToProgram && j.program_id && (
+                      <>
+                        <span className="text-[11px] text-muted-foreground">·</span>
+                        <button
+                          onClick={() => onNavigateToProgram(j.program_id!)}
+                          className="flex items-center gap-1 text-[11px] text-purple-600 hover:text-purple-800 hover:underline transition-colors"
+                        >
+                          <Icon name="FileCode" size={11} />
+                          {j.program_name}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
-                <span className={`text-xs font-medium border px-2 py-0.5 rounded-full flex-shrink-0 ${scfg.color}`}>
-                  {scfg.label}
-                </span>
               </div>
             );
           })}

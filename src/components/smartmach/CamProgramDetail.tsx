@@ -6,9 +6,10 @@ interface Props {
   program: Program;
   onClose: () => void;
   onAdvance: (p: Program) => void;
+  onNavigateToJob?: (opts: { partId?: number; programId?: number }) => void;
 }
 
-export default function CamProgramDetail({ program, onClose, onAdvance }: Props) {
+export default function CamProgramDetail({ program, onClose, onAdvance, onNavigateToJob }: Props) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4"
       onClick={onClose}>
@@ -59,16 +60,30 @@ export default function CamProgramDetail({ program, onClose, onAdvance }: Props)
             </div>
           )}
 
-          {/* Advance button */}
-          {NEXT_LABEL[program.status] && (
-            <div className="flex justify-end">
+          {/* Кнопки действий */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            {onNavigateToJob && (
+              <button
+                onClick={() => {
+                  onNavigateToJob({
+                    programId: program.id,
+                    partId: program.part_id ?? undefined,
+                  });
+                  onClose();
+                }}
+                className="flex items-center gap-2 border border-orange-300 text-orange-700 bg-orange-50 px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-100 transition-colors">
+                <Icon name="ClipboardList" size={15} />
+                Создать задание
+              </button>
+            )}
+            {NEXT_LABEL[program.status] && (
               <button onClick={() => { onAdvance(program); onClose(); }}
-                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 ml-auto">
                 <Icon name="ArrowRight" size={15} />
                 {NEXT_LABEL[program.status]}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

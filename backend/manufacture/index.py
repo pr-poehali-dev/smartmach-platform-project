@@ -215,6 +215,7 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"""
                     SELECT pg.id, pg.name, pg.code, pg.status, pg.est_time,
                            pg.started_at, pg.finished_at, pg.created_at,
+                           pg.part_id,
                            p.name AS part_name, p.code AS part_code,
                            m.name AS machine_name,
                            u.name AS author_name
@@ -303,13 +304,16 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"""
                     SELECT j.id, j.status, j.priority, j.qty, j.due_date, j.notes,
                            j.created_at, j.updated_at,
+                           j.part_id, j.program_id,
                            pr.name AS product_name, pr.code AS product_code,
                            p.name AS part_name, p.code AS part_code,
+                           pg.name AS program_name,
                            m.name AS machine_name,
                            u.name AS assignee_name
                     FROM {S}.jobs j
                     LEFT JOIN {S}.products pr ON pr.id = j.product_id
                     LEFT JOIN {S}.parts p ON p.id = j.part_id
+                    LEFT JOIN {S}.cnc_programs pg ON pg.id = j.program_id
                     LEFT JOIN {S}.machines m ON m.id = j.machine_id
                     LEFT JOIN {S}.users u ON u.id = j.assignee_id
                     WHERE j.company_id = %s
@@ -321,10 +325,11 @@ def handler(event: dict, context) -> dict:
 
             if method == "POST":
                 cur.execute(f"""
-                    INSERT INTO {S}.jobs (product_id, part_id, machine_id, status, priority, qty, assignee_id, due_date, notes, company_id)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
+                    INSERT INTO {S}.jobs (product_id, part_id, program_id, machine_id, status, priority, qty, assignee_id, due_date, notes, company_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """, (
-                    body.get("product_id"), body.get("part_id"), body.get("machine_id"),
+                    body.get("product_id"), body.get("part_id"), body.get("program_id"),
+                    body.get("machine_id"),
                     body.get("status", "new"), body.get("priority", "normal"),
                     body.get("qty", 1), body.get("assignee_id"),
                     body.get("due_date") or None, body.get("notes"), company_id,

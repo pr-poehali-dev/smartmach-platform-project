@@ -8,7 +8,14 @@ import AnalyticsCycleBar from "@/components/smartmach/AnalyticsCycleBar";
 import AnalyticsJobForm   from "@/components/smartmach/AnalyticsJobForm";
 import AnalyticsJobList   from "@/components/smartmach/AnalyticsJobList";
 
-export default function ModuleAnalytics() {
+interface Props {
+  preselectPartId?:    number;
+  preselectProgramId?: number;
+  onNavigateToPart?:    () => void;
+  onNavigateToProgram?: (programId: number) => void;
+}
+
+export default function ModuleAnalytics({ preselectPartId, preselectProgramId, onNavigateToPart, onNavigateToProgram }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +43,18 @@ export default function ModuleAnalytics() {
 
   useEffect(() => { load(); }, []);
 
+  // Автооткрытие формы при переходе из CAM
+  useEffect(() => {
+    if (preselectPartId !== undefined || preselectProgramId !== undefined) {
+      setForm((prev) => ({
+        ...prev,
+        part_id:    preselectPartId    !== undefined ? String(preselectPartId)    : prev.part_id,
+        program_id: preselectProgramId !== undefined ? String(preselectProgramId) : prev.program_id,
+      }));
+      setShowForm(true);
+    }
+  }, [preselectPartId, preselectProgramId]);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
     try {
@@ -43,6 +62,7 @@ export default function ModuleAnalytics() {
       await mPost("jobs", {
         product_id: form.product_id ? Number(form.product_id) : null,
         part_id:    form.part_id    ? Number(form.part_id)    : null,
+        program_id: form.program_id ? Number(form.program_id) : null,
         machine_id: form.machine_id ? Number(form.machine_id) : null,
         status: form.status, priority: form.priority,
         qty: Number(form.qty),
@@ -101,6 +121,8 @@ export default function ModuleAnalytics() {
         error={error}
         onRetry={load}
         onAdvance={advanceJob}
+        onNavigateToPart={onNavigateToPart}
+        onNavigateToProgram={onNavigateToProgram}
       />
 
       <AiAssistant

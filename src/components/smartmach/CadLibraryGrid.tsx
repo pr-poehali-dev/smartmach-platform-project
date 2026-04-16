@@ -21,6 +21,7 @@ interface Props {
   onOpenEditor: (t: "2d" | "3d") => void;
   onUseAsBase: (p: Part) => void;
   onStatusChange: (p: Part, status: string) => void;
+  onNavigateToCam?: (partId: number) => void;
 }
 
 export default function CadLibraryGrid({
@@ -28,7 +29,7 @@ export default function CadLibraryGrid({
   page, totalPages, saving,
   selectedPartInfo,
   onSelect, onRetry, onPageChange, onOpenEditor,
-  onUseAsBase, onStatusChange,
+  onUseAsBase, onStatusChange, onNavigateToCam,
 }: Props) {
   if (loading) return (
     <div className="py-16 text-center text-muted-foreground text-sm">
@@ -114,6 +115,12 @@ export default function CadLibraryGrid({
                     className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-medium">
                     <Icon name="Box" size={12} />3D
                   </button>
+                  {onNavigateToCam && !selected.is_template && (
+                    <button onClick={() => onNavigateToCam(selected.id)} title="Создать ЧПУ-программу для этой детали"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 font-medium">
+                      <Icon name="FileCode" size={12} />ЧПУ
+                    </button>
+                  )}
                 </div>
               )}
             </div>

@@ -8,7 +8,13 @@ import CamPrograms from "@/components/smartmach/CamPrograms";
 import CamWizard from "@/components/smartmach/CamWizard";
 import { EMPTY_FORM, NEXT, AI_SYSTEM, AI_SUGGESTIONS } from "@/components/smartmach/cam.data";
 
-export default function ModuleCAM() {
+interface Props {
+  preselectPartId?: number;
+  onNavigateToJob?: (opts: { partId?: number; programId?: number }) => void;
+  onNavigateToPart?: () => void;
+}
+
+export default function ModuleCAM({ preselectPartId, onNavigateToJob, onNavigateToPart }: Props) {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -39,7 +45,15 @@ export default function ModuleCAM() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { load(); }, []);  
+  useEffect(() => { load(); }, []);
+
+  // Автооткрытие формы с предвыбранной деталью при переходе из CAD
+  useEffect(() => {
+    if (preselectPartId !== undefined) {
+      setForm((prev) => ({ ...prev, part_id: String(preselectPartId) }));
+      setShowForm(true);
+    }
+  }, [preselectPartId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
@@ -99,6 +113,7 @@ export default function ModuleCAM() {
         onSubmit={handleCreate}
         onAdvance={advance}
         onRetry={load}
+        onNavigateToJob={onNavigateToJob}
       />
 
       <AiAssistant

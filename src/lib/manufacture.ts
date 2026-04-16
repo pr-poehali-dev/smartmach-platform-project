@@ -51,6 +51,7 @@ export interface Machine {
 export interface Program {
   id: number; name: string; code: string | null; status: string; est_time: string | null;
   started_at: string | null; finished_at: string | null; created_at: string;
+  part_id: number | null;
   part_name: string | null; part_code: string | null;
   machine_name: string | null; author_name: string | null;
 }
@@ -62,8 +63,10 @@ export interface Simulation {
 export interface Job {
   id: number; status: string; priority: string; qty: number;
   due_date: string | null; notes: string | null; created_at: string; updated_at: string;
+  part_id: number | null; program_id: number | null;
   product_name: string | null; product_code: string | null;
   part_name: string | null; part_code: string | null;
+  program_name: string | null;
   machine_name: string | null; assignee_name: string | null;
 }
 export interface Stats {

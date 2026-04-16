@@ -21,12 +21,13 @@ interface Props {
   onSubmit: (e: React.FormEvent) => void;
   onAdvance: (p: Program) => void;
   onRetry: () => void;
+  onNavigateToJob?: (opts: { partId?: number; programId?: number }) => void;
 }
 
 export default function CamPrograms({
   programs, parts, machines, users,
   loading, error, showForm, saving, form,
-  onSetShowForm, onSetForm, onSubmit, onAdvance, onRetry,
+  onSetShowForm, onSetForm, onSubmit, onAdvance, onRetry, onNavigateToJob,
 }: Props) {
   const [filterStatus, setFilterStatus]     = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -83,6 +84,7 @@ export default function CamPrograms({
           program={selected}
           onClose={() => setSelected(null)}
           onAdvance={onAdvance}
+          onNavigateToJob={onNavigateToJob}
         />
       )}
     </>

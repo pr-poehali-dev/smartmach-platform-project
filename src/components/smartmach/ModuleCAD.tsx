@@ -16,7 +16,11 @@ const PAGE_SIZE = 24;
 type MainTab = "library" | "2d" | "3d";
 type LibTab  = "templates" | "mine";
 
-export default function ModuleCAD() {
+interface Props {
+  onNavigateToCam?: (partId: number) => void;
+}
+
+export default function ModuleCAD({ onNavigateToCam }: Props) {
   const [mainTab, setMainTab] = useState<MainTab>("library");
   const [parts, setParts]     = useState<Part[]>([]);
   const [total, setTotal]     = useState(0);
@@ -205,6 +209,7 @@ export default function ModuleCAD() {
             onOpenEditor={(t) => setMainTab(t)}
             onUseAsBase={handleUseAsBase}
             onStatusChange={handleStatus}
+            onNavigateToCam={onNavigateToCam}
           />
         </>
       )}

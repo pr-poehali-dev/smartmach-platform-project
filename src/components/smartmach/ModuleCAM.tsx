@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { mGet, mGetPartsList, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
+import { apiGet } from "@/lib/api";
+import { type Machine as EquipmentMachine, INITIAL_MACHINES } from "@/components/smartmach/equipment.types";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import CamPrograms from "@/components/smartmach/CamPrograms";
 import CamWizard from "@/components/smartmach/CamWizard";
@@ -11,6 +13,7 @@ export default function ModuleCAM() {
   const [parts, setParts] = useState<Part[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [equipmentMachines, setEquipmentMachines] = useState<EquipmentMachine[]>(INITIAL_MACHINES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -30,7 +33,13 @@ export default function ModuleCAM() {
     finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    apiGet<EquipmentMachine[]>("equipment")
+      .then((data) => setEquipmentMachines(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { load(); }, []);  
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
@@ -100,7 +109,7 @@ export default function ModuleCAM() {
 
       {showWizard && (
         <CamWizard
-          machines={machines}
+          machines={equipmentMachines}
           onClose={() => setShowWizard(false)}
           onApply={(params) => {
             setForm((prev) => ({

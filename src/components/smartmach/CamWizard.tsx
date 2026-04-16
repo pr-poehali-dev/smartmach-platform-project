@@ -4,14 +4,14 @@ import {
   WIZARD_TOOLS, OPERATION_LABELS, calcCuttingParams,
   type OperationType, type ToolType, type CuttingResult,
 } from "@/components/smartmach/cam.wizard.data";
-import { type Machine } from "@/lib/manufacture";
+import { type Machine as EquipmentMachine } from "@/components/smartmach/equipment.types";
 import CamWizardStepMaterial from "@/components/smartmach/CamWizardStepMaterial";
 import CamWizardStepTool     from "@/components/smartmach/CamWizardStepTool";
 import CamWizardStepMachine  from "@/components/smartmach/CamWizardStepMachine";
 import CamWizardStepResult   from "@/components/smartmach/CamWizardStepResult";
 
 interface Props {
-  machines: Machine[];
+  machines: EquipmentMachine[];
   onClose: () => void;
   onApply?: (params: {
     material: string;
@@ -57,20 +57,19 @@ export default function CamWizard({ machines, onClose, onApply }: Props) {
 
   // Step 3 – Machine
   const [machineId, setMachineId] = useState<string>("");
-  const [manualPower, setManualPower] = useState("");
-  const [manualSpindle, setManualSpindle] = useState("");
 
   // Step 4 – Result
   const [result, setResult] = useState<CuttingResult | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const selectedTool = WIZARD_TOOLS[toolIdx];
+  const selectedTool    = WIZARD_TOOLS[toolIdx];
   const selectedMachine = machines.find((m) => String(m.id) === machineId) ?? null;
 
   const availableOps = useMemo(() => selectedTool?.operations ?? [], [toolIdx]);
 
-  const machinePowerKw   = parsePowerKw(manualPower) ?? null;
-  const machineSpindleMax = parseSpindleSpeed(manualSpindle) ?? null;
+  // Параметры станка берутся автоматически из карточки оборудования
+  const machinePowerKw    = selectedMachine ? parsePowerKw(selectedMachine.power)             : null;
+  const machineSpindleMax = selectedMachine ? parseSpindleSpeed(selectedMachine.spindleSpeed) : null;
 
   function handleNextFromTool() {
     if (!diameter) return;
@@ -104,7 +103,7 @@ export default function CamWizard({ machines, onClose, onApply }: Props) {
     if (!result) return "";
     const n  = effectiveN;
     const vf = effectiveVf;
-    const machineLine = selectedMachine ? `; Станок: ${selectedMachine.name}` : "";
+    const machineLine = selectedMachine ? `; Станок: ${selectedMachine.name} (${selectedMachine.model})` : "";
     return [
       `; === Режимы резания (${OPERATION_LABELS[operation]}) ===`,
       `; Материал: ${material} | Инструмент: Ø${diameter} мм (${flutes} зуб.)`,
@@ -217,8 +216,8 @@ export default function CamWizard({ machines, onClose, onApply }: Props) {
           {step === 3 && (
             <CamWizardStepMachine
               machines={machines}
-              machineId={machineId} manualPower={manualPower} manualSpindle={manualSpindle}
-              onMachineId={setMachineId} onManualPower={setManualPower} onManualSpindle={setManualSpindle}
+              machineId={machineId}
+              onMachineId={setMachineId}
             />
           )}
           {step === 4 && result && (

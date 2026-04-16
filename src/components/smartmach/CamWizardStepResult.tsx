@@ -1,6 +1,6 @@
 import Icon from "@/components/ui/icon";
 import { type CuttingResult } from "@/components/smartmach/cam.wizard.data";
-import { type Machine } from "@/lib/manufacture";
+import { type Machine as EquipmentMachine } from "@/components/smartmach/equipment.types";
 
 interface Props {
   result: CuttingResult;
@@ -8,7 +8,7 @@ interface Props {
   effectiveVf: number;
   machinePowerKw: number | null;
   machineSpindleMax: number | null;
-  selectedMachine: Machine | null;
+  selectedMachine: EquipmentMachine | null;
   spindleWarning: { type: "error"; n: number; vf: number } | null;
   powerWarning: { type: "error" | "warn" } | null;
   gcode: string;

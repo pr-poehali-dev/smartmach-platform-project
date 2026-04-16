@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import { mGet, mGetPartsList, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import CamPrograms from "@/components/smartmach/CamPrograms";
+import CamWizard from "@/components/smartmach/CamWizard";
 import { EMPTY_FORM, NEXT, AI_SYSTEM, AI_SUGGESTIONS } from "@/components/smartmach/cam.data";
 
 export default function ModuleCAM() {
@@ -13,6 +14,7 @@ export default function ModuleCAM() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -61,10 +63,16 @@ export default function ModuleCAM() {
           <h1 className="text-2xl font-bold text-foreground">Программы ЧПУ</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Управляющие программы, режимы резания и очередь обработки</p>
         </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-          <Icon name="Plus" size={16} />Новая программа
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowWizard(true)}
+            className="flex items-center gap-2 border border-primary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
+            <Icon name="Zap" size={16} />Мастер режимов
+          </button>
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+            <Icon name="Plus" size={16} />Новая программа
+          </button>
+        </div>
       </div>
 
       <CamPrograms
@@ -89,6 +97,25 @@ export default function ModuleCAM() {
         systemPrompt={AI_SYSTEM}
         suggestions={AI_SUGGESTIONS}
       />
+
+      {showWizard && (
+        <CamWizard
+          onClose={() => setShowWizard(false)}
+          onApply={(params) => {
+            setForm((prev) => ({
+              ...prev,
+              material:      params.material,
+              tool_name:     params.tool_name,
+              tool_diameter: params.tool_diameter,
+              spindle_speed: params.spindle_speed,
+              feed_rate:     params.feed_rate,
+              depth_of_cut:  params.depth_of_cut,
+              code:          params.code,
+            }));
+            setShowForm(true);
+          }}
+        />
+      )}
     </div>
   );
 }

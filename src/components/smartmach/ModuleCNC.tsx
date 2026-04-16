@@ -71,15 +71,15 @@ export default function ModuleCNC() {
   const f = (k: keyof typeof EMPTY, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Оборудование — Мониторинг станков</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Состояние и управление оборудованием</p>
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Мониторинг станков</h1>
+          <p className="text-muted-foreground text-sm mt-0.5 hidden sm:block">Состояние и управление оборудованием</p>
         </div>
         <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-          <Icon name="Plus" size={16} />Добавить станок
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 shrink-0">
+          <Icon name="Plus" size={16} /><span className="hidden sm:inline">Добавить</span><span className="sm:hidden">Станок</span>
         </button>
       </div>
 
@@ -142,7 +142,7 @@ export default function ModuleCNC() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-border shadow-sm overflow-hidden min-w-0">
           <div className="px-4 py-3 border-b border-border bg-secondary/40">
             <span className="text-sm font-semibold">Оборудование</span>
           </div>
@@ -175,7 +175,7 @@ export default function ModuleCNC() {
                       <div className="text-xs text-muted-foreground">{m.type}{m.program ? ` · ${m.program}` : ""}{m.operator_name ? ` · ${m.operator_name}` : ""}</div>
                     </div>
                     {m.load_pct > 0 && (
-                      <div className="w-16 hidden sm:block flex-shrink-0">
+                      <div className="w-14 flex-shrink-0">
                         <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                           <div className="h-full bg-blue-500 rounded-full" style={{ width: `${m.load_pct}%` }} />
                         </div>

@@ -124,11 +124,11 @@ export default function DashboardHome({ onNavigate }: Props) {
   const maintenanceCount = equipment?.filter((e) => e.status === "maintenance").length ?? 0;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
 
       {/* Заголовок */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">СмартМаш</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">СмартМаш</h1>
         <p className="text-muted-foreground text-sm mt-0.5">Единая система управления производственным циклом</p>
       </div>
 

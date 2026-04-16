@@ -45,10 +45,10 @@ export default function CadLibraryGrid({
   );
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-5">
 
       {/* Список */}
-      <div className="xl:col-span-2 space-y-5">
+      <div className="xl:col-span-2 space-y-4 md:space-y-5">
         {Object.keys(grouped).length === 0 ? (
           <div className="py-16 text-center text-muted-foreground text-sm bg-white rounded-xl border border-border">
             <Icon name="PackageOpen" size={36} className="mx-auto mb-2 opacity-20" />
@@ -97,8 +97,38 @@ export default function CadLibraryGrid({
         )}
       </div>
 
-      {/* Карточка детали (sticky) */}
-      <div className="xl:col-span-1">
+      {/* Карточка детали — на мобиле появляется снизу при выборе, на xl — sticky сбоку */}
+      {selected && (
+        <div className="xl:hidden bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-secondary/40">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground truncate mr-2">{selected.name}</span>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => onOpenEditor("2d")} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-medium">
+                  <Icon name="PenLine" size={12} />2D
+                </button>
+                <button onClick={() => onOpenEditor("3d")} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-medium">
+                  <Icon name="Box" size={12} />3D
+                </button>
+                {onNavigateToCam && !selected.is_template && (
+                  <button onClick={() => onNavigateToCam(selected.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 font-medium">
+                    <Icon name="FileCode" size={12} />ЧПУ
+                  </button>
+                )}
+                <button onClick={() => onSelect(null)} className="p-1 rounded-lg hover:bg-secondary/60 ml-1">
+                  <Icon name="X" size={14} className="text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="p-4">
+            <DetailPanel part={selected} onUseAsBase={onUseAsBase} onStatusChange={onStatusChange} />
+          </div>
+        </div>
+      )}
+
+      {/* Карточка детали — только xl, sticky справа */}
+      <div className="hidden xl:block xl:col-span-1">
         <div className="sticky top-4 bg-white rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-secondary/40">
             <div className="flex items-center justify-between">

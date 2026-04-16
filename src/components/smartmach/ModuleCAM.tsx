@@ -80,20 +80,24 @@ export default function ModuleCAM({ preselectPartId, onNavigateToJob, onNavigate
   }
 
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Программы ЧПУ</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Управляющие программы, режимы резания и очередь обработки</p>
+    <div className="p-4 md:p-6 space-y-4 md:space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Программы ЧПУ</h1>
+          <p className="text-muted-foreground text-sm mt-0.5 hidden sm:block">Управляющие программы, режимы резания и очередь обработки</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 border border-primary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
+            className="hidden sm:flex items-center gap-2 border border-primary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
             <Icon name="Zap" size={16} />Мастер режимов
           </button>
+          <button onClick={() => setShowWizard(true)}
+            className="sm:hidden p-2 rounded-lg border border-primary text-primary hover:bg-primary/5 transition-colors" title="Мастер режимов">
+            <Icon name="Zap" size={18} />
+          </button>
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-            <Icon name="Plus" size={16} />Новая программа
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+            <Icon name="Plus" size={16} /><span className="hidden sm:inline">Новая программа</span><span className="sm:hidden">Программа</span>
           </button>
         </div>
       </div>

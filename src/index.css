@@ -175,6 +175,11 @@ body {
 }
 
 @layer utilities {
+  /* Безопасная зона снизу для iPhone с notch */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   .font-mono-data {
     font-family: "IBM Plex Mono", monospace;
   }

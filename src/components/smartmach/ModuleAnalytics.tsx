@@ -88,15 +88,15 @@ export default function ModuleAnalytics({ preselectPartId, preselectProgramId, o
   const f = (k: keyof typeof EMPTY_JOB, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Производственные задания</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Полный цикл: Проектирование → Расчёт → Программа ЧПУ → Обработка → Готово</p>
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Производственные задания</h1>
+          <p className="text-muted-foreground text-sm mt-0.5 hidden sm:block">Полный цикл: Проектирование → Расчёт → Программа ЧПУ → Обработка → Готово</p>
         </div>
         <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-          <Icon name="Plus" size={16} />Новое задание
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 shrink-0">
+          <Icon name="Plus" size={16} /><span className="hidden sm:inline">Новое задание</span><span className="sm:hidden">Задание</span>
         </button>
       </div>
 

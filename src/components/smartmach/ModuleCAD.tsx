@@ -137,18 +137,18 @@ export default function ModuleCAD({ onNavigateToCam }: Props) {
   const selectedPartInfo = selected ? partInfoFromPart(selected as Parameters<typeof partInfoFromPart>[0], form) : null;
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-5">
 
       {/* Шапка */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Проектирование — CAD</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Библиотека деталей · 2D-чертежи · 3D-моделирование</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Проектирование — CAD</h1>
+          <p className="text-muted-foreground text-sm mt-0.5 hidden sm:block">Библиотека деталей · 2D-чертежи · 3D-моделирование</p>
         </div>
         {mainTab === "library" && (
           <button onClick={() => { setShowForm(true); handleTabChange("mine"); }}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-            <Icon name="Plus" size={16} />Новая деталь
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 shrink-0">
+            <Icon name="Plus" size={16} /><span className="hidden sm:inline">Новая деталь</span><span className="sm:hidden">Деталь</span>
           </button>
         )}
       </div>

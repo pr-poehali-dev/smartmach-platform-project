@@ -68,17 +68,17 @@ export default function ModulePLM() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Жизненный цикл изделий</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Управление версиями, согласование, архив</p>
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Жизненный цикл</h1>
+          <p className="text-muted-foreground text-sm mt-0.5 hidden sm:block">Управление версиями, согласование, архив</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
         >
-          <Icon name="Plus" size={16} />Новое изделие
+          <Icon name="Plus" size={16} /><span className="hidden sm:inline">Новое изделие</span><span className="sm:hidden">Изделие</span>
         </button>
       </div>
 

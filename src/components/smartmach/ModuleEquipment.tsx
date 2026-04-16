@@ -94,16 +94,16 @@ export default function ModuleEquipment() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Справочник оборудования</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Станки и технологическое оборудование предприятия</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Справочник оборудования</h1>
+          <p className="text-sm text-muted-foreground mt-0.5 hidden sm:block">Станки и технологическое оборудование предприятия</p>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <Icon name="Plus" size={15} className="mr-2" />
-          Добавить станок
+        <Button size="sm" onClick={openCreate} className="shrink-0">
+          <Icon name="Plus" size={15} className="mr-1 sm:mr-2" />
+          <span className="hidden sm:inline">Добавить станок</span><span className="sm:hidden">Станок</span>
         </Button>
       </div>
 

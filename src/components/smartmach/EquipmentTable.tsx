@@ -22,18 +22,18 @@ export default function EquipmentTable({
   return (
     <>
       {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {(["active", "maintenance", "idle", "decommissioned"] as const).map((s) => (
           <Card key={s} className="border shadow-none">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${
+            <CardContent className="p-3 md:p-4 flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
                 s === "active" ? "bg-green-500" :
                 s === "maintenance" ? "bg-yellow-500" :
                 s === "idle" ? "bg-blue-400" : "bg-gray-400"
               }`} />
-              <div>
-                <p className="text-2xl font-bold text-foreground">{counts[s]}</p>
-                <p className="text-xs text-muted-foreground">{STATUS_CONFIG[s].label}</p>
+              <div className="min-w-0">
+                <p className="text-xl md:text-2xl font-bold text-foreground">{counts[s]}</p>
+                <p className="text-xs text-muted-foreground truncate">{STATUS_CONFIG[s].label}</p>
               </div>
             </CardContent>
           </Card>
@@ -41,11 +41,11 @@ export default function EquipmentTable({
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Icon name="Search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Поиск по названию, модели, инв. номеру..."
+            placeholder="Поиск..."
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             className="pl-9"
@@ -68,8 +68,8 @@ export default function EquipmentTable({
         </div>
       </div>
 
-      {/* Table */}
-      <Card className="border shadow-none">
+      {/* Таблица — только на sm+ */}
+      <Card className="hidden sm:block border shadow-none">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -77,11 +77,11 @@ export default function EquipmentTable({
                 <TableHead className="pl-4">Наименование</TableHead>
                 <TableHead>Модель</TableHead>
                 <TableHead>Тип</TableHead>
-                <TableHead>Производитель</TableHead>
-                <TableHead className="text-center">Оси</TableHead>
-                <TableHead>СУ</TableHead>
-                <TableHead>Инв. №</TableHead>
-                <TableHead>Местонахождение</TableHead>
+                <TableHead className="hidden lg:table-cell">Производитель</TableHead>
+                <TableHead className="text-center hidden md:table-cell">Оси</TableHead>
+                <TableHead className="hidden lg:table-cell">СУ</TableHead>
+                <TableHead className="hidden lg:table-cell">Инв. №</TableHead>
+                <TableHead className="hidden xl:table-cell">Местонахождение</TableHead>
                 <TableHead className="text-center">Статус</TableHead>
                 <TableHead />
               </TableRow>
@@ -92,11 +92,11 @@ export default function EquipmentTable({
                   <TableCell className="pl-4 font-medium">{m.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{m.model}</TableCell>
                   <TableCell className="text-sm">{m.type}</TableCell>
-                  <TableCell className="text-sm">{m.manufacturer}</TableCell>
-                  <TableCell className="text-center text-sm">{m.axes}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{m.controlSystem}</TableCell>
-                  <TableCell className="text-sm font-mono text-muted-foreground">{m.inventoryNumber}</TableCell>
-                  <TableCell className="text-sm">{m.location}</TableCell>
+                  <TableCell className="text-sm hidden lg:table-cell">{m.manufacturer}</TableCell>
+                  <TableCell className="text-center text-sm hidden md:table-cell">{m.axes}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">{m.controlSystem}</TableCell>
+                  <TableCell className="text-sm font-mono text-muted-foreground hidden lg:table-cell">{m.inventoryNumber}</TableCell>
+                  <TableCell className="text-sm hidden xl:table-cell">{m.location}</TableCell>
                   <TableCell className="text-center">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[m.status].color}`}>
                       {STATUS_CONFIG[m.status].label}
@@ -118,6 +118,41 @@ export default function EquipmentTable({
           </Table>
         </CardContent>
       </Card>
+
+      {/* Мобильные карточки — только на xs */}
+      <div className="sm:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <div className="py-10 text-center text-muted-foreground text-sm bg-white rounded-xl border border-border">
+            <Icon name="Search" size={32} className="mx-auto mb-2 opacity-20" />
+            Станки не найдены
+          </div>
+        ) : filtered.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => onView(m)}
+            className="w-full bg-white rounded-xl border border-border p-4 text-left hover:border-primary/40 transition-colors"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{m.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {[m.model, m.type, m.manufacturer].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_CONFIG[m.status].color}`}>
+                {STATUS_CONFIG[m.status].label}
+              </span>
+            </div>
+            {(m.location || m.inventoryNumber || m.axes) && (
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground flex-wrap">
+                {m.location       && <span className="flex items-center gap-1"><Icon name="MapPin" size={10} />{m.location}</span>}
+                {m.inventoryNumber && <span className="flex items-center gap-1"><Icon name="Hash"   size={10} />{m.inventoryNumber}</span>}
+                {m.axes           && <span className="flex items-center gap-1"><Icon name="Move3D" size={10} />{m.axes} осей</span>}
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
     </>
   );
 }

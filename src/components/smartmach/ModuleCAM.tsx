@@ -100,6 +100,7 @@ export default function ModuleCAM() {
 
       {showWizard && (
         <CamWizard
+          machines={machines}
           onClose={() => setShowWizard(false)}
           onApply={(params) => {
             setForm((prev) => ({
@@ -111,6 +112,7 @@ export default function ModuleCAM() {
               feed_rate:     params.feed_rate,
               depth_of_cut:  params.depth_of_cut,
               code:          params.code,
+              machine_id:    params.machine_id ?? prev.machine_id,
             }));
             setShowForm(true);
           }}

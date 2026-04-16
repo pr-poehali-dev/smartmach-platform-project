@@ -14,6 +14,7 @@ import ModuleEmployees from "@/components/smartmach/ModuleEmployees";
 import SeoHead from "@/components/ui/seo-head";
 import Breadcrumbs from "@/components/ui/breadcrumbs";
 import { MODULE_SEO, MODULE_BREADCRUMB } from "@/lib/seo.data";
+import NotificationBell from "@/components/smartmach/NotificationBell";
 
 export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics" | "employees";
 
@@ -56,16 +57,21 @@ export default function Index() {
         onNavigate={setActiveModule}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <main className="flex-1 overflow-y-auto">
-        {/* Хлебные крошки */}
-        {!sidebarCollapsed && breadcrumbs.length > 1 && (
-          <div className="px-6 pt-4 pb-0">
-            <Breadcrumbs items={breadcrumbs} />
+      <main className="flex-1 overflow-y-auto flex flex-col">
+        {/* Верхняя шапка с хлебными крошками и колокольчиком */}
+        <div className="flex items-center justify-between px-6 pt-4 pb-0 shrink-0">
+          <div className="flex-1">
+            {!sidebarCollapsed && breadcrumbs.length > 1 && (
+              <Breadcrumbs items={breadcrumbs} />
+            )}
           </div>
-        )}
-        <ErrorBoundary key={activeModule} name={activeModule}>
-          {renderModule()}
-        </ErrorBoundary>
+          <NotificationBell onNavigate={setActiveModule} />
+        </div>
+        <div className="flex-1">
+          <ErrorBoundary key={activeModule} name={activeModule}>
+            {renderModule()}
+          </ErrorBoundary>
+        </div>
       </main>
     </div>
   );

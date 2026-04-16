@@ -218,6 +218,8 @@ export default function CamWizard({ machines, onClose, onApply }: Props) {
               machines={machines}
               machineId={machineId}
               onMachineId={setMachineId}
+              currentMaterial={material}
+              onChangeMaterial={setMaterial}
             />
           )}
           {step === 4 && result && (

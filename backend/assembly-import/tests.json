@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "CSV template download",
+      "method": "GET",
+      "path": "/?resource=template",
+      "expectedStatus": 200,
+      "expectedBody": "Позиция",
+      "bodyMatcher": "contains"
+    },
+    {
+      "name": "Parse CSV file",
+      "method": "POST",
+      "path": "/?resource=parse",
+      "body": {
+        "file_name": "test.csv",
+        "file_b64": "0J/QvtC30LjRhtC40Y8s0J7QsdC+0LfQvdCw0YfQtdC90LjQtSzQndCw0LjQvNC10L3QvtCy0LDQvdC40LUs0JrQvtC7LdCy0L4s0JXQtC7QuNC3LCzsANCc0LDRgdGB0LAsMA0KMSzQoNCm LTI1MC0xMDEsQ9C+0YDQv9GD0YEg0L3QuNC20L3QuNC5LDEsGPGiLNChQaMy1SEXMA=="
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"total": 0},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

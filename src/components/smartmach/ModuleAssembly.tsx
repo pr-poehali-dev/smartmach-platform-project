@@ -6,10 +6,11 @@ import {
   ASM_STAGE_CFG, ASM_TYPE_LABELS,
   asmGet, asmPost, asmPut,
 } from "@/lib/assembly";
-import AssemblyTree from "@/components/smartmach/AssemblyTree";
-import AssemblyBOM  from "@/components/smartmach/AssemblyBOM";
-import AssemblyStats from "@/components/smartmach/AssemblyStats";
-import AiAssistant from "@/components/smartmach/AiAssistant";
+import AssemblyTree   from "@/components/smartmach/AssemblyTree";
+import AssemblyBOM    from "@/components/smartmach/AssemblyBOM";
+import AssemblyStats  from "@/components/smartmach/AssemblyStats";
+import AssemblyImport from "@/components/smartmach/AssemblyImport";
+import AiAssistant    from "@/components/smartmach/AiAssistant";
 
 const AI_SYSTEM = `Ты — эксперт по конструированию сборочных узлов и редукторов в системе СмартМаш.
 Помогаешь с составом изделий, выбором материалов, стандартами ГОСТ, оформлением спецификаций по ГОСТ 2.106,
@@ -135,6 +136,7 @@ export default function ModuleAssembly({ onNavigateToPart }: { onNavigateToPart?
   const [error,      setError]       = useState<string | null>(null);
   const [tab,        setTab]         = useState<Tab>("tree");
   const [showCreate, setShowCreate]  = useState(false);
+  const [showImport, setShowImport]  = useState(false);
 
   async function loadList() {
     setLoading(true); setError(null);
@@ -201,11 +203,20 @@ export default function ModuleAssembly({ onNavigateToPart }: { onNavigateToPart?
             Сборочные единицы · Дерево состава · Спецификация ГОСТ 2.106
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 shrink-0">
-          <Icon name="Plus" size={16} />
-          <span className="hidden sm:inline">Новая сборка</span><span className="sm:hidden">Сборка</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {selected && (
+            <button onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 border border-border px-3 py-2 rounded-lg text-sm font-medium hover:bg-secondary/60 transition-colors text-foreground">
+              <Icon name="FileSpreadsheet" size={15} />
+              <span className="hidden sm:inline">Импорт Excel</span>
+            </button>
+          )}
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+            <Icon name="Plus" size={16} />
+            <span className="hidden sm:inline">Новая сборка</span><span className="sm:hidden">Сборка</span>
+          </button>
+        </div>
       </div>
 
       {loading && !selected ? (
@@ -378,6 +389,15 @@ export default function ModuleAssembly({ onNavigateToPart }: { onNavigateToPart?
             await selectAssembly(asm);
           }}
           onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {showImport && selected && (
+        <AssemblyImport
+          assemblyId={selected.id}
+          assemblyName={selected.name}
+          onImported={refreshNodes}
+          onClose={() => setShowImport(false)}
         />
       )}
     </div>

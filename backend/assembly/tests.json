@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "List assemblies",
+      "method": "GET",
+      "path": "/?resource=assemblies",
+      "expectedStatus": 200,
+      "expectedBody": {"code": "РЦ-250-СБ"},
+      "bodyMatcher": "array_contains"
+    },
+    {
+      "name": "Get assembly tree",
+      "method": "GET",
+      "path": "/?resource=nodes&assembly_id=7",
+      "expectedStatus": 200,
+      "expectedBody": {"assembly_id": 7},
+      "bodyMatcher": "array_contains"
+    },
+    {
+      "name": "Get BOM",
+      "method": "GET",
+      "path": "/?resource=bom&assembly_id=7",
+      "expectedStatus": 200,
+      "expectedBody": {"assembly_id": 7},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get stats",
+      "method": "GET",
+      "path": "/?resource=stats&assembly_id=7",
+      "expectedStatus": 200,
+      "expectedBody": {"total_nodes": "33"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Parts list",
+      "method": "GET",
+      "path": "/?resource=parts_list",
+      "expectedStatus": 200,
+      "expectedBody": {"id": 1},
+      "bodyMatcher": "array_contains"
+    }
+  ]
+}

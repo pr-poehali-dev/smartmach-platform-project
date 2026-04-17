@@ -87,6 +87,11 @@ export const MODULE_SEO: Record<ModuleId, SeoMeta> = {
     description: "Управление персоналом производственного предприятия.",
     noIndex: true,
   },
+  assembly: {
+    title: `Состав изделия (BOM) — ${BASE_TITLE}`,
+    description: "Конструирование сборочных единиц и агрегатов. Дерево состава, спецификация ГОСТ 2.106.",
+    noIndex: true,
+  },
 };
 
 export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
@@ -100,6 +105,7 @@ export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
   equipment: ["Справочник оборудования"],
   economics: ["Экономика"],
   employees: ["Сотрудники"],
+  assembly:  ["Состав изделия (BOM)"],
 };
 
 export { OG_IMAGE, BASE_TITLE };

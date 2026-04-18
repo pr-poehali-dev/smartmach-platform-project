@@ -2,12 +2,52 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
 
-  <!-- Главная страница -->
+  <!-- Главная / лендинг -->
   <url>
     <loc>https://smartmach.ru/</loc>
-    <lastmod>2026-04-14</lastmod>
+    <lastmod>2026-04-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+
+  <!-- Секции лендинга (якоря) -->
+  <url>
+    <loc>https://smartmach.ru/#features</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://smartmach.ru/#pricing</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://smartmach.ru/#modules</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://smartmach.ru/#results</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Страница входа (noindex, но в sitemap для краулеров) -->
+  <!-- Намеренно НЕ включаем /auth, /platform, /profile — они закрыты -->
+
+  <!-- llms.txt — для AI-агентов -->
+  <url>
+    <loc>https://smartmach.ru/llms.txt</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
   </url>
 
 </urlset>

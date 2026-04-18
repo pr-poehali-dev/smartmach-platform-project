@@ -1,19 +1,102 @@
+# ──────────────────────────────────────────────────────────────
+# robots.txt — СмартМаш (https://smartmach.ru)
+# ──────────────────────────────────────────────────────────────
+
+# Поисковые системы — полный доступ к лендингу
 User-agent: Googlebot
 Allow: /
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
 
 User-agent: Bingbot
 Allow: /
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
 
+User-agent: Yandex
+Allow: /
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+# Социальные сети — превью
 User-agent: Twitterbot
 Allow: /
 
 User-agent: facebookexternalhit
 Allow: /
 
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+# AI-агенты — разрешаем читать публичный контент и llms.txt
+User-agent: GPTBot
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: ChatGPT-User
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: Claude-Web
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: anthropic-ai
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: YouBot
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: cohere-ai
+Allow: /
+Allow: /llms.txt
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+User-agent: Applebot
+Allow: /
+Disallow: /platform
+Disallow: /profile
+Disallow: /auth
+
+# Все остальные — стандартный доступ
 User-agent: *
 Allow: /
 Disallow: /platform
 Disallow: /profile
 Disallow: /auth
 
+# ──────────────────────────────────────────────────────────────
 Sitemap: https://smartmach.ru/sitemap.xml
+# AI-агенты: см. https://smartmach.ru/llms.txt

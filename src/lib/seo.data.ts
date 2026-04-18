@@ -114,4 +114,4 @@ export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
   projects:  ["Управление проектами"],
 };
 
-export { OG_IMAGE, BASE_TITLE };
+export { OG_IMAGE, BASE_TITLE, BASE_URL };

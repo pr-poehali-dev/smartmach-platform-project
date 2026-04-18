@@ -102,9 +102,17 @@ export default function Index() {
       : crumbLabels.map((label) => ({ label }))),
   ];
 
+  // Хлебные крошки для JSON-LD (со ссылками для поисковиков)
+  const seoBreadcrumbs = [
+    { label: "СмартМаш", url: "https://smartmach.ru/" },
+    ...(activeModule === "home"
+      ? []
+      : crumbLabels.map((label) => ({ label }))),
+  ];
+
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
-      <SeoHead {...seo} />
+      <SeoHead {...seo} breadcrumbs={seoBreadcrumbs} />
 
       <Sidebar
         active={activeModule}

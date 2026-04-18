@@ -92,6 +92,11 @@ export const MODULE_SEO: Record<ModuleId, SeoMeta> = {
     description: "Конструирование сборочных единиц и агрегатов. Дерево состава, спецификация ГОСТ 2.106.",
     noIndex: true,
   },
+  projects: {
+    title: `Управление проектами — ${BASE_TITLE}`,
+    description: "Реестр проектов, декомпозиция задач, бюджет план/факт и аналитика по всем проектам предприятия.",
+    noIndex: true,
+  },
 };
 
 export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
@@ -106,6 +111,7 @@ export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
   economics: ["Экономика"],
   employees: ["Сотрудники"],
   assembly:  ["Состав изделия (BOM)"],
+  projects:  ["Управление проектами"],
 };
 
 export { OG_IMAGE, BASE_TITLE };

@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Dashboard stats",
+      "method": "GET",
+      "path": "/?resource=dashboard",
+      "expectedStatus": 200,
+      "expectedBody": {"total_count": 0},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Project list",
+      "method": "GET",
+      "path": "/?resource=list",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Employees list",
+      "method": "GET",
+      "path": "/?resource=employees",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "partial"
+    }
+  ]
+}

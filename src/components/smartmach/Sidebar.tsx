@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "cnc",       label: "Оборудование",    icon: "Radio",        color: "#43a047" },
   { id: "analytics", label: "Задания",         icon: "ClipboardList",color: "#fb8c00" },
   { id: "equipment", label: "Справочник обор.", icon: "BookOpen",     color: "#6d4c41" },
+  { id: "projects",  label: "Проекты",          icon: "FolderKanban", color: "#039be5" },
   { id: "economics", label: "Экономика",        icon: "TrendingUp",   color: "#0288d1" },
   { id: "employees", label: "Сотрудники",       icon: "Users",        color: "#7b1fa2" },
 ];

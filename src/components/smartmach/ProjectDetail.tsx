@@ -10,8 +10,9 @@ import {
 import ProjectTasks  from "@/components/smartmach/ProjectTasks";
 import ProjectBudget from "@/components/smartmach/ProjectBudget";
 import ProjectForm   from "@/components/smartmach/ProjectForm";
+import GanttChart    from "@/components/smartmach/GanttChart";
 
-type Tab = "tasks" | "budget" | "members" | "info";
+type Tab = "tasks" | "gantt" | "budget" | "members" | "info";
 
 interface Props {
   projectId: number;
@@ -63,6 +64,7 @@ export default function ProjectDetail({ projectId, employees, onBack, onUpdated 
 
   const tabs: { id: Tab; label: string; icon: string; badge?: number }[] = [
     { id: "tasks",   label: "Задачи",      icon: "CheckSquare", badge: project.tasks.length },
+    { id: "gantt",   label: "Гант",        icon: "BarChart2"                                },
     { id: "budget",  label: "Бюджет",      icon: "Wallet",      badge: project.budgets.length },
     { id: "members", label: "Участники",   icon: "Users",       badge: project.members.length },
     { id: "info",    label: "Информация",  icon: "Info" },
@@ -201,6 +203,14 @@ export default function ProjectDetail({ projectId, employees, onBack, onUpdated 
           tasks={project.tasks}
           employees={employees}
           onRefresh={load}
+        />
+      )}
+
+      {tab === "gantt" && (
+        <GanttChart
+          tasks={project.tasks}
+          projectStart={project.start_date}
+          projectEnd={project.end_date}
         />
       )}
 

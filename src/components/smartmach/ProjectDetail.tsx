@@ -211,6 +211,7 @@ export default function ProjectDetail({ projectId, employees, onBack, onUpdated 
           tasks={project.tasks}
           projectStart={project.start_date}
           projectEnd={project.end_date}
+          onTaskUpdated={load}
         />
       )}
 

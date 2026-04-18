@@ -1,434 +1,644 @@
-import { useRef, useState, useEffect } from "react";
+/**
+ * GanttChart — полноценная интерактивная диаграмма Ганта
+ * • Перетаскивание полосы (move) → меняет start_date + due_date
+ * • Растяжка правого края (resize) → меняет due_date
+ * • Snap по дням
+ * • Живое сохранение в БД через PUT /projects?resource=task&id=N
+ * • Тултип с деталями задачи
+ * • Масштаб: месяц / неделя / день
+ * • Автоскролл к «сегодня»
+ * • Зебра-полосы, выходные дни, линия сегодня
+ */
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { ProjectTask, TASK_STATUS_CFG, PRIORITY_CFG } from "@/lib/projects";
+import { ProjectTask, TASK_STATUS_CFG, PRIORITY_CFG, projPut } from "@/lib/projects";
 
+// ─── Константы ─────────────────────────────────────────────────
+const ROW_H    = 40;
+const NAME_W   = 240;
+const HDR_H    = 56; // общая высота двух строк шапки
+
+const SCALE_DAY_W: Record<string, number> = { month: 10, week: 20, day: 40 };
+
+// ─── Цвета по статусу (HSL-совместимые строки для inline style) ──
+const BAR_CFG: Record<string, { bg: string; border: string; text: string }> = {
+  todo:        { bg: "#cbd5e1", border: "#94a3b8", text: "#475569" },
+  in_progress: { bg: "#60a5fa", border: "#2563eb", text: "#fff"   },
+  review:      { bg: "#fbbf24", border: "#d97706", text: "#fff"   },
+  done:        { bg: "#34d399", border: "#059669", text: "#fff"   },
+  cancelled:   { bg: "#fca5a5", border: "#ef4444", text: "#b91c1c"},
+};
+
+// ─── Утилиты дат ───────────────────────────────────────────────
+function toMidnight(d: Date): Date {
+  const r = new Date(d); r.setHours(0, 0, 0, 0); return r;
+}
+function parseDate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s); return isNaN(d.getTime()) ? null : toMidnight(d);
+}
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+function diffDays(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+function toISO(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+function isWeekend(d: Date): boolean {
+  const dow = d.getDay(); return dow === 0 || dow === 6;
+}
+function fmtShort(d: Date): string {
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+}
+function fmtFull(d: Date): string {
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
+}
+function fmtMonth(d: Date): string {
+  return d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+}
+
+// ─── Строим шапку месяцев ─────────────────────────────────────
+function buildMonths(start: Date, total: number): { label: string; days: number }[] {
+  const out: { label: string; days: number }[] = [];
+  let cur = new Date(start); let rem = total;
+  while (rem > 0) {
+    const eom = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+    toMidnight(eom);
+    const days = Math.min(diffDays(cur, eom) + 1, rem);
+    out.push({ label: fmtMonth(cur), days });
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    rem -= days;
+  }
+  return out;
+}
+
+// ─── Типы drag ────────────────────────────────────────────────
+type DragMode = "move" | "resize-right";
+interface DragState {
+  taskId: number;
+  mode: DragMode;
+  startMouseX: number;
+  origStart: Date | null;
+  origEnd: Date | null;
+}
+
+// ─── Сохранение (debounced) ───────────────────────────────────
+const saveTimers: Record<number, ReturnType<typeof setTimeout>> = {};
+function scheduleSave(id: number, start: Date | null, end: Date | null, onSaved: () => void) {
+  clearTimeout(saveTimers[id]);
+  saveTimers[id] = setTimeout(async () => {
+    try {
+      await projPut(
+        { start_date: start ? toISO(start) : null, due_date: end ? toISO(end) : null },
+        { resource: "task", id }
+      );
+      onSaved();
+    } catch { /* ignore */ }
+  }, 600);
+}
+
+// ─── Props ────────────────────────────────────────────────────
 interface Props {
   tasks: ProjectTask[];
   projectStart: string | null;
   projectEnd: string | null;
+  onTaskUpdated: () => void; // перезагрузить проект после сохранения
 }
 
-// ── Цвета полос по статусу ────────────────────────────────────
-const BAR_COLORS: Record<string, { bar: string; border: string; done: boolean }> = {
-  todo:        { bar: "bg-slate-300",   border: "border-slate-400",   done: false },
-  in_progress: { bar: "bg-blue-400",    border: "border-blue-600",    done: false },
-  review:      { bar: "bg-amber-400",   border: "border-amber-600",   done: false },
-  done:        { bar: "bg-emerald-400", border: "border-emerald-600", done: true  },
-  cancelled:   { bar: "bg-red-200",     border: "border-red-300",     done: false },
-};
+const TODAY = toMidnight(new Date());
 
-const TODAY = new Date();
-TODAY.setHours(0, 0, 0, 0);
+export default function GanttChart({ tasks, projectStart, projectEnd, onTaskUpdated }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale]   = useState<"month" | "week" | "day">("week");
+  const [tooltip, setTooltip] = useState<{ task: ProjectTask; x: number; y: number } | null>(null);
+  // Локальные даты задач (изменяются при drag ещё до сохранения)
+  const [localDates, setLocalDates] = useState<Record<number, { start: Date | null; end: Date | null }>>({});
+  const [drag, setDrag]   = useState<DragState | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
 
-function parseDate(s: string | null): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  d.setHours(0, 0, 0, 0);
-  return isNaN(d.getTime()) ? null : d;
-}
+  const dayW = SCALE_DAY_W[scale];
 
-function addDays(d: Date, n: number): Date {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-
-function diffDays(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86400000);
-}
-
-function formatDay(d: Date): string {
-  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
-}
-
-function formatMonth(d: Date): string {
-  return d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
-}
-
-// Разбить диапазон на месячные группы для шапки
-function buildMonths(start: Date, totalDays: number): { label: string; days: number }[] {
-  const months: { label: string; days: number }[] = [];
-  let cur = new Date(start);
-  let remaining = totalDays;
-  while (remaining > 0) {
-    const endOfMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
-    endOfMonth.setHours(0, 0, 0, 0);
-    const daysInRange = Math.min(diffDays(cur, endOfMonth) + 1, remaining);
-    months.push({ label: formatMonth(cur), days: daysInRange });
-    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
-    remaining -= daysInRange;
-  }
-  return months;
-}
-
-// Разбить диапазон на недели для меток
-function buildWeekLabels(start: Date, totalDays: number): { offset: number; label: string }[] {
-  const labels: { offset: number; label: string }[] = [];
-  // Первый понедельник >= start
-  const firstMonday = new Date(start);
-  const dow = firstMonday.getDay();
-  const daysToMonday = dow === 0 ? 1 : (8 - dow) % 7;
-  if (daysToMonday < totalDays) firstMonday.setDate(firstMonday.getDate() + daysToMonday);
-
-  let cur = new Date(firstMonday);
-  while (diffDays(start, cur) < totalDays) {
-    labels.push({ offset: diffDays(start, cur), label: formatDay(cur) });
-    cur = addDays(cur, 7);
-  }
-  return labels;
-}
-
-const ROW_H   = 38; // высота строки px
-const NAME_W  = 220; // ширина колонки имён
-const DAY_W   = 28;  // ширина одного дня px
-
-export default function GanttChart({ tasks, projectStart, projectEnd }: Props) {
-  const scrollRef   = useRef<HTMLDivElement>(null);
-  const [tooltip,   setTooltip]   = useState<{ task: ProjectTask; x: number; y: number } | null>(null);
-  const [scale,     setScale]     = useState<"day" | "week">("week");
-  const [todayVisible, setTodayVisible] = useState(false);
-
-  // ── Вычисляем временной диапазон ─────────────────────────────
-  const tasksWithDates = tasks.filter(t => t.start_date || t.due_date);
-
-  // Крайние даты: берём min/max по задачам, расширяем от проекта
-  let rangeStart: Date;
-  let rangeEnd: Date;
-
-  const allDates: Date[] = [];
-  tasks.forEach(t => {
-    const s = parseDate(t.start_date);
-    const e = parseDate(t.due_date);
-    if (s) allDates.push(s);
-    if (e) allDates.push(e);
-  });
-  if (projectStart) { const d = parseDate(projectStart); if (d) allDates.push(d); }
-  if (projectEnd)   { const d = parseDate(projectEnd);   if (d) allDates.push(d); }
-  allDates.push(TODAY);
-
-  if (allDates.length === 0) {
-    rangeStart = addDays(TODAY, -7);
-    rangeEnd   = addDays(TODAY, 30);
-  } else {
-    rangeStart = addDays(new Date(Math.min(...allDates.map(d => d.getTime()))), -3);
-    rangeEnd   = addDays(new Date(Math.max(...allDates.map(d => d.getTime()))), 5);
-  }
-
-  const totalDays  = Math.max(diffDays(rangeStart, rangeEnd), 14);
-  const dayW       = scale === "day" ? DAY_W : Math.max(8, Math.round(DAY_W * 7 / 14));
-  const gridWidth  = totalDays * dayW;
-
-  const months     = buildMonths(rangeStart, totalDays);
-  const weekLabels = buildWeekLabels(rangeStart, totalDays);
-
-  // Позиция «сегодня»
-  const todayOffset = diffDays(rangeStart, TODAY);
-  const todayX      = todayOffset * dayW;
-
-  // Скролл к «сегодня» при монтировании
+  // ── Инициализация localDates из задач ─────────────────────────
   useEffect(() => {
-    if (scrollRef.current && todayOffset >= 0) {
-      const scrollTo = Math.max(0, todayX - 120);
-      scrollRef.current.scrollLeft = scrollTo;
-      setTodayVisible(todayOffset >= 0 && todayOffset <= totalDays);
-    }
-  }, [todayX, todayOffset, totalDays]);
+    const init: Record<number, { start: Date | null; end: Date | null }> = {};
+    tasks.forEach(t => { init[t.id] = { start: parseDate(t.start_date), end: parseDate(t.due_date) }; });
+    setLocalDates(init);
+  }, [tasks]);
 
-  function scrollToToday() {
+  // ── Временной диапазон ────────────────────────────────────────
+  const { rangeStart, totalDays } = useMemo(() => {
+    const allDates: Date[] = [TODAY];
+    tasks.forEach(t => {
+      const s = parseDate(t.start_date); if (s) allDates.push(s);
+      const e = parseDate(t.due_date);   if (e) allDates.push(e);
+    });
+    if (projectStart) { const d = parseDate(projectStart); if (d) allDates.push(d); }
+    if (projectEnd)   { const d = parseDate(projectEnd);   if (d) allDates.push(d); }
+    const minT = Math.min(...allDates.map(d => d.getTime()));
+    const maxT = Math.max(...allDates.map(d => d.getTime()));
+    const rs = addDays(new Date(minT), -5);
+    const re = addDays(new Date(maxT), +8);
+    return { rangeStart: rs, totalDays: Math.max(diffDays(rs, re), 30) };
+  }, [tasks, projectStart, projectEnd]);
+
+  const gridWidth = totalDays * dayW;
+
+  // Дни недели (для шапки «week» / «day»)
+  const dayLabels = useMemo<{ offset: number; label: string; weekend: boolean }[]>(() => {
+    if (scale === "month") return [];
+    const step = scale === "week" ? 7 : 1;
+    const out: { offset: number; label: string; weekend: boolean }[] = [];
+    for (let i = 0; i < totalDays; i += step) {
+      const d = addDays(rangeStart, i);
+      out.push({ offset: i, label: fmtShort(d), weekend: isWeekend(d) });
+    }
+    return out;
+  }, [scale, rangeStart, totalDays]);
+
+  const months  = useMemo(() => buildMonths(rangeStart, totalDays), [rangeStart, totalDays]);
+  const todayOff = diffDays(rangeStart, TODAY);
+  const todayX   = todayOff * dayW;
+
+  // Скролл к сегодня при монтировании
+  useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ left: Math.max(0, todayX - 120), behavior: "smooth" });
+      scrollRef.current.scrollLeft = Math.max(0, todayX - 200);
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Функции расчёта полосы ────────────────────────────────────
-  function barProps(task: ProjectTask): { left: number; width: number; valid: boolean } {
-    const s = parseDate(task.start_date) ?? parseDate(task.due_date);
-    const e = parseDate(task.due_date)   ?? parseDate(task.start_date);
+  // ── Координаты полосы (из localDates) ─────────────────────────
+  function barGeom(taskId: number): { left: number; width: number; valid: boolean } {
+    const ld = localDates[taskId];
+    if (!ld) return { left: 0, width: 0, valid: false };
+    const s = ld.start ?? ld.end;
+    const e = ld.end   ?? ld.start;
     if (!s || !e) return { left: 0, width: 0, valid: false };
-
-    const left  = Math.max(0, diffDays(rangeStart, s)) * dayW;
-    const width = Math.max(dayW, diffDays(s, e) * dayW + dayW);
+    const left  = diffDays(rangeStart, s) * dayW;
+    const width = Math.max(dayW, (diffDays(s, e) + 1) * dayW);
     return { left, width, valid: true };
   }
 
+  // ── Drag handlers (pointer events на всё окно) ─────────────────
+  const onPointerMove = useCallback((e: PointerEvent) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.startMouseX;
+    const deltaDays = Math.round(dx / dayW);
+
+    setLocalDates(prev => {
+      const cur = prev[drag.taskId];
+      if (!cur) return prev;
+
+      let newStart = cur.start;
+      let newEnd   = cur.end;
+
+      if (drag.mode === "move") {
+        newStart = drag.origStart ? addDays(drag.origStart, deltaDays) : null;
+        newEnd   = drag.origEnd   ? addDays(drag.origEnd,   deltaDays) : null;
+      } else {
+        // resize-right: меняем только конец, не ближе чем start + 1 день
+        const minEnd = drag.origStart ? addDays(drag.origStart, 0) : null;
+        let candidate = drag.origEnd ? addDays(drag.origEnd, deltaDays) : null;
+        if (candidate && minEnd && diffDays(minEnd, candidate) < 0) candidate = minEnd;
+        newEnd = candidate;
+      }
+
+      return { ...prev, [drag.taskId]: { start: newStart, end: newEnd } };
+    });
+  }, [drag, dayW]);
+
+  const onPointerUp = useCallback(() => {
+    if (!drag) return;
+    const ld = localDates[drag.taskId];
+    if (ld) {
+      setSavingId(drag.taskId);
+      scheduleSave(drag.taskId, ld.start, ld.end, () => {
+        setSavingId(null);
+        onTaskUpdated();
+      });
+    }
+    setDrag(null);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, [drag, localDates, onTaskUpdated]);
+
+  useEffect(() => {
+    if (drag) {
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = drag.mode === "move" ? "grabbing" : "ew-resize";
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      return () => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+      };
+    }
+  }, [drag, onPointerMove, onPointerUp]);
+
+  function startDrag(e: React.PointerEvent, task: ProjectTask, mode: DragMode) {
+    e.preventDefault();
+    e.stopPropagation();
+    setTooltip(null);
+    const ld = localDates[task.id] ?? { start: parseDate(task.start_date), end: parseDate(task.due_date) };
+    setDrag({
+      taskId: task.id,
+      mode,
+      startMouseX: e.clientX,
+      origStart: ld.start ? new Date(ld.start) : null,
+      origEnd:   ld.end   ? new Date(ld.end)   : null,
+    });
+  }
+
   // ── Нет задач с датами ────────────────────────────────────────
+  const tasksWithDates = tasks.filter(t => t.start_date || t.due_date);
   if (tasksWithDates.length === 0) {
     return (
-      <div className="bg-white border border-border rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-secondary/40 flex items-center justify-center">
-          <Icon name="BarChart2" size={26} className="text-muted-foreground opacity-40" />
+      <div className="bg-white border border-border rounded-2xl p-10 flex flex-col items-center gap-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-secondary/40 flex items-center justify-center">
+          <Icon name="BarChart2" size={30} className="text-muted-foreground opacity-30" />
         </div>
         <div>
-          <p className="font-semibold text-foreground">Нет данных для диаграммы</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Укажите даты начала и/или срок выполнения у задач — они появятся на диаграмме.
+          <p className="font-semibold text-foreground text-base">Нет данных для диаграммы</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+            Укажите <strong>дату начала</strong> и/или <strong>срок выполнения</strong> у задач —
+            они появятся на диаграмме и их можно будет перетаскивать.
           </p>
         </div>
       </div>
     );
   }
 
+  // ── Weekend-колонки для фона ─────────────────────────────────
+  const weekendCols: number[] = [];
+  for (let i = 0; i < totalDays; i++) {
+    if (isWeekend(addDays(rangeStart, i))) weekendCols.push(i);
+  }
+
   // ── Рендер ───────────────────────────────────────────────────
   return (
-    <div className="bg-white border border-border rounded-2xl overflow-hidden">
+    <div className="bg-white border border-border rounded-2xl overflow-hidden select-none">
 
-      {/* Тулбар */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/10">
-        <div className="flex items-center gap-2">
-          <Icon name="BarChart2" size={16} className="text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">Диаграмма Ганта</span>
-          <span className="text-xs text-muted-foreground">
-            · {tasksWithDates.length} из {tasks.length} задач имеют даты
+      {/* ── Тулбар ── */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white">
+        <div className="flex items-center gap-2.5">
+          <Icon name="BarChart2" size={16} className="text-primary" />
+          <span className="font-semibold text-sm text-foreground">Диаграмма Ганта</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {tasksWithDates.length} / {tasks.length} задач с датами
+          </span>
+          <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100 hidden sm:inline-block">
+            Перетаскивайте полосы для изменения дат
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={scrollToToday}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-border rounded-lg hover:bg-secondary/60 transition-colors">
+          <button
+            onClick={() => scrollRef.current?.scrollTo({ left: Math.max(0, todayX - 200), behavior: "smooth" })}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-border rounded-lg hover:bg-secondary/60 transition-colors font-medium">
             <Icon name="CalendarDays" size={13} />Сегодня
           </button>
-          <div className="flex border border-border rounded-lg overflow-hidden">
-            {(["week", "day"] as const).map(s => (
+          <div className="flex border border-border rounded-lg overflow-hidden text-xs">
+            {(["month", "week", "day"] as const).map(s => (
               <button key={s} onClick={() => setScale(s)}
-                className={cn("text-xs px-2.5 py-1.5 transition-colors",
-                  scale === s ? "bg-primary text-primary-foreground" : "hover:bg-secondary/60 text-muted-foreground")}>
-                {s === "week" ? "Неделя" : "День"}
+                className={cn("px-2.5 py-1.5 transition-colors",
+                  scale === s
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "text-muted-foreground hover:bg-secondary/60")}>
+                {s === "month" ? "Мес" : s === "week" ? "Нед" : "День"}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Легенда */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-border/50 flex-wrap bg-white">
-        {Object.entries(TASK_STATUS_CFG).map(([k, v]) => {
-          const c = BAR_COLORS[k];
-          return (
-            <div key={k} className="flex items-center gap-1.5">
-              <div className={cn("w-3 h-3 rounded-sm border", c.bar, c.border)} />
-              <span className="text-[11px] text-muted-foreground">{v.label}</span>
-            </div>
-          );
-        })}
-        <div className="flex items-center gap-1.5 ml-2">
-          <div className="w-0.5 h-4 bg-red-500" />
+      {/* ── Легенда ── */}
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-border/40 bg-secondary/5 flex-wrap">
+        {Object.entries(TASK_STATUS_CFG).map(([k, v]) => (
+          <div key={k} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm border" style={{ background: BAR_CFG[k].bg, borderColor: BAR_CFG[k].border }} />
+            <span className="text-[11px] text-muted-foreground">{v.label}</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <div className="w-0.5 h-4 bg-rose-500 rounded" />
           <span className="text-[11px] text-muted-foreground">Сегодня</span>
+          <div className="w-4 h-2.5 bg-slate-100 border border-slate-200 rounded-sm ml-2" />
+          <span className="text-[11px] text-muted-foreground">Выходной</span>
         </div>
       </div>
 
-      {/* Основная таблица */}
-      <div className="flex overflow-hidden" style={{ maxHeight: "72vh" }}>
+      {/* ── Основной грид ── */}
+      <div className="flex overflow-hidden" style={{ maxHeight: "70vh" }}>
 
-        {/* Левая колонка — имена задач (sticky) */}
-        <div className="flex-shrink-0 border-r border-border overflow-y-auto" style={{ width: NAME_W }}>
-          {/* Шапка имён */}
-          <div className="sticky top-0 z-10 bg-secondary/30 border-b border-border px-3 flex items-center"
-            style={{ height: ROW_H * 2 }}>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Задача</span>
+        {/* Левая колонка — названия (фиксированная) */}
+        <div className="flex-shrink-0 border-r border-border flex flex-col" style={{ width: NAME_W }}>
+
+          {/* Шапка над именами */}
+          <div className="flex-shrink-0 bg-secondary/20 border-b border-border flex items-end px-3 pb-1.5"
+            style={{ height: HDR_H }}>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Задача</span>
           </div>
 
           {/* Строки */}
-          {tasks.map((task, i) => {
-            const cfg    = TASK_STATUS_CFG[task.status];
-            const priCfg = PRIORITY_CFG[task.priority];
-            const hasDates = !!(task.start_date || task.due_date);
-            const isChild  = !!task.parent_id;
+          <div className="overflow-y-auto flex-1" id="gantt-names-scroll">
+            {tasks.map((task, i) => {
+              const cfg    = TASK_STATUS_CFG[task.status];
+              const priCfg = PRIORITY_CFG[task.priority];
+              const hasDate = !!(task.start_date || task.due_date);
+              const isSaving = savingId === task.id;
 
-            return (
-              <div key={task.id}
-                className={cn(
-                  "flex items-center gap-2 px-3 border-b border-border/40 transition-colors hover:bg-secondary/20",
-                  i % 2 === 1 && "bg-secondary/5",
-                  !hasDates && "opacity-50"
-                )}
-                style={{ height: ROW_H, paddingLeft: isChild ? 28 : 12 }}
-              >
-                {/* Иконка статуса */}
-                <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0 border", BAR_COLORS[task.status].bar, BAR_COLORS[task.status].border)}>
-                  <Icon name={cfg.icon as Parameters<typeof Icon>[0]["name"]} size={10} className="text-white" />
+              return (
+                <div key={task.id}
+                  className={cn(
+                    "flex items-center gap-2 border-b border-border/30 px-3",
+                    i % 2 === 1 && "bg-secondary/[0.04]",
+                    !hasDate && "opacity-40",
+                  )}
+                  style={{ height: ROW_H }}>
+
+                  {/* Indent для подзадач */}
+                  {task.parent_id && <div style={{ width: 12 }} className="flex-shrink-0" />}
+
+                  {/* Индикатор статуса */}
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 border"
+                    style={{ background: BAR_CFG[task.status].bg, borderColor: BAR_CFG[task.status].border }}>
+                    <Icon name={cfg.icon as Parameters<typeof Icon>[0]["name"]} size={10} className="text-white opacity-90" />
+                  </div>
+
+                  {/* Название */}
+                  <span className={cn("text-xs flex-1 truncate",
+                    task.status === "done" ? "line-through text-muted-foreground" : "text-foreground font-medium"
+                  )}>
+                    {task.name}
+                  </span>
+
+                  {/* Сохранение / приоритет */}
+                  {isSaving
+                    ? <Icon name="Loader" size={11} className="text-primary animate-spin shrink-0" />
+                    : <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", priCfg.dot)} />}
                 </div>
-                {/* Название */}
-                <span className={cn("text-xs truncate flex-1",
-                  task.status === "done" ? "line-through text-muted-foreground" : "text-foreground font-medium"
-                )}>
-                  {task.name}
-                </span>
-                {/* Приоритет (точка) */}
-                <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", priCfg.dot)} />
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        {/* Правая часть — Гант, с горизонтальным скроллом */}
-        <div ref={scrollRef} className="flex-1 overflow-auto" style={{ scrollbarWidth: "thin" }}>
-          <div style={{ width: gridWidth, minWidth: "100%" }}>
+        {/* Правая часть — полотно Ганта */}
+        <div ref={scrollRef} className="flex-1 overflow-auto"
+          style={{ scrollbarWidth: "thin" }}
+          onScroll={e => {
+            // Синхронизируем вертикальный скролл левой колонки
+            const nameCol = document.getElementById("gantt-names-scroll");
+            if (nameCol) nameCol.scrollTop = (e.target as HTMLElement).scrollTop;
+          }}>
 
-            {/* Шапка — месяцы */}
-            <div className="sticky top-0 z-10 bg-white border-b border-border/50"
-              style={{ height: ROW_H, display: "flex" }}>
-              {months.map((m, i) => (
-                <div key={i} className="border-r border-border/30 flex items-center px-2 shrink-0 overflow-hidden"
-                  style={{ width: m.days * dayW }}>
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide truncate capitalize">
-                    {m.label}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div style={{ width: Math.max(gridWidth, 400), position: "relative" }}>
 
-            {/* Шапка — недели/дни */}
-            <div className="sticky bg-secondary/20 border-b border-border"
-              style={{ top: ROW_H, zIndex: 9, height: ROW_H, display: "flex", alignItems: "center", position: "sticky" }}>
-              <div className="relative w-full h-full">
-                {weekLabels.map((wl, i) => (
-                  <div key={i} className="absolute top-0 h-full flex items-center"
-                    style={{ left: wl.offset * dayW }}>
-                    <div className="h-4 border-l border-border/40 ml-0" />
-                    <span className="text-[9px] text-muted-foreground ml-1 whitespace-nowrap">{wl.label}</span>
+            {/* ── Двойная шапка (sticky) ── */}
+            <div className="sticky top-0 z-20 bg-white border-b border-border" style={{ height: HDR_H }}>
+
+              {/* Строка месяцев */}
+              <div className="flex border-b border-border/40" style={{ height: HDR_H / 2 }}>
+                {months.map((m, i) => (
+                  <div key={i} className="border-r border-border/30 flex items-center px-2 shrink-0 overflow-hidden bg-white"
+                    style={{ width: m.days * dayW }}>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide truncate capitalize">
+                      {m.label}
+                    </span>
                   </div>
                 ))}
-                {/* Сегодня метка */}
-                {todayOffset >= 0 && todayOffset <= totalDays && (
-                  <div className="absolute top-0 h-full flex items-center pointer-events-none"
-                    style={{ left: todayX }}>
-                    <div className="h-full border-l-2 border-red-400 border-dashed opacity-60" />
+              </div>
+
+              {/* Строка дней/недель */}
+              <div className="relative overflow-hidden" style={{ height: HDR_H / 2 }}>
+                {dayLabels.map((dl) => (
+                  <div key={dl.offset}
+                    className={cn("absolute top-0 h-full flex items-center border-r border-border/20",
+                      dl.weekend ? "bg-rose-50/60" : "bg-white"
+                    )}
+                    style={{ left: dl.offset * dayW, width: (scale === "day" ? 1 : 7) * dayW }}>
+                    <span className={cn("text-[9px] px-1 truncate",
+                      dl.weekend ? "text-rose-400 font-semibold" : "text-muted-foreground")}>
+                      {dl.label}
+                    </span>
                   </div>
+                ))}
+                {/* Линия «сегодня» в шапке */}
+                {todayOff >= 0 && todayOff <= totalDays && (
+                  <div className="absolute top-0 bottom-0 z-10 pointer-events-none"
+                    style={{ left: todayX, width: 2, background: "rgba(239,68,68,0.7)", borderRadius: 1 }} />
                 )}
               </div>
             </div>
 
-            {/* Строки задач */}
+            {/* ── Полотно задач ── */}
             <div className="relative">
-              {/* Вертикальные линии недель */}
-              {weekLabels.map((wl, i) => (
-                <div key={i} className="absolute top-0 bottom-0 border-l border-border/20 pointer-events-none"
-                  style={{ left: wl.offset * dayW }} />
+
+              {/* Фон выходных дней */}
+              {weekendCols.map(off => (
+                <div key={off} className="absolute top-0 bottom-0 pointer-events-none"
+                  style={{ left: off * dayW, width: dayW, background: "rgba(239,68,68,0.04)" }} />
               ))}
 
-              {/* Вертикальная линия «сегодня» */}
-              {todayOffset >= 0 && todayOffset <= totalDays && (
-                <div className="absolute top-0 bottom-0 pointer-events-none z-10"
-                  style={{ left: todayX }}>
-                  <div className="w-0.5 h-full bg-red-400 opacity-70" />
+              {/* Вертикальные линии недель */}
+              {dayLabels.filter((_, i) => i % (scale === "day" ? 7 : 1) === 0).map(dl => (
+                <div key={dl.offset} className="absolute top-0 bottom-0 pointer-events-none border-l border-border/20"
+                  style={{ left: dl.offset * dayW }} />
+              ))}
+
+              {/* Линия «сегодня» */}
+              {todayOff >= 0 && todayOff <= totalDays && (
+                <div className="absolute top-0 bottom-0 z-10 pointer-events-none"
+                  style={{ left: todayX, width: 2, background: "rgba(239,68,68,0.6)", borderRadius: 1 }}>
+                  <div className="absolute -top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-rose-500" />
                 </div>
               )}
 
+              {/* Проектный диапазон (если есть) */}
+              {projectStart && projectEnd && (() => {
+                const ps = parseDate(projectStart);
+                const pe = parseDate(projectEnd);
+                if (!ps || !pe) return null;
+                const left  = diffDays(rangeStart, ps) * dayW;
+                const width = (diffDays(ps, pe) + 1) * dayW;
+                return (
+                  <div className="absolute top-0 bottom-0 pointer-events-none z-0"
+                    style={{ left, width, background: "rgba(99,102,241,0.04)", borderLeft: "2px solid rgba(99,102,241,0.3)", borderRight: "2px solid rgba(99,102,241,0.3)" }} />
+                );
+              })()}
+
+              {/* Строки задач */}
               {tasks.map((task, i) => {
-                const bp     = barProps(task);
-                const colors = BAR_COLORS[task.status];
-                const pct    = Math.min(100, Math.max(0, task.progress_pct ?? 0));
-                const hasDates = bp.valid;
+                const geom = barGeom(task.id);
+                const cfg  = BAR_CFG[task.status];
+                const ld   = localDates[task.id];
+                const pct  = Math.min(100, Math.max(0, task.progress_pct ?? 0));
+                const isDragging = drag?.taskId === task.id;
 
                 return (
                   <div key={task.id}
                     className={cn(
-                      "relative border-b border-border/30 transition-colors",
-                      i % 2 === 1 && "bg-secondary/5"
+                      "relative border-b border-border/20",
+                      i % 2 === 1 && "bg-secondary/[0.03]",
                     )}
                     style={{ height: ROW_H }}>
 
-                    {hasDates && (
+                    {geom.valid && (
                       <div
                         className={cn(
-                          "absolute top-[7px] rounded-md border cursor-pointer transition-all hover:opacity-90 hover:shadow-md",
-                          colors.bar, colors.border
+                          "absolute rounded-lg border transition-shadow",
+                          isDragging ? "shadow-xl ring-2 ring-primary/40 z-30" : "shadow-sm hover:shadow-md z-10",
                         )}
-                        style={{ left: bp.left, width: bp.width, height: ROW_H - 14 }}
-                        onMouseEnter={e => {
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setTooltip({ task, x: rect.left + rect.width / 2, y: rect.top });
+                        style={{
+                          left: geom.left,
+                          width: geom.width,
+                          top: 7,
+                          height: ROW_H - 14,
+                          background: cfg.bg,
+                          borderColor: cfg.border,
+                          cursor: drag ? (drag.mode === "move" ? "grabbing" : "ew-resize") : "grab",
                         }}
-                        onMouseLeave={() => setTooltip(null)}
+                        onPointerDown={e => startDrag(e, task, "move")}
+                        onMouseEnter={e => {
+                          if (drag) return;
+                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setTooltip({ task, x: r.left + r.width / 2, y: r.top });
+                        }}
+                        onMouseLeave={() => !drag && setTooltip(null)}
                       >
-                        {/* Прогресс внутри полосы */}
-                        {pct > 0 && pct < 100 && (
-                          <div
-                            className="absolute top-0 left-0 bottom-0 rounded-l-md bg-white/30"
-                            style={{ width: `${pct}%` }}
-                          />
+                        {/* Прогресс-заливка */}
+                        {pct > 0 && (
+                          <div className="absolute top-0 left-0 bottom-0 rounded-l-lg"
+                            style={{ width: `${pct}%`, background: "rgba(255,255,255,0.28)" }} />
                         )}
-                        {/* Текст на полосе (только если широко) */}
-                        {bp.width > 60 && (
-                          <span className="absolute inset-0 flex items-center px-2 text-[10px] font-semibold text-white/90 truncate select-none">
+
+                        {/* Текст */}
+                        {geom.width > 48 && (
+                          <span className="absolute inset-0 flex items-center px-2 text-[10px] font-semibold truncate pointer-events-none"
+                            style={{ color: cfg.text }}>
                             {task.name}
                           </span>
                         )}
+
+                        {/* Даты под полосой при перетаскивании */}
+                        {isDragging && ld && (
+                          <div className="absolute -bottom-5 left-0 flex items-center gap-1 text-[9px] font-mono whitespace-nowrap bg-gray-900 text-white px-1.5 py-0.5 rounded-md pointer-events-none z-50">
+                            {ld.start && fmtShort(ld.start)}
+                            {ld.start && ld.end && " → "}
+                            {ld.end && fmtShort(ld.end)}
+                          </div>
+                        )}
+
+                        {/* Ручка resize (правый край) */}
+                        <div
+                          className="absolute right-0 top-0 bottom-0 w-3 rounded-r-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                          style={{ cursor: "ew-resize", background: "rgba(0,0,0,0.15)" }}
+                          onPointerDown={e => startDrag(e, task, "resize-right")}
+                        >
+                          <div className="flex gap-0.5">
+                            <div className="w-0.5 h-3 rounded-full bg-white opacity-80" />
+                            <div className="w-0.5 h-3 rounded-full bg-white opacity-80" />
+                          </div>
+                        </div>
                       </div>
                     )}
 
-                    {/* Ромб — задача без дат (отмечаем позицию сегодня) */}
-                    {!hasDates && (
-                      <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-300 border border-slate-400 rotate-45"
+                    {/* Ромб — задача без дат */}
+                    {!geom.valid && todayOff >= 0 && (
+                      <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rotate-45 border border-slate-400 bg-slate-200 pointer-events-none z-10"
                         style={{ left: todayX - 6 }} />
                     )}
                   </div>
                 );
               })}
+
+              {/* Пустое пространство снизу */}
+              <div style={{ height: 12 }} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Тултип */}
-      {tooltip && (
-        <div
-          className="fixed z-50 bg-gray-900 text-white rounded-xl shadow-2xl px-3 py-2.5 text-xs pointer-events-none"
-          style={{
-            left: Math.min(tooltip.x, window.innerWidth - 220),
-            top: tooltip.y - 10,
-            transform: "translate(-50%, -100%)",
-            minWidth: 180,
-            maxWidth: 240,
-          }}
-        >
-          <div className="font-semibold mb-1 leading-tight">{tooltip.task.name}</div>
-          <div className="space-y-0.5 text-gray-300">
-            <div className="flex justify-between gap-3">
-              <span>Статус:</span>
-              <span className="text-white font-medium">{TASK_STATUS_CFG[tooltip.task.status].label}</span>
-            </div>
-            {tooltip.task.start_date && (
-              <div className="flex justify-between gap-3">
-                <span>Начало:</span>
-                <span className="text-white">{new Date(tooltip.task.start_date).toLocaleDateString("ru-RU")}</span>
-              </div>
-            )}
-            {tooltip.task.due_date && (
-              <div className="flex justify-between gap-3">
-                <span>Дедлайн:</span>
-                <span className={cn("font-medium",
-                  isOverdueDate(tooltip.task.due_date, tooltip.task.status) ? "text-red-400" : "text-white")}>
-                  {new Date(tooltip.task.due_date).toLocaleDateString("ru-RU")}
-                </span>
-              </div>
-            )}
-            {tooltip.task.assignee_name && (
-              <div className="flex justify-between gap-3">
-                <span>Исполнитель:</span>
-                <span className="text-white truncate max-w-[110px]">{tooltip.task.assignee_name}</span>
-              </div>
-            )}
-            {tooltip.task.estimated_h > 0 && (
-              <div className="flex justify-between gap-3">
-                <span>Часы:</span>
-                <span className="text-white">{tooltip.task.spent_h}/{tooltip.task.estimated_h} ч</span>
-              </div>
-            )}
-            {tooltip.task.progress_pct > 0 && (
-              <div className="flex justify-between gap-3">
-                <span>Прогресс:</span>
-                <span className="text-white">{Math.round(tooltip.task.progress_pct)}%</span>
-              </div>
-            )}
-          </div>
-        </div>
+      {/* ── Тултип ── */}
+      {tooltip && !drag && (
+        <TooltipBox task={tooltip.task} x={tooltip.x} y={tooltip.y} />
       )}
     </div>
   );
 }
 
-function isOverdueDate(dateStr: string | null, status: string): boolean {
-  if (!dateStr || ["done", "cancelled"].includes(status)) return false;
-  return new Date(dateStr) < TODAY;
+// ─── Тултип ────────────────────────────────────────────────────
+function TooltipBox({ task, x, y }: { task: ProjectTask; x: number; y: number }) {
+  const ld = { start: parseDate(task.start_date), end: parseDate(task.due_date) };
+  const overdue = ld.end && ld.end < TODAY && !["done","cancelled"].includes(task.status);
+  const durationDays = ld.start && ld.end ? diffDays(ld.start, ld.end) + 1 : null;
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none"
+      style={{
+        left: Math.min(x, window.innerWidth - 240),
+        top: y - 8,
+        transform: "translate(-50%, -100%)",
+      }}
+    >
+      <div className="bg-gray-900 text-white rounded-xl shadow-2xl px-3.5 py-3 text-xs" style={{ minWidth: 200, maxWidth: 260 }}>
+        {/* Название */}
+        <div className="font-semibold text-sm mb-2 leading-tight">{task.name}</div>
+
+        <div className="space-y-1 text-gray-300">
+          <Row label="Статус" value={TASK_STATUS_CFG[task.status].label} highlight />
+          {task.priority !== "medium" && (
+            <Row label="Приоритет" value={PRIORITY_CFG[task.priority].label} />
+          )}
+          {ld.start && <Row label="Начало" value={fmtFull(ld.start)} />}
+          {ld.end && (
+            <Row label="Дедлайн" value={fmtFull(ld.end)} danger={!!overdue} />
+          )}
+          {durationDays !== null && durationDays > 0 && (
+            <Row label="Длительность" value={`${durationDays} дн.`} />
+          )}
+          {task.assignee_name && <Row label="Исполнитель" value={task.assignee_name} />}
+          {(task.estimated_h > 0 || task.spent_h > 0) && (
+            <Row label="Часы" value={`${task.spent_h} / ${task.estimated_h} ч`} />
+          )}
+          {task.progress_pct > 0 && (
+            <div className="pt-1">
+              <div className="flex justify-between mb-1">
+                <span>Прогресс</span>
+                <span className="text-white font-semibold">{Math.round(task.progress_pct)}%</span>
+              </div>
+              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${task.progress_pct}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {overdue && (
+          <div className="mt-2 flex items-center gap-1.5 text-rose-400 text-[10px] font-semibold">
+            <span>⚠</span>Срок истёк
+          </div>
+        )}
+
+        {/* Подсказка о drag */}
+        <div className="mt-2 pt-2 border-t border-gray-700 text-[10px] text-gray-500">
+          Перетащите полосу для изменения дат
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, highlight, danger }: { label: string; value: string; highlight?: boolean; danger?: boolean }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="shrink-0">{label}:</span>
+      <span className={cn("font-medium truncate text-right",
+        highlight ? "text-white" : danger ? "text-rose-400" : "text-gray-200")}>
+        {value}
+      </span>
+    </div>
+  );
 }

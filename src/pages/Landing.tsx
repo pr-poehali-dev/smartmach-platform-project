@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { FONT } from "./landing.data";
 import LandingHero from "./LandingHero";
 import LandingSections from "./LandingSections";
+import LandingFAQ from "./LandingFAQ";
 import LandingContact from "./LandingContact";
 import SeoHead from "@/components/ui/seo-head";
 import { PAGE_SEO } from "@/lib/seo.data";
@@ -15,6 +16,7 @@ export default function Landing() {
       <SeoHead {...PAGE_SEO.landing} />
       <LandingHero onEnter={onEnter} />
       <LandingSections onEnter={onEnter} onContact={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })} />
+      <LandingFAQ />
       <LandingContact onEnter={onEnter} />
     </div>
   );

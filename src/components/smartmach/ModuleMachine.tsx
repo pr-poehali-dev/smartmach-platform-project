@@ -6,6 +6,8 @@ import MachineSpecs from "@/components/smartmach/MachineSpecs";
 import MachineModulesList from "@/components/smartmach/MachineModulesList";
 import MachinePlan from "@/components/smartmach/MachinePlan";
 import MachineConfigurator from "@/components/smartmach/MachineConfigurator";
+import MachineDrawingsList, { type MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
+import MachineDrawingEditor from "@/components/smartmach/MachineDrawingEditor";
 
 const AI_SYSTEM = `Ты — инженер-конструктор и эксперт по станкостроению в системе СмартМаш.
 Помогаешь с вопросами по проектированию и изготовлению гибридного компактного станка:
@@ -21,17 +23,24 @@ const AI_SUGGESTIONS = [
   "Как рассчитать мощность ШВП для оси X 500 мм?",
 ];
 
-type Tab = "overview" | "modules" | "plan" | "config";
+type Tab = "overview" | "modules" | "plan" | "config" | "drawings";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "overview", label: "Характеристики", icon: "BarChart2" },
-  { id: "modules",  label: "Модули",         icon: "Layers"    },
-  { id: "plan",     label: "План",            icon: "ClipboardList" },
-  { id: "config",   label: "Конфигурации",   icon: "SlidersHorizontal" },
+  { id: "overview",  label: "Характеристики", icon: "BarChart2"         },
+  { id: "modules",   label: "Модули",          icon: "Layers"            },
+  { id: "plan",      label: "План",             icon: "ClipboardList"    },
+  { id: "config",    label: "Конфигурации",    icon: "SlidersHorizontal" },
+  { id: "drawings",  label: "Чертежи",          icon: "PenLine"          },
 ];
 
 export default function ModuleMachine() {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab]               = useState<Tab>("overview");
+  // Чертежи: null = список, undefined = новый, object = редактировать
+  const [openDrawing, setOpenDrawing] = useState<MachineDrawing | null | undefined>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  // Режим редактора: показываем только когда открыт чертёж
+  const editorOpen = openDrawing !== null;
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
@@ -52,7 +61,6 @@ export default function ModuleMachine() {
             Компактный многофункциональный станок: токарная + фрезерная + лазерная обработка
           </p>
         </div>
-
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-full font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
@@ -93,7 +101,7 @@ export default function ModuleMachine() {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => { setTab(t.id); setOpenDrawing(null); }}
             className={cn(
               "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-1 justify-center",
               tab === t.id
@@ -113,8 +121,32 @@ export default function ModuleMachine() {
       {tab === "plan"      && <MachinePlan />}
       {tab === "config"    && <MachineConfigurator />}
 
-      {/* ИИ-ассистент */}
-      <AiAssistant systemPrompt={AI_SYSTEM} suggestions={AI_SUGGESTIONS} />
+      {/* Вкладка чертежей */}
+      {tab === "drawings" && (
+        editorOpen ? (
+          <MachineDrawingEditor
+            drawing={openDrawing ?? undefined}
+            onBack={() => setOpenDrawing(null)}
+            onSaved={(saved) => {
+              setOpenDrawing(null);
+              setRefreshTick((n) => n + 1);
+              // Если это был новый — открываем его же для продолжения работы
+              if (!openDrawing) setOpenDrawing(saved);
+            }}
+          />
+        ) : (
+          <MachineDrawingsList
+            onOpen={(d) => setOpenDrawing(d)}
+            onNew={() => setOpenDrawing(undefined)}
+            refreshTick={refreshTick}
+          />
+        )
+      )}
+
+      {/* ИИ-ассистент — не показываем в редакторе */}
+      {!(tab === "drawings" && editorOpen) && (
+        <AiAssistant systemPrompt={AI_SYSTEM} suggestions={AI_SUGGESTIONS} />
+      )}
     </div>
   );
 }

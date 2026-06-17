@@ -15,6 +15,8 @@ import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
 import Cad2DRuler from "@/components/smartmach/Cad2DRuler";
 import AiDraftAgentPanel from "@/components/smartmach/AiDraftAgentPanel";
+import { toInitials } from "@/components/smartmach/Cad2DGostDialog";
+import { useAuth } from "@/context/AuthContext";
 import { apiPost, apiPut } from "@/lib/api";
 import { toast } from "sonner";
 import type { MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
@@ -106,6 +108,7 @@ function SaveDialog({ preview, paperSize, theme, initialName, initialDescription
 }
 
 export default function MachineDrawingEditor({ drawing, template, onBack, onSaved }: Props) {
+  const { user } = useAuth();
   const canvas = useCad2DCanvas();
   const [showGost, setShowGost]   = useState(false);
   const [showSave, setShowSave]   = useState(false);
@@ -237,6 +240,14 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
     try {
       const image = fc.toDataURL({ format: "png", multiplier: 2 });
       const canvasJson = JSON.stringify(fc.toJSON());
+
+      // Автозаполнение штампа: ФИО разработчика и организация из профиля
+      const filledMeta: Record<string, string> = { ...(lastGostMeta ?? {}) };
+      if (user) {
+        if (!filledMeta.designer) filledMeta.designer = toInitials(user.name);
+        if (!filledMeta.company && user.company_name) filledMeta.company = user.company_name;
+      }
+
       const payload = {
         image,
         canvas_json: canvasJson,
@@ -244,7 +255,7 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
         description,
         paper_size: canvas.paperSize,
         theme: canvas.theme,
-        gost_meta: lastGostMeta,
+        gost_meta: filledMeta,
         module: "machine",
       };
 

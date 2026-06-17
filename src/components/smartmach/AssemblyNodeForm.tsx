@@ -175,7 +175,7 @@ export default function AssemblyNodeForm({ assemblyId, parentId, node, partsList
                 {UNIT_QUICK.map(u => (
                   <button type="button" key={u} onClick={() => f("unit", u)}
                     className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                      form.unit === u ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary"
+                      form.unit === u ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary"
                     }`}>
                     {u}
                   </button>

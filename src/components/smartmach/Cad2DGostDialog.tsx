@@ -1,7 +1,9 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import { toast } from "sonner";
 import { PAPER_SIZES } from "@/components/smartmach/cad2d.data";
 import { type GostFrameOptions } from "@/components/smartmach/useCad2DCanvas";
+import { useAuth } from "@/context/AuthContext";
 
 interface Props {
   onApply: (opts: GostFrameOptions) => void;
@@ -12,7 +14,18 @@ interface Props {
 const SCALES  = ["1:1", "1:2", "1:5", "1:10", "1:20", "1:50", "1:100", "2:1", "5:1", "10:1"];
 const LITERAS = ["", "О", "ОО", "ОИ", "И", "Э", "П"];
 
+// «Иванов Иван Иванович» → «Иванов И.И.»
+export function toInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  const surname = parts[0];
+  const initials = parts.slice(1).map((p) => p.charAt(0).toUpperCase() + ".").join("");
+  return `${surname} ${initials}`;
+}
+
 export default function Cad2DGostDialog({ onApply, onClose, currentPaper }: Props) {
+  const { user } = useAuth();
   const [paper,          setPaper]          = useState(currentPaper);
   const [name,           setName]           = useState("");
   const [number,         setNumber]         = useState("");
@@ -27,6 +40,14 @@ export default function Cad2DGostDialog({ onApply, onClose, currentPaper }: Prop
   const [mass,           setMass]           = useState("");
   const [sheet,          setSheet]          = useState("1");
   const [sheets,         setSheets]         = useState("1");
+
+  const handleFillStamp = () => {
+    if (!user) { toast.error("Войдите, чтобы автозаполнить штамп"); return; }
+    const fio = toInitials(user.name);
+    setDesigner(fio);
+    if (user.company_name && !company) setCompany(user.company_name);
+    toast.success(`Разработал: ${fio}`);
+  };
 
   const handleApply = () => {
     onApply({
@@ -139,9 +160,19 @@ export default function Cad2DGostDialog({ onApply, onClose, currentPaper }: Prop
 
           {/* Гр.10-11 — подписи */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold text-gray-300 border-b border-gray-700 pb-1">
-              Подписи (Гр.10-11) — фамилии
-            </p>
+            <div className="flex items-center justify-between border-b border-gray-700 pb-1">
+              <p className="text-[11px] font-semibold text-gray-300">
+                Подписи (Гр.10-11) — фамилии
+              </p>
+              <button
+                type="button"
+                onClick={handleFillStamp}
+                className="flex items-center gap-1.5 text-[10px] font-medium text-blue-300 hover:text-white bg-blue-600/20 hover:bg-blue-600/40 border border-blue-600/40 rounded-md px-2 py-1 transition-colors"
+              >
+                <Icon name="UserCheck" size={11} />
+                Заполнить штамп
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Разработал"   value={designer}       onChange={setDesigner}       placeholder="Иванов И.И." />
               <Field label="Проверил"     value={checker}        onChange={setChecker}        placeholder="Петров П.П." />

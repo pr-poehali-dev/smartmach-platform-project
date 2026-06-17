@@ -58,7 +58,7 @@ export default function EquipmentTable({
               onClick={() => onTypeFilter(t)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 typeFilter === t
-                  ? "bg-primary text-white border-primary"
+                  ? "bg-primary text-primary-foreground border-primary"
                   : "border-border text-muted-foreground hover:border-primary hover:text-foreground"
               }`}
             >

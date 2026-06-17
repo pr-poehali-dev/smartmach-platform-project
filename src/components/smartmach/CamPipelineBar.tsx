@@ -57,7 +57,7 @@ export default function CamPipelineBar({
           {[["all", "Все приоритеты"], ...Object.entries(PRIORITY_CFG).map(([k, v]) => [k, v.label])].map(([id, label]) => (
             <button key={id} onClick={() => onFilterPriority(id)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                filterPriority === id ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary/50"
+                filterPriority === id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"
               }`}>
               {label}
             </button>

@@ -35,7 +35,7 @@ export default function CaeList({
               <button key={s} onClick={() => onFilterStatus(s === filterStatus ? "all" : s)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   filterStatus === s
-                    ? (s === "all" ? "bg-primary text-white border-primary" : `${cfg.color} border-current`)
+                    ? (s === "all" ? "bg-primary text-primary-foreground border-primary" : `${cfg.color} border-current`)
                     : "border-border text-muted-foreground hover:border-primary/40"
                 }`}>
                 {cfg.label}

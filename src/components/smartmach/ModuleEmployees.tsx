@@ -150,7 +150,7 @@ export default function ModuleEmployees() {
           {departments.map((d) => (
             <button key={d} onClick={() => setDeptFilter(d)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                deptFilter === d ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary/50"
+                deptFilter === d ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"
               }`}>{d}</button>
           ))}
         </div>

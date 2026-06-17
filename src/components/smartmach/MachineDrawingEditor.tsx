@@ -16,9 +16,11 @@ import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
 import Cad2DRuler from "@/components/smartmach/Cad2DRuler";
 import { apiPost, apiPut } from "@/lib/api";
 import type { MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
+import type { MachineTemplate } from "@/components/smartmach/machineDrawingTemplates";
 
 interface Props {
   drawing?: MachineDrawing | null;  // null = новый чертёж
+  template?: MachineTemplate | null; // шаблон для нового чертежа
   onBack: () => void;
   onSaved: (drawing: MachineDrawing) => void;
 }
@@ -101,7 +103,7 @@ function SaveDialog({ preview, paperSize, theme, initialName, initialDescription
   );
 }
 
-export default function MachineDrawingEditor({ drawing, onBack, onSaved }: Props) {
+export default function MachineDrawingEditor({ drawing, template, onBack, onSaved }: Props) {
   const canvas = useCad2DCanvas();
   const [showGost, setShowGost]   = useState(false);
   const [showSave, setShowSave]   = useState(false);
@@ -172,6 +174,36 @@ export default function MachineDrawingEditor({ drawing, onBack, onSaved }: Props
     fc.loadFromJSON(drawing.canvas_json, () => fc.renderAll());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawing?.id]);
+
+  // Применяем шаблон (рамка ГОСТ + геометрия) для нового чертежа
+  useEffect(() => {
+    if (!template || drawing) return;
+    setLastGostMeta(template.gost as unknown as Record<string, string>);
+    const apply = () => {
+      const fc = canvas.fabricRef.current;
+      if (!fc) return false;
+      canvas.gostFrameActiveRef.current = true;
+      canvas.setPaperSize(template.paperSize);
+      setTimeout(() => {
+        const fc2 = canvas.fabricRef.current;
+        if (!fc2) return;
+        const [pw, ph] = PAPER_SIZES[template.paperSize] ?? [0, 0];
+        if (pw && ph) {
+          fc2.setDimensions({ width: pw, height: ph });
+          drawGostFrame(fc2, pw, ph, template.gost);
+          template.drawGeometry(fc2, pw, ph);
+          fc2.renderAll();
+          canvas.saveHistory();
+        }
+      }, 120);
+      return true;
+    };
+    if (!apply()) {
+      const tid = setTimeout(apply, 350);
+      return () => clearTimeout(tid);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template?.id]);
 
   // Автосохранение canvas_json при каждом изменении истории
   const autoSave = useCallback(async () => {
@@ -270,8 +302,8 @@ export default function MachineDrawingEditor({ drawing, onBack, onSaved }: Props
           preview={savePreview}
           paperSize={canvas.paperSize}
           theme={canvas.theme}
-          initialName={drawing?.name ?? "Новый чертёж"}
-          initialDescription={drawing?.description ?? ""}
+          initialName={drawing?.name ?? template?.gost.drawingName ?? "Новый чертёж"}
+          initialDescription={drawing?.description ?? template?.subtitle ?? ""}
           saving={saving}
           error={saveError}
           onSave={handleSave}

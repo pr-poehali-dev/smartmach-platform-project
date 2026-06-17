@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { apiGet, apiDelete } from "@/lib/api";
+import { MACHINE_TEMPLATES } from "@/components/smartmach/machineDrawingTemplates";
 
 export interface MachineDrawing {
   id: number;
@@ -22,7 +23,7 @@ export interface MachineDrawing {
 
 interface Props {
   onOpen: (drawing: MachineDrawing) => void;
-  onNew: () => void;
+  onNew: (templateId?: string) => void;
   refreshTick: number;
 }
 
@@ -83,12 +84,42 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
           />
         </div>
         <button
-          onClick={onNew}
+          onClick={() => onNew()}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 shrink-0"
         >
           <Icon name="Plus" size={15} />
-          Новый чертёж
+          Пустой чертёж
         </button>
+      </div>
+
+      {/* Шаблоны чертежей */}
+      <div className="bg-white rounded-xl border border-border p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Icon name="LayoutTemplate" size={15} className="text-primary" />
+          <span className="text-sm font-semibold text-foreground">Шаблоны узлов станка</span>
+          <span className="text-xs text-muted-foreground">— рамка ГОСТ и геометрия уже готовы</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {MACHINE_TEMPLATES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onNew(t.id)}
+              className="flex items-start gap-3 p-3 rounded-xl border border-border text-left hover:border-primary/40 hover:bg-primary/3 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0">
+                <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={16} className="text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-foreground">{t.title}</div>
+                <div className="text-xs text-muted-foreground leading-snug mt-0.5">{t.subtitle}</div>
+                <div className="text-[10px] text-primary font-medium mt-1 flex items-center gap-1">
+                  <Icon name="FileType" size={10} />
+                  {t.paperSize}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Список */}
@@ -112,7 +143,7 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
           </div>
           {!search && (
             <button
-              onClick={onNew}
+              onClick={() => onNew()}
               className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90"
             >
               <Icon name="Plus" size={15} />

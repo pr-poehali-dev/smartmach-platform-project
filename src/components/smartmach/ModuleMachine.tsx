@@ -8,6 +8,7 @@ import MachinePlan from "@/components/smartmach/MachinePlan";
 import MachineConfigurator from "@/components/smartmach/MachineConfigurator";
 import MachineDrawingsList, { type MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
 import MachineDrawingEditor from "@/components/smartmach/MachineDrawingEditor";
+import { MACHINE_TEMPLATES, type MachineTemplate } from "@/components/smartmach/machineDrawingTemplates";
 
 const AI_SYSTEM = `Ты — инженер-конструктор и эксперт по станкостроению в системе СмартМаш.
 Помогаешь с вопросами по проектированию и изготовлению гибридного компактного станка:
@@ -37,6 +38,7 @@ export default function ModuleMachine() {
   const [tab, setTab]               = useState<Tab>("overview");
   // Чертежи: null = список, undefined = новый, object = редактировать
   const [openDrawing, setOpenDrawing] = useState<MachineDrawing | null | undefined>(null);
+  const [activeTemplate, setActiveTemplate] = useState<MachineTemplate | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
   // Режим редактора: показываем только когда открыт чертёж
@@ -101,7 +103,7 @@ export default function ModuleMachine() {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => { setTab(t.id); setOpenDrawing(null); }}
+            onClick={() => { setTab(t.id); setOpenDrawing(null); setActiveTemplate(null); }}
             className={cn(
               "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-1 justify-center",
               tab === t.id
@@ -126,9 +128,11 @@ export default function ModuleMachine() {
         editorOpen ? (
           <MachineDrawingEditor
             drawing={openDrawing ?? undefined}
-            onBack={() => setOpenDrawing(null)}
+            template={activeTemplate}
+            onBack={() => { setOpenDrawing(null); setActiveTemplate(null); }}
             onSaved={(saved) => {
               setOpenDrawing(null);
+              setActiveTemplate(null);
               setRefreshTick((n) => n + 1);
               // Если это был новый — открываем его же для продолжения работы
               if (!openDrawing) setOpenDrawing(saved);
@@ -136,8 +140,11 @@ export default function ModuleMachine() {
           />
         ) : (
           <MachineDrawingsList
-            onOpen={(d) => setOpenDrawing(d)}
-            onNew={() => setOpenDrawing(undefined)}
+            onOpen={(d) => { setActiveTemplate(null); setOpenDrawing(d); }}
+            onNew={(templateId) => {
+              setActiveTemplate(templateId ? MACHINE_TEMPLATES.find((t) => t.id === templateId) ?? null : null);
+              setOpenDrawing(undefined);
+            }}
             refreshTick={refreshTick}
           />
         )

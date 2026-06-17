@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
@@ -47,7 +48,7 @@ export default function ModulePLM() {
       }, { resource: "products" });
       setForm(EMPTY_FORM); setShowForm(false); await load();
     } catch {
-      alert("Ошибка при создании изделия");
+      toast.error("Не удалось создать изделие");
     } finally {
       setSaving(false);
     }
@@ -59,7 +60,7 @@ export default function ModulePLM() {
       await load();
       setSelected((prev) => prev ? { ...prev, stage: newStage, stage_label: stageLabel(newStage) } : null);
     } catch {
-      alert("Ошибка при смене стадии");
+      toast.error("Не удалось сменить стадию изделия");
     }
   }
 

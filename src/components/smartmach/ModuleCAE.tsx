@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { mGet, mGetPartsList, mPost, mPut, Simulation, Part, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
@@ -43,7 +44,7 @@ export default function ModuleCAE() {
         author_id: form.author_id ? Number(form.author_id) : null,
       });
       setForm(EMPTY); setShowForm(false); await load();
-    } catch { alert("Ошибка при создании"); }
+    } catch { toast.error("Не удалось создать расчёт"); }
     finally { setSaving(false); }
   }
 
@@ -51,7 +52,7 @@ export default function ModuleCAE() {
     const next = NEXT[sim.status];
     if (!next) return;
     try { await mPut("simulations", sim.id, { status: next }); await load(); }
-    catch { alert("Ошибка обновления"); }
+    catch { toast.error("Не удалось обновить статус расчёта"); }
   }
 
   const f = (k: keyof typeof EMPTY, v: string) => setForm((p) => ({ ...p, [k]: v }));

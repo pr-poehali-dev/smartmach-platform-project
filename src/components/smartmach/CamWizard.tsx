@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import {
   WIZARD_TOOLS, OPERATION_LABELS, calcCuttingParams,
@@ -84,7 +85,7 @@ export default function CamWizard({ machines, onClose, onApply }: Props) {
       setResult(r);
       setStep(4);
     } catch {
-      alert("Ошибка расчёта. Проверьте параметры.");
+      toast.error("Ошибка расчёта. Проверьте введённые параметры.");
     }
   }
 

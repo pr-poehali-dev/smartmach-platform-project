@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 
@@ -87,7 +88,7 @@ export default function ModuleEmployees() {
       }
       await load();
       setEditMode(false); setSelected(null);
-    } catch { alert("Ошибка сохранения"); }
+    } catch { toast.error("Не удалось сохранить данные сотрудника"); }
     finally { setSaving(false); }
   }
 

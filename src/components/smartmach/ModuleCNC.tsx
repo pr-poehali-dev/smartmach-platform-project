@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { mGet, mPost, mPut, Machine, User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
@@ -56,7 +57,7 @@ export default function ModuleCNC() {
         operator_id: form.operator_id ? Number(form.operator_id) : null,
       });
       setForm(EMPTY); setShowForm(false); await load();
-    } catch { alert("Ошибка при создании"); }
+    } catch { toast.error("Не удалось добавить станок"); }
     finally { setSaving(false); }
   }
 
@@ -65,7 +66,7 @@ export default function ModuleCNC() {
       await mPut("machines", machine.id, { status, load_pct: status === "idle" || status === "alarm" ? 0 : machine.load_pct });
       await load();
       setSelected((p) => p?.id === machine.id ? { ...p, status } : p);
-    } catch { alert("Ошибка обновления"); }
+    } catch { toast.error("Не удалось обновить статус станка"); }
   }
 
   const f = (k: keyof typeof EMPTY, v: string) => setForm((p) => ({ ...p, [k]: v }));

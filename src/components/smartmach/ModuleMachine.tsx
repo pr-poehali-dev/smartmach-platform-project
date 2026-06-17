@@ -8,6 +8,8 @@ import MachinePlan from "@/components/smartmach/MachinePlan";
 import MachineConfigurator from "@/components/smartmach/MachineConfigurator";
 import MachineDrawingsList, { type MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
 import MachineDrawingEditor from "@/components/smartmach/MachineDrawingEditor";
+import MachineSpecification from "@/components/smartmach/MachineSpecification";
+import MachineTestLog from "@/components/smartmach/MachineTestLog";
 import { MACHINE_TEMPLATES, type MachineTemplate } from "@/components/smartmach/machineDrawingTemplates";
 
 const AI_SYSTEM = `Ты — инженер-конструктор и эксперт по станкостроению в системе СмартМаш.
@@ -24,7 +26,7 @@ const AI_SUGGESTIONS = [
   "Как рассчитать мощность ШВП для оси X 500 мм?",
 ];
 
-type Tab = "overview" | "modules" | "plan" | "config" | "drawings";
+type Tab = "overview" | "modules" | "plan" | "config" | "drawings" | "spec" | "tests";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "overview",  label: "Характеристики", icon: "BarChart2"         },
@@ -32,6 +34,8 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "plan",      label: "План",             icon: "ClipboardList"    },
   { id: "config",    label: "Конфигурации",    icon: "SlidersHorizontal" },
   { id: "drawings",  label: "Чертежи",          icon: "PenLine"          },
+  { id: "spec",      label: "Спецификация",    icon: "FileSpreadsheet"   },
+  { id: "tests",     label: "Испытания",        icon: "FlaskConical"     },
 ];
 
 export default function ModuleMachine() {
@@ -122,6 +126,8 @@ export default function ModuleMachine() {
       {tab === "modules"   && <MachineModulesList />}
       {tab === "plan"      && <MachinePlan />}
       {tab === "config"    && <MachineConfigurator />}
+      {tab === "spec"      && <MachineSpecification />}
+      {tab === "tests"     && <MachineTestLog />}
 
       {/* Вкладка чертежей */}
       {tab === "drawings" && (

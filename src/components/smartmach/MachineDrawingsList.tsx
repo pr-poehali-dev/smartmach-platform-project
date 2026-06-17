@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { apiGet, apiDelete } from "@/lib/api";
 import { MACHINE_TEMPLATES } from "@/components/smartmach/machineDrawingTemplates";
+import { exportDrawingsPackage } from "@/components/smartmach/machinePdfExport";
 
 export interface MachineDrawing {
   id: number;
@@ -42,6 +44,7 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
   const [loading, setLoading]   = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [search, setSearch]     = useState("");
+  const [exporting, setExporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -60,8 +63,22 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
     try {
       await apiDelete("drawings", { id });
       setDrawings((prev) => prev.filter((d) => d.id !== id));
-    } catch { alert("Ошибка удаления"); }
+    } catch { toast.error("Не удалось удалить чертёж"); }
     finally { setDeleting(null); }
+  }
+
+  async function handleExportPdf() {
+    if (drawings.length === 0) { toast.error("Нет чертежей для экспорта"); return; }
+    setExporting(true);
+    const tid = toast.loading("Формирую пакет PDF…");
+    try {
+      await exportDrawingsPackage(drawings);
+      toast.success("Пакет чертежей сохранён в PDF", { id: tid });
+    } catch {
+      toast.error("Не удалось сформировать PDF", { id: tid });
+    } finally {
+      setExporting(false);
+    }
   }
 
   const filtered = drawings.filter((d) =>
@@ -83,6 +100,14 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
             className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
+        <button
+          onClick={handleExportPdf}
+          disabled={exporting || drawings.length === 0}
+          className="flex items-center gap-2 bg-white border border-border text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary/50 disabled:opacity-50 shrink-0"
+        >
+          <Icon name={exporting ? "Loader" : "FileDown"} size={15} className={exporting ? "animate-spin" : ""} />
+          <span className="hidden sm:inline">Пакет PDF</span>
+        </button>
         <button
           onClick={() => onNew()}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 shrink-0"

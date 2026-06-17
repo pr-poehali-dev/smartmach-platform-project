@@ -15,6 +15,7 @@ import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
 import Cad2DRuler from "@/components/smartmach/Cad2DRuler";
 import { apiPost, apiPut } from "@/lib/api";
+import { toast } from "sonner";
 import type { MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
 import type { MachineTemplate } from "@/components/smartmach/machineDrawingTemplates";
 
@@ -264,8 +265,11 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
         });
       }
       setShowSave(false);
+      toast.success(drawing?.id ? "Чертёж обновлён" : "Чертёж сохранён в библиотеку");
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Ошибка сохранения");
+      const msg = e instanceof Error ? e.message : "Ошибка сохранения";
+      setSaveError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

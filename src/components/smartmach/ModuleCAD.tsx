@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { mGetParts, mGet, mPost, mPut, type Part, type User } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
@@ -103,7 +104,7 @@ export default function ModuleCAD({ onNavigateToCam }: Props) {
         collisions: 0, is_template: false,
       });
       handleTabChange("mine");
-    } catch { alert("Ошибка при создании копии"); }
+    } catch { toast.error("Не удалось создать копию детали"); }
     finally { setSaving(false); }
   }
 
@@ -112,7 +113,7 @@ export default function ModuleCAD({ onNavigateToCam }: Props) {
       await mPut("parts", part.id, { status });
       await reload();
       setSelected((p) => p?.id === part.id ? { ...p, status } : p);
-    } catch { alert("Ошибка при обновлении статуса"); }
+    } catch { toast.error("Не удалось обновить статус детали"); }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -129,7 +130,7 @@ export default function ModuleCAD({ onNavigateToCam }: Props) {
         status: "ok", collisions: 0, is_template: false,
       });
       setForm(EMPTY); setShowForm(false); handleTabChange("mine");
-    } catch { alert("Ошибка при создании"); }
+    } catch { toast.error("Не удалось создать деталь"); }
     finally { setSaving(false); }
   }
 

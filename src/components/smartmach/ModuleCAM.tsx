@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { mGet, mGetPartsList, mPost, mPut, Program, Part, Machine, User } from "@/lib/manufacture";
 import { apiGet } from "@/lib/api";
@@ -68,7 +69,7 @@ export default function ModuleCAM({ preselectPartId, onNavigateToJob, onNavigate
         author_id: form.author_id ? Number(form.author_id) : null,
       });
       setForm(EMPTY_FORM); setShowForm(false); await load();
-    } catch { alert("Ошибка при создании"); }
+    } catch { toast.error("Не удалось создать программу"); }
     finally { setSaving(false); }
   }
 
@@ -76,7 +77,7 @@ export default function ModuleCAM({ preselectPartId, onNavigateToJob, onNavigate
     const next = NEXT[prog.status];
     if (!next) return;
     try { await mPut("programs", prog.id, { status: next }); await load(); }
-    catch { alert("Ошибка обновления"); }
+    catch { toast.error("Не удалось обновить статус программы"); }
   }
 
   return (

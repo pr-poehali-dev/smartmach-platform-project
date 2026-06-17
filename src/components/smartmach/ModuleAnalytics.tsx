@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
 import { mGet, mGetPartsList, type Stats, type Job } from "@/lib/manufacture";
 import AiAssistant from "@/components/smartmach/AiAssistant";
@@ -70,7 +71,7 @@ export default function ModuleAnalytics({ preselectPartId, preselectProgramId, o
         notes:    form.notes    || null,
       });
       setForm(EMPTY_JOB); setShowForm(false); await load();
-    } catch { alert("Ошибка при создании задания"); }
+    } catch { toast.error("Не удалось создать задание"); }
     finally { setSaving(false); }
   }
 
@@ -82,7 +83,7 @@ export default function ModuleAnalytics({ preselectPartId, preselectProgramId, o
       const { mPut } = await import("@/lib/manufacture");
       await mPut("jobs", job.id, { status: order[idx + 1] });
       await load();
-    } catch { alert("Ошибка обновления"); }
+    } catch { toast.error("Не удалось обновить статус задания"); }
   }
 
   const f = (k: keyof typeof EMPTY_JOB, v: string) => setForm((p) => ({ ...p, [k]: v }));

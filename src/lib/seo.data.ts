@@ -97,6 +97,11 @@ export const MODULE_SEO: Record<ModuleId, SeoMeta> = {
     description: "Реестр проектов, декомпозиция задач, бюджет план/факт и аналитика по всем проектам предприятия.",
     noIndex: true,
   },
+  machine: {
+    title: `Разработка станка МАТ-1 — ${BASE_TITLE}`,
+    description: "Собственная разработка: гибридный компактный станок с токарной, фрезерной и лазерной обработкой. ЧПУ на базе LinuxCNC/GRBL.",
+    noIndex: true,
+  },
 };
 
 export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
@@ -112,6 +117,7 @@ export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
   employees: ["Сотрудники"],
   assembly:  ["Состав изделия (BOM)"],
   projects:  ["Управление проектами"],
+  machine:   ["Разработка станка МАТ-1"],
 };
 
 export { OG_IMAGE, BASE_TITLE, BASE_URL };

@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "projects",  label: "Проекты",          icon: "FolderKanban", color: "#039be5" },
   { id: "economics", label: "Экономика",        icon: "TrendingUp",   color: "#0288d1" },
   { id: "employees", label: "Сотрудники",       icon: "Users",        color: "#7b1fa2" },
+  { id: "machine",   label: "Станок МАТ-1",    icon: "Hammer",       color: "#f59e0b" },
 ];
 
 interface Props {

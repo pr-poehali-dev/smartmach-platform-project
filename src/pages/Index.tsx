@@ -13,6 +13,7 @@ import ModuleEconomics from "@/components/smartmach/ModuleEconomics";
 import ModuleEmployees from "@/components/smartmach/ModuleEmployees";
 import ModuleAssembly  from "@/components/smartmach/ModuleAssembly";
 import ModuleProjects  from "@/components/smartmach/ModuleProjects";
+import ModuleMachine  from "@/components/smartmach/ModuleMachine";
 import SeoHead from "@/components/ui/seo-head";
 import Breadcrumbs from "@/components/ui/breadcrumbs";
 import { MODULE_SEO, MODULE_BREADCRUMB } from "@/lib/seo.data";
@@ -20,7 +21,7 @@ import NotificationBell from "@/components/smartmach/NotificationBell";
 import Icon from "@/components/ui/icon";
 import MobileBottomNav from "@/components/smartmach/MobileBottomNav";
 
-export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics" | "employees" | "assembly" | "projects";
+export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics" | "employees" | "assembly" | "projects" | "machine";
 
 export default function Index() {
   const [activeModule,     setActiveModule]     = useState<ModuleId>("home");
@@ -88,6 +89,7 @@ export default function Index() {
       case "employees": return <ModuleEmployees />;
       case "assembly":  return <ModuleAssembly onNavigateToPart={goToCad} />;
       case "projects":  return <ModuleProjects />;
+      case "machine":   return <ModuleMachine />;
       default:          return <DashboardHome onNavigate={navigate} />;
     }
   };

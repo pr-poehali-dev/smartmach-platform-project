@@ -4,7 +4,8 @@ import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { apiGet, apiDelete } from "@/lib/api";
 import { MACHINE_TEMPLATES } from "@/components/smartmach/machineDrawingTemplates";
-import { exportDrawingsPackage } from "@/components/smartmach/machinePdfExport";
+import { exportDrawingsPackage, type PackageSignatures } from "@/components/smartmach/machinePdfExport";
+import MachinePdfDialog from "@/components/smartmach/MachinePdfDialog";
 
 export interface MachineDrawing {
   id: number;
@@ -45,6 +46,7 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
   const [deleting, setDeleting] = useState<number | null>(null);
   const [search, setSearch]     = useState("");
   const [exporting, setExporting] = useState(false);
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -67,13 +69,14 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
     finally { setDeleting(null); }
   }
 
-  async function handleExportPdf() {
+  async function handleExportPdf(sign: PackageSignatures) {
     if (drawings.length === 0) { toast.error("Нет чертежей для экспорта"); return; }
     setExporting(true);
     const tid = toast.loading("Формирую пакет PDF…");
     try {
-      await exportDrawingsPackage(drawings);
+      await exportDrawingsPackage(drawings, sign);
       toast.success("Пакет чертежей сохранён в PDF", { id: tid });
+      setShowPdfDialog(false);
     } catch {
       toast.error("Не удалось сформировать PDF", { id: tid });
     } finally {
@@ -89,6 +92,16 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
 
   return (
     <div className="space-y-4">
+      {/* Диалог экспорта PDF */}
+      {showPdfDialog && (
+        <MachinePdfDialog
+          drawingsCount={drawings.length}
+          exporting={exporting}
+          onExport={handleExportPdf}
+          onClose={() => setShowPdfDialog(false)}
+        />
+      )}
+
       {/* Шапка */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
@@ -101,11 +114,11 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
           />
         </div>
         <button
-          onClick={handleExportPdf}
-          disabled={exporting || drawings.length === 0}
+          onClick={() => setShowPdfDialog(true)}
+          disabled={drawings.length === 0}
           className="flex items-center gap-2 bg-white border border-border text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary/50 disabled:opacity-50 shrink-0"
         >
-          <Icon name={exporting ? "Loader" : "FileDown"} size={15} className={exporting ? "animate-spin" : ""} />
+          <Icon name="FileDown" size={15} />
           <span className="hidden sm:inline">Пакет PDF</span>
         </button>
         <button

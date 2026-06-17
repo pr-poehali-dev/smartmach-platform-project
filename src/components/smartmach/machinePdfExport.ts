@@ -5,6 +5,27 @@
 import { jsPDF } from "jspdf";
 import type { MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
 
+// Подписи ответственных лиц для титульного листа (ГОСТ Р 2.105)
+export interface PackageSignatures {
+  designer: string;   // Разработал
+  checker: string;    // Проверил
+  normControl: string;// Нормоконтроль
+  approver: string;   // Утвердил
+  company: string;    // Организация
+  docName: string;    // Наименование изделия
+  docNumber: string;  // Обозначение документа
+}
+
+export const DEFAULT_SIGNATURES: PackageSignatures = {
+  designer: "",
+  checker: "",
+  normControl: "",
+  approver: "",
+  company: "ООО «МАТ-Лабс»",
+  docName: "Гибридный станок МАТ-1",
+  docNumber: "МАТ-1.000.000",
+};
+
 // Загружает картинку по URL и возвращает dataURL + размеры
 function loadImage(url: string): Promise<{ data: string; w: number; h: number }> {
   return new Promise((resolve, reject) => {
@@ -26,34 +47,98 @@ function loadImage(url: string): Promise<{ data: string; w: number; h: number }>
   });
 }
 
-export async function exportDrawingsPackage(drawings: MachineDrawing[]): Promise<void> {
+export async function exportDrawingsPackage(
+  drawings: MachineDrawing[],
+  sign: PackageSignatures = DEFAULT_SIGNATURES,
+): Promise<void> {
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const today = new Date().toLocaleDateString("ru-RU");
+  const tr = transliterate;
 
   // ── Титульный лист ──────────────────────────────────────────
   pdf.setFillColor(15, 23, 42);
   pdf.rect(0, 0, pageW, pageH, "F");
 
+  // Верхняя строка — организация
+  pdf.setTextColor(148, 163, 184);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(11);
+  pdf.text(tr(sign.company), pageW / 2, 28, { align: "center" });
+
   pdf.setTextColor(245, 158, 11);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.text("SOBSTVENNAYA RAZRABOTKA / OWN DEVELOPMENT", pageW / 2, 70, { align: "center" });
+  pdf.setFontSize(10);
+  pdf.text("KOMPLEKT RABOCHIH CHERTEZHEY", pageW / 2, 52, { align: "center" });
 
   pdf.setTextColor(255, 255, 255);
-  pdf.setFontSize(34);
-  pdf.text("MAT-1", pageW / 2, 95, { align: "center" });
+  pdf.setFontSize(30);
+  pdf.text(tr(sign.docName), pageW / 2, 70, { align: "center" });
 
-  pdf.setFontSize(16);
+  pdf.setFontSize(13);
   pdf.setFont("helvetica", "normal");
-  pdf.text("Gibridnyy stanok - paket rabochih chertezhey", pageW / 2, 110, { align: "center" });
+  pdf.setTextColor(203, 213, 225);
+  pdf.text(tr(sign.docNumber), pageW / 2, 82, { align: "center" });
+
+  // Линия-разделитель
+  pdf.setDrawColor(71, 85, 105);
+  pdf.setLineWidth(0.3);
+  pdf.line(pageW / 2 - 60, 90, pageW / 2 + 60, 90);
+
+  // ── Блок подписей ответственных лиц ────────────────────────
+  const rows: [string, string][] = [
+    ["Razrabotal", sign.designer],
+    ["Proveril", sign.checker],
+    ["N. kontrol", sign.normControl],
+    ["Utverdil", sign.approver],
+  ];
+
+  const blockW = 150;
+  const blockX = (pageW - blockW) / 2;
+  let ry = 108;
+  const rowH = 13;
+
+  pdf.setFontSize(10);
+  rows.forEach(([role, name]) => {
+    // роль (слева)
+    pdf.setTextColor(148, 163, 184);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(tr(role), blockX, ry);
+
+    // линия для подписи
+    pdf.setDrawColor(71, 85, 105);
+    pdf.line(blockX + 40, ry + 1.5, blockX + 95, ry + 1.5);
+
+    // ФИО (над линией)
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    if (name.trim()) {
+      pdf.text(tr(name), blockX + 67, ry, { align: "center" });
+    }
+
+    // дата
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.text(today, blockX + 110, ry);
+    pdf.setFontSize(10);
+
+    ry += rowH;
+  });
+
+  // ── Низ титула — сводка ────────────────────────────────────
+  pdf.setDrawColor(71, 85, 105);
+  pdf.line(pageW / 2 - 60, ry + 4, pageW / 2 + 60, ry + 4);
 
   pdf.setTextColor(148, 163, 184);
-  pdf.setFontSize(11);
-  pdf.text(`Listov chertezhey: ${drawings.length}`, pageW / 2, 135, { align: "center" });
-  pdf.text(`Data formirovaniya: ${today}`, pageW / 2, 145, { align: "center" });
-  pdf.text("OOO \"MAT-Labs\" / SmartMash", pageW / 2, 155, { align: "center" });
+  pdf.setFontSize(10);
+  pdf.text(`${tr("Listov chertezhey")}: ${drawings.length}`, pageW / 2, ry + 16, { align: "center" });
+  pdf.text(`${tr("Data formirovaniya")}: ${today}`, pageW / 2, ry + 24, { align: "center" });
+
+  pdf.setTextColor(245, 158, 11);
+  pdf.setFontSize(8);
+  pdf.text("SmartMash - edinoe cifrovoe prostranstvo dannyh KD-CAE-CAM-MES", pageW / 2, pageH - 12, { align: "center" });
 
   // ── Страницы чертежей ───────────────────────────────────────
   let index = 0;

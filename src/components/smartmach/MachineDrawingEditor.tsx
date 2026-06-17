@@ -14,6 +14,7 @@ import { useCad2DCanvas, drawGostFrame } from "@/components/smartmach/useCad2DCa
 import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
 import Cad2DRuler from "@/components/smartmach/Cad2DRuler";
+import AiDraftAgentPanel from "@/components/smartmach/AiDraftAgentPanel";
 import { apiPost, apiPut } from "@/lib/api";
 import { toast } from "sonner";
 import type { MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
@@ -115,6 +116,7 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
   const [saving, setSaving]   = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [showAgent, setShowAgent] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Синхронизируем scroll с линейкой
@@ -339,6 +341,18 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
            autoSaveStatus === "saved"  ? "Сохранено"  : ""}
         </div>
         <button
+          onClick={() => setShowAgent((v) => !v)}
+          className={cn(
+            "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-all",
+            showAgent
+              ? "bg-violet-500 text-white"
+              : "bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:opacity-90"
+          )}
+        >
+          <Icon name="Sparkles" size={13} />
+          ИИ-инженер
+        </button>
+        <button
           onClick={() => {
             const fc = canvas.fabricRef.current;
             if (!fc) return;
@@ -428,6 +442,25 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
 
             {/* Линейка + canvas */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+              {/* ИИ-агент-инженер */}
+              {showAgent && (
+                <AiDraftAgentPanel
+                  fabricRef={canvas.fabricRef}
+                  paperSize={canvas.paperSize}
+                  saveHistory={canvas.saveHistory}
+                  onApplied={(d) => {
+                    if (d.title || d.designation) {
+                      setLastGostMeta((prev) => ({
+                        ...(prev ?? {}),
+                        drawingName: d.title ?? prev?.drawingName ?? "",
+                        drawingNumber: d.designation ?? prev?.drawingNumber ?? "",
+                        material: d.material ?? prev?.material ?? "",
+                      }));
+                    }
+                  }}
+                  onClose={() => setShowAgent(false)}
+                />
+              )}
               <Cad2DRuler
                 orientation="horizontal"
                 zoom={canvas.zoom}

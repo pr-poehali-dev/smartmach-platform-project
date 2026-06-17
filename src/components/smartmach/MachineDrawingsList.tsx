@@ -134,8 +134,8 @@ export default function MachineDrawingsList({ onOpen, onNew, refreshTick }: Prop
       <div className="bg-white rounded-xl border border-border p-4">
         <div className="flex items-center gap-2 mb-3">
           <Icon name="LayoutTemplate" size={15} className="text-primary" />
-          <span className="text-sm font-semibold text-foreground">Шаблоны узлов станка</span>
-          <span className="text-xs text-muted-foreground">— рамка ГОСТ и геометрия уже готовы</span>
+          <span className="text-sm font-semibold text-foreground">Шаблоны чертежей</span>
+          <span className="text-xs text-muted-foreground">— узлы станка и пустые листы с рамкой ГОСТ</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {MACHINE_TEMPLATES.map((t) => (

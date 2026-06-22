@@ -38,6 +38,7 @@ export const BLOCK_CATEGORIES = [
   "Электросхемы",
   "Гидравлика и пневматика",
   "Сантехника и трубы",
+  "Станок МАТ-1",
 ] as const;
 
 // ── Утилиты построения ────────────────────────────────────────────
@@ -422,6 +423,98 @@ add({ id: "fit-tee", name: "Тройник", category: "Сантехника и 
 add({ id: "fit-flange", name: "Фланец", category: "Сантехника и трубы", standard: "ГОСТ 12820", tags: ["фланец"], build: () => { const o: any[] = [ci(0, 0, 40, 1), ci(0, 0, 16, 1)]; for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + (i * Math.PI) / 2; o.push(ci(30 * Math.cos(a), 30 * Math.sin(a), 3, 1)); } o.push(axis(-46, 0, 46, 0), axis(0, -46, 0, 46)); return o; } });
 add({ id: "fit-valve-gate", name: "Задвижка", category: "Сантехника и трубы", standard: "ГОСТ 2.780", tags: ["задвижка", "вентиль"], build: () => [poly([{ x: 0, y: -12 }, { x: 0, y: 12 }, { x: 20, y: 0 }], 1), poly([{ x: 40, y: -12 }, { x: 40, y: 12 }, { x: 20, y: 0 }], 1), ln(20, 0, 20, -20, 1), ln(10, -20, 30, -20, 1.5)] });
 add({ id: "fit-reducer", name: "Переход (конус)", category: "Сантехника и трубы", standard: "ГОСТ 17378", tags: ["переход", "редуктор"], build: () => [poly([{ x: 0, y: -20 }, { x: 0, y: 20 }, { x: 50, y: 12 }, { x: 50, y: -12 }], 1), axis(-4, 0, 54, 0)] });
+
+// 13) СТАНОК МАТ-1 — габаритный чертёж (масштаб 1:10, 1px = 10мм)
+// Габариты станка: 1100×750×950 мм. Рабочая зона X500×Y300×Z250.
+// Простой линейный размер для габаритных видов (горизонтальный/вертикальный).
+const DIMC = "#1e40af";
+function dimH(x1: number, x2: number, y: number, label: string): any[] {
+  return [
+    ln(x1, y - 3, x1, y + 3, THIN, DIMC), ln(x2, y - 3, x2, y + 3, THIN, DIMC),
+    ln(x1, y, x2, y, THIN, DIMC),
+    pa(`M ${x1} ${y} L ${x1 + 4} ${y - 2} L ${x1 + 4} ${y + 2} Z`, THIN, DIMC),
+    pa(`M ${x2} ${y} L ${x2 - 4} ${y - 2} L ${x2 - 4} ${y + 2} Z`, THIN, DIMC),
+    txt(label, (x1 + x2) / 2, y - 6, 7, DIMC),
+  ];
+}
+function dimV(y1: number, y2: number, x: number, label: string): any[] {
+  return [
+    ln(x - 3, y1, x + 3, y1, THIN, DIMC), ln(x - 3, y2, x + 3, y2, THIN, DIMC),
+    ln(x, y1, x, y2, THIN, DIMC),
+    pa(`M ${x} ${y1} L ${x - 2} ${y1 + 4} L ${x + 2} ${y1 + 4} Z`, THIN, DIMC),
+    pa(`M ${x} ${y2} L ${x - 2} ${y2 - 4} L ${x + 2} ${y2 - 4} Z`, THIN, DIMC),
+    txt(label, x - 9, (y1 + y2) / 2, 7, DIMC),
+  ];
+}
+
+// Вид спереди: станина + станок 1100(Д)×950(В)
+function mat1Front(): any[] {
+  const W = 110, H = 95;                    // 1100×950 мм / 10
+  const o: any[] = [];
+  o.push(rc(0, 24, W, H - 24, 1.2));        // корпус-станина
+  o.push(rc(6, 30, W - 12, 38, 0.8));       // рабочая зона (защитный экран)
+  o.push(ln(6, 30, W - 6, 30, THIN, AXIS, [6, 3])); // граница рабочей зоны
+  // Z-колонна с фрезерной/лазерной головкой
+  o.push(rc(70, 0, 14, 30, 1));             // колонна Z
+  o.push(rc(68, 28, 18, 10, 1, "rgba(99,102,241,0.25)")); // фрезерная головка (индиго)
+  o.push(rc(76, 38, 2, 8, 1));              // инструмент
+  // Токарный шпиндель слева (синий)
+  o.push(rc(8, 40, 16, 14, 1, "rgba(37,99,235,0.25)"));
+  o.push(ci(28, 47, 4, 1));                 // патрон
+  // ЧПУ-шкаф справа (зелёный) + экран
+  o.push(rc(W - 4, 30, 18, 40, 1, "rgba(22,163,74,0.2)"));
+  o.push(rc(W, 34, 10, 7, 0.8));            // сенсорный экран
+  // опоры
+  o.push(rc(4, H, 8, 4, 1)); o.push(rc(W - 12, H, 8, 4, 1));
+  // размеры
+  o.push(...dimH(0, W, H + 12, "1100"));
+  o.push(...dimV(24, H, -10, "950"));
+  o.push(txt("МАТ-1 · вид спереди", W / 2, -10, 8));
+  return o;
+}
+
+// Вид сверху: 1100(Д)×750(Ш) + рабочий стол и ходы осей
+function mat1Top(): any[] {
+  const W = 110, D = 75;                    // 1100×750 / 10
+  const o: any[] = [];
+  o.push(rc(0, 0, W, D, 1.2));              // габарит стола
+  o.push(rc(20, 15, 50, 30, 0.8));          // рабочая зона X500×Y300 / 10
+  o.push(axis(0, D / 2, W, D / 2));         // ось X
+  o.push(axis(45, 0, 45, D));               // ось Y
+  o.push(ci(15, D / 2, 5, 1));              // токарный патрон
+  o.push(rc(72, 20, 16, 35, 0.8, "rgba(22,163,74,0.15)")); // ЧПУ
+  o.push(...dimH(20, 70, -8, "500"));       // ход X
+  o.push(...dimV(15, 45, W + 10, "300"));   // ход Y
+  o.push(...dimH(0, W, D + 12, "1100"));
+  o.push(...dimV(0, D, -10, "750"));
+  o.push(txt("вид сверху · раб. зона X500×Y300", W / 2, -16, 7));
+  return o;
+}
+
+// Вид сбоку: 750(Ш)×950(В) + ход Z
+function mat1Side(): any[] {
+  const D = 75, H = 95;
+  const o: any[] = [];
+  o.push(rc(0, 24, D, H - 24, 1.2));
+  o.push(rc(30, 0, 14, 30, 1));             // колонна Z
+  o.push(rc(28, 28, 18, 10, 1, "rgba(249,115,22,0.25)")); // лазерная головка (оранж)
+  o.push(...dimV(0, 30, -10, "250"));       // ход Z
+  o.push(...dimH(0, D, H + 12, "750"));
+  o.push(...dimV(24, H, D + 10, "950"));
+  o.push(txt("вид сбоку · ход Z250", D / 2, -10, 7));
+  return o;
+}
+
+add({ id: "mat1-front", name: "МАТ-1 вид спереди", category: "Станок МАТ-1", standard: "Габарит 1100×950", tags: ["мат-1", "mat1", "станок", "вид", "спереди"], build: mat1Front });
+add({ id: "mat1-top",   name: "МАТ-1 вид сверху",  category: "Станок МАТ-1", standard: "Габарит 1100×750", tags: ["мат-1", "mat1", "станок", "вид", "сверху"], build: mat1Top });
+add({ id: "mat1-side",  name: "МАТ-1 вид сбоку",   category: "Станок МАТ-1", standard: "Габарит 750×950",  tags: ["мат-1", "mat1", "станок", "вид", "сбоку"], build: mat1Side });
+add({ id: "mat1-all", name: "МАТ-1 габаритный (3 вида)", category: "Станок МАТ-1", standard: "1100×750×950", tags: ["мат-1", "mat1", "станок", "габарит", "чертёж", "гибридный"], build: () => {
+  const o: any[] = [];
+  mat1Front().forEach((e) => o.push(e));
+  mat1Top().forEach((e) => { e.set?.({ left: (e.left ?? 0), top: (e.top ?? 0) + 150 }); o.push(e); });
+  mat1Side().forEach((e) => { e.set?.({ left: (e.left ?? 0) + 170, top: (e.top ?? 0) }); o.push(e); });
+  return o;
+}});
 
 export const BLOCKS: BlockDef[] = blocks;
 

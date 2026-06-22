@@ -5,6 +5,44 @@ export default function MachineSpecs() {
   return (
     <div className="space-y-6">
 
+      {/* Визуальная модель станка */}
+      <div className="bg-white rounded-xl border border-border overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-border bg-secondary/30 flex items-center gap-2">
+          <Icon name="Box" size={15} className="text-primary" />
+          <span className="text-sm font-semibold">Визуальная модель МАТ-1 — гибрид 4-в-1</span>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3">
+          <div className="lg:col-span-2 bg-gradient-to-br from-secondary/40 to-secondary/10 flex items-center justify-center p-4">
+            <img
+              src="https://cdn.poehali.dev/projects/4a414f55-f964-427a-bda6-0016a78c34e4/files/607b5be0-8a5d-4260-9e03-cb81b9dcc0e2.jpg"
+              alt="Гибридный станок МАТ-1 — токарная, фрезерная, сверлильная и лазерная обработка"
+              className="max-h-80 w-auto object-contain rounded-lg"
+            />
+          </div>
+          <div className="p-5 space-y-3 border-t lg:border-t-0 lg:border-l border-border">
+            <div>
+              <div className="text-xs text-muted-foreground mb-0.5">Габариты (Д×Ш×В)</div>
+              <div className="text-sm font-semibold text-foreground">1100 × 750 × 950 мм</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-0.5">Рабочая зона (X×Y×Z)</div>
+              <div className="text-sm font-semibold text-foreground">500 × 300 × 250 мм</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-0.5">Технологии</div>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {["Точение", "Фрезерование", "Сверление", "Лазер"].map((t) => (
+                  <span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">{t}</span>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed pt-1">
+              Габаритный чертёж в 3 видах доступен в редакторе чертежей — раздел библиотеки «Станок МАТ-1».
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* KPI */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {MACHINE_ADVANTAGES.map((a) => (

@@ -19,6 +19,7 @@ const CAT_ICON: Record<string, string> = {
   "Электросхемы": "Zap",
   "Гидравлика и пневматика": "Gauge",
   "Сантехника и трубы": "Pipette",
+  "Станок МАТ-1": "Hammer",
 };
 
 interface Props {

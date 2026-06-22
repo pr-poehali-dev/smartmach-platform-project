@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
+import Icon from "@/components/ui/icon";
 import { PAPER_SIZES } from "@/components/smartmach/cad2d.data";
 import { type PartInfo } from "@/components/smartmach/cad.data";
 import Cad2DGostDialog from "@/components/smartmach/Cad2DGostDialog";
 import Cad2DSaveDialog from "@/components/smartmach/Cad2DSaveDialog";
+import Cad2DBlockLibrary from "@/components/smartmach/Cad2DBlockLibrary";
 import { Cad2DPartPanel } from "@/components/smartmach/Cad2DPanels";
 import { useCad2DCanvas, drawGostFrame } from "@/components/smartmach/useCad2DCanvas";
 import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
+import { useCad2DBlocks } from "@/components/smartmach/useCad2DBlocks";
 import Cad2DEditorToolbar from "@/components/smartmach/Cad2DEditorToolbar";
 import Cad2DCanvasArea from "@/components/smartmach/Cad2DCanvasArea";
 
@@ -18,6 +21,13 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
   const [lastGostMeta, setLastGostMeta] = useState<Record<string, string> | null>(null);
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
+  const [showLibrary, setShowLibrary] = useState(false);
+
+  const { insertBlock } = useCad2DBlocks({
+    fabricRef:      canvas.fabricRef,
+    activeLayerRef: canvas.activeLayerRef,
+    saveHistory:    canvas.saveHistory,
+  });
 
   // Синхронизируем scroll контейнера канваса с линейкой
   useEffect(() => {
@@ -74,7 +84,7 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
   }, [canvas.containerRef, actions]);
 
   return (
-    <div className="flex flex-col h-full bg-[#12131f] rounded-xl border border-gray-700/60 overflow-hidden" style={{ minHeight: 640 }}>
+    <div className="relative flex flex-col h-full bg-[#12131f] rounded-xl border border-gray-700/60 overflow-hidden" style={{ minHeight: 640 }}>
 
       {/* Диалог рамки ГОСТ */}
       {showGost && (
@@ -141,6 +151,25 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
         actions={actions}
         scrollX={scrollX}
         scrollY={scrollY}
+      />
+
+      {/* Кнопка открытия библиотеки блоков */}
+      {!showLibrary && (
+        <button
+          onClick={() => setShowLibrary(true)}
+          title="Библиотека блоков (150+ элементов)"
+          className="absolute left-3 bottom-3 z-30 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg transition-colors"
+        >
+          <Icon name="LibraryBig" size={14} />
+          Библиотека
+        </button>
+      )}
+
+      {/* Выдвижная панель библиотеки блоков */}
+      <Cad2DBlockLibrary
+        open={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        onInsert={insertBlock}
       />
     </div>
   );

@@ -9,13 +9,13 @@ export default function MachineSpecs() {
       <div className="bg-white rounded-xl border border-border overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border bg-secondary/30 flex items-center gap-2">
           <Icon name="Box" size={15} className="text-primary" />
-          <span className="text-sm font-semibold">Визуальная модель МАТ-1 — гибрид 4-в-1</span>
+          <span className="text-sm font-semibold">Визуальная модель МАТ-1 — гибрид нового поколения</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3">
           <div className="lg:col-span-2 bg-gradient-to-br from-secondary/40 to-secondary/10 flex items-center justify-center p-4">
             <img
-              src="https://cdn.poehali.dev/projects/4a414f55-f964-427a-bda6-0016a78c34e4/files/607b5be0-8a5d-4260-9e03-cb81b9dcc0e2.jpg"
-              alt="Гибридный станок МАТ-1 — токарная, фрезерная, сверлильная и лазерная обработка"
+              src="https://cdn.poehali.dev/projects/4a414f55-f964-427a-bda6-0016a78c34e4/files/f4fd64bd-fa7f-412f-8c43-fd8645f76fb9.jpg"
+              alt="Гибридный станок МАТ-1: вертикальная шпиндельная бабка, отводимый стол и роботизированная рука с мультиинструментом (сверление, фрезерование, лазер)"
               className="max-h-80 w-auto object-contain rounded-lg"
             />
           </div>
@@ -27,6 +27,14 @@ export default function MachineSpecs() {
             <div>
               <div className="text-xs text-muted-foreground mb-0.5">Рабочая зона (X×Y×Z)</div>
               <div className="text-sm font-semibold text-foreground">500 × 300 × 250 мм</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-0.5">Компоновка</div>
+              <ul className="text-[11px] text-foreground/80 space-y-1 pt-0.5">
+                <li className="flex items-center gap-1.5"><Icon name="ArrowDown" size={12} className="text-primary" /> Вертикальная шпиндельная бабка</li>
+                <li className="flex items-center gap-1.5"><Icon name="MoveHorizontal" size={12} className="text-primary" /> Отводимый стол — токарный режим</li>
+                <li className="flex items-center gap-1.5"><Icon name="Bot" size={12} className="text-primary" /> Роботизированная рука с мультиинструментом</li>
+              </ul>
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-0.5">Технологии</div>

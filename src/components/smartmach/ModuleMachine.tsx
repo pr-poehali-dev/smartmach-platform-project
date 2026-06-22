@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import AiAssistant from "@/components/smartmach/AiAssistant";
 import MachineSpecs from "@/components/smartmach/MachineSpecs";
+import MachineParts from "@/components/smartmach/MachineParts";
 import MachineModulesList from "@/components/smartmach/MachineModulesList";
 import MachinePlan from "@/components/smartmach/MachinePlan";
 import MachineConfigurator from "@/components/smartmach/MachineConfigurator";
@@ -26,10 +27,11 @@ const AI_SUGGESTIONS = [
   "Как рассчитать мощность ШВП для оси X 500 мм?",
 ];
 
-type Tab = "overview" | "modules" | "plan" | "config" | "drawings" | "spec" | "tests";
+type Tab = "overview" | "parts" | "modules" | "plan" | "config" | "drawings" | "spec" | "tests";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "overview",  label: "Характеристики", icon: "BarChart2"         },
+  { id: "parts",     label: "Номенклатура",    icon: "PackageSearch"     },
   { id: "modules",   label: "Модули",          icon: "Layers"            },
   { id: "plan",      label: "План",             icon: "ClipboardList"    },
   { id: "config",    label: "Конфигурации",    icon: "SlidersHorizontal" },
@@ -123,6 +125,7 @@ export default function ModuleMachine() {
 
       {/* Контент табов */}
       {tab === "overview"  && <MachineSpecs />}
+      {tab === "parts"     && <MachineParts />}
       {tab === "modules"   && <MachineModulesList />}
       {tab === "plan"      && <MachinePlan />}
       {tab === "config"    && <MachineConfigurator />}

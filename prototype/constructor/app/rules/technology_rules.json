@@ -1,0 +1,170 @@
+{
+  "version": "1.0.0",
+  "description": "Правила выбора технологии производства. DSL: when — условия, then — эффекты.",
+  "operators": ["lt", "lte", "gt", "gte", "eq", "in", "between"],
+  "methods": {
+    "milling": {
+      "title": "Механообработка (фрезеровка)",
+      "setup_cost": 15000,
+      "cost_per_kg": 950,
+      "machine_rate_per_hour": 2400,
+      "lead_days_base": 7,
+      "lead_days_per_unit": 0.6,
+      "min_wall_mm": 3.0,
+      "tolerance_grade": 7,
+      "tooling": ["Фреза концевая ⌀16", "Фреза торцевая ⌀63", "Сверлильный набор", "Кондуктор установочный"],
+      "scale_factor": 0.92
+    },
+    "casting": {
+      "title": "Литьё в форму",
+      "setup_cost": 180000,
+      "cost_per_kg": 240,
+      "machine_rate_per_hour": 1100,
+      "lead_days_base": 30,
+      "lead_days_per_unit": 0.08,
+      "min_wall_mm": 5.0,
+      "tolerance_grade": 11,
+      "tooling": ["Литейная модель", "Стержневой ящик", "Опока", "Оснастка для обрубки"],
+      "scale_factor": 0.7
+    },
+    "printing": {
+      "title": "3D-печать (аддитивно)",
+      "setup_cost": 3000,
+      "cost_per_kg": 4200,
+      "machine_rate_per_hour": 350,
+      "lead_days_base": 2,
+      "lead_days_per_unit": 1.2,
+      "min_wall_mm": 1.5,
+      "tolerance_grade": 10,
+      "tooling": ["Поддержки", "Постобработка", "Термообработка"],
+      "scale_factor": 1.0
+    }
+  },
+  "rules": [
+    {
+      "id": "R-001",
+      "priority": 10,
+      "description": "Единичная и мелкая партия со сложной геометрией — аддитивные технологии",
+      "when": [
+        {"fact": "batch_size", "op": "lt", "value": 10},
+        {"fact": "complexity", "op": "in", "value": ["high", "very_high"]}
+      ],
+      "then": {"method": "printing", "score": 40, "reason": "Малая партия и сложная геометрия: оснастка не окупается, печать даёт минимальный срок"}
+    },
+    {
+      "id": "R-002",
+      "priority": 10,
+      "description": "Крупная серия — литьё",
+      "when": [
+        {"fact": "batch_size", "op": "gt", "value": 100}
+      ],
+      "then": {"method": "casting", "score": 45, "reason": "Крупная серия: затраты на оснастку распределяются, себестоимость единицы минимальна"}
+    },
+    {
+      "id": "R-003",
+      "priority": 20,
+      "description": "Средняя партия — механообработка как базовый вариант",
+      "when": [
+        {"fact": "batch_size", "op": "between", "value": [10, 100]}
+      ],
+      "then": {"method": "milling", "score": 35, "reason": "Средняя партия: механообработка оптимальна по соотношению точности и затрат"}
+    },
+    {
+      "id": "R-004",
+      "priority": 5,
+      "description": "Высокая точность недостижима литьём без доработки",
+      "when": [
+        {"fact": "tolerance_grade", "op": "lte", "value": 8}
+      ],
+      "then": {"method": "casting", "score": -30, "reason": "Требуемый квалитет недостижим литьём — потребуется механическая доработка"}
+    },
+    {
+      "id": "R-005",
+      "priority": 5,
+      "description": "Тонкие стенки исключают литьё",
+      "when": [
+        {"fact": "wall_thickness", "op": "lt", "value": 5.0}
+      ],
+      "then": {"method": "casting", "score": -25, "reason": "Толщина стенки ниже технологического минимума для литья"}
+    },
+    {
+      "id": "R-006",
+      "priority": 8,
+      "description": "Жёсткий срок исключает изготовление оснастки",
+      "when": [
+        {"fact": "deadline_days", "op": "lt", "value": 20}
+      ],
+      "then": {"method": "casting", "score": -35, "reason": "Срок изготовления литейной оснастки превышает требуемый срок поставки"}
+    },
+    {
+      "id": "R-007",
+      "priority": 8,
+      "description": "Срочный заказ — приоритет печати",
+      "when": [
+        {"fact": "deadline_days", "op": "lt", "value": 10}
+      ],
+      "then": {"method": "printing", "score": 25, "reason": "Срочный заказ: аддитивное производство не требует подготовки оснастки"}
+    },
+    {
+      "id": "R-008",
+      "priority": 12,
+      "description": "Крупногабаритная деталь ограничивает печать",
+      "when": [
+        {"fact": "max_dimension", "op": "gt", "value": 400}
+      ],
+      "then": {"method": "printing", "score": -30, "reason": "Габарит превышает типовую зону построения 3D-принтера"}
+    },
+    {
+      "id": "R-009",
+      "priority": 15,
+      "description": "Отсутствие станка в парке предприятия",
+      "when": [
+        {"fact": "has_milling_machine", "op": "eq", "value": false}
+      ],
+      "then": {"method": "milling", "score": -40, "reason": "В парке предприятия отсутствует подходящее фрезерное оборудование — потребуется кооперация"}
+    },
+    {
+      "id": "R-010",
+      "priority": 6,
+      "description": "Чугун и сталь — предпочтительны для литья",
+      "when": [
+        {"fact": "material", "op": "in", "value": ["СЧ20", "СЧ25", "35Л", "40Х"]}
+      ],
+      "then": {"method": "casting", "score": 15, "reason": "Материал технологичен для литейного производства"}
+    },
+    {
+      "id": "R-011",
+      "priority": 6,
+      "description": "Полимеры непригодны для литья в металл и мехобработки корпуса",
+      "when": [
+        {"fact": "material", "op": "in", "value": ["PA12", "ABS", "PETG"]}
+      ],
+      "then": {"method": "printing", "score": 30, "reason": "Полимерный материал — прямое показание к аддитивному производству"}
+    },
+    {
+      "id": "R-012",
+      "priority": 7,
+      "description": "Прототип или опытный образец",
+      "when": [
+        {"fact": "purpose", "op": "eq", "value": "prototype"}
+      ],
+      "then": {"method": "printing", "score": 20, "reason": "Опытный образец: важна скорость проверки конструкции, а не себестоимость"}
+    }
+  ],
+  "risk_matrix": {
+    "milling": [
+      {"condition": "batch_size > 200", "risk": "Высокая загрузка станочного парка, риск срыва сроков", "level": "medium"},
+      {"condition": "complexity == very_high", "risk": "Возможна необходимость 5-осевой обработки", "level": "high"}
+    ],
+    "casting": [
+      {"condition": "batch_size < 50", "risk": "Оснастка не окупается на малой партии", "level": "high"},
+      {"condition": "tolerance_grade <= 8", "risk": "Обязательная механическая доработка посадочных мест", "level": "medium"},
+      {"condition": "always", "risk": "Литейные дефекты: раковины, пористость — нужен контроль", "level": "medium"}
+    ],
+    "printing": [
+      {"condition": "always", "risk": "Анизотропия свойств по слоям, прочность ниже литого аналога", "level": "medium"},
+      {"condition": "max_dimension > 300", "risk": "Возможна печать по частям со склейкой", "level": "high"},
+      {"condition": "batch_size > 20", "risk": "Линейный рост срока с размером партии", "level": "high"}
+    ]
+  }
+}

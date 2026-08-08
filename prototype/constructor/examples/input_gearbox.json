@@ -1,0 +1,15 @@
+{
+  "length_mm": 320,
+  "width_mm": 240,
+  "height_mm": 180,
+  "wall_thickness_mm": 8,
+  "material": "СЧ20",
+  "batch_size": 50,
+  "tolerance_grade": 8,
+  "deadline_days": 45,
+  "complexity": "high",
+  "purpose": "production",
+  "has_milling_machine": true,
+  "has_casting_line": true,
+  "has_printer": true
+}

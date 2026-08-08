@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>{{ r.meta.project_name }} — технико-экономический отчёт</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10pt; color: #111; }
+  h1 { font-size: 16pt; margin: 0 0 4px; }
+  h2 { font-size: 12pt; margin: 18px 0 6px; padding-bottom: 3px; border-bottom: 1.5px solid #333; }
+  .muted { color: #666; font-size: 8.5pt; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { border: 0.5pt solid #999; padding: 4px 6px; text-align: left; }
+  th { background: #eee; font-weight: bold; }
+  td.num { text-align: right; }
+  .kpi { display: flex; gap: 10px; margin: 10px 0; }
+  .kpi div { flex: 1; border: 0.5pt solid #999; padding: 8px; text-align: center; }
+  .kpi b { display: block; font-size: 14pt; }
+  .err { color: #b00; } .warn { color: #b60; } .ok { color: #060; }
+  ul { margin: 4px 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+
+<h1>{{ r.meta.project_name }}</h1>
+<div class="muted">
+  Отчёт {{ r.meta.report_id }} · {{ r.meta.generated_at }} · {{ r.meta.platform }}<br>
+  Заказчик: {{ r.meta.customer }}
+</div>
+
+<div class="kpi">
+  <div><b>{{ r.route_card.method_title }}</b>рекомендуемая технология</div>
+  <div><b>{{ "{:,.0f}".format(r.cost.cost_per_unit) }} ₽</b>себестоимость единицы</div>
+  <div><b>{{ r.cost.lead_days }} дн.</b>срок изготовления</div>
+  <div><b>{{ r.cost.batch_size }} шт.</b>размер партии</div>
+</div>
+
+<h2>1. Обоснование выбора технологии</h2>
+<ul>
+  {% for j in r.justification %}<li>{{ j }}</li>{% endfor %}
+</ul>
+
+<h2>2. Спецификация</h2>
+<table>
+  <tr><th>Поз.</th><th>Обозначение</th><th>Наименование</th><th>Кол.</th><th>Материал</th><th>Масса, кг</th><th>Примечание</th></tr>
+  {% for i in r.specification["items"] %}
+  <tr>
+    <td>{{ i.pos }}</td><td>{{ i.designation }}</td><td>{{ i.name }}</td>
+    <td class="num">{{ i.qty }}</td><td>{{ i.material }}</td>
+    <td class="num">{{ i.mass_kg }}</td><td>{{ i.note }}</td>
+  </tr>
+  {% endfor %}
+  <tr><th colspan="5">Итого масса партии</th><th class="num">{{ r.specification.total_mass_kg }}</th><th></th></tr>
+</table>
+
+<h2>3. Маршрутная карта</h2>
+<table>
+  <tr><th>Опер.</th><th>Наименование</th><th>Оборудование</th><th>Тшт, мин</th></tr>
+  {% for op in r.route_card.operations %}
+  <tr><td>{{ op.op }}</td><td>{{ op.name }}</td><td>{{ op.equipment }}</td><td class="num">{{ op.time_min }}</td></tr>
+  {% endfor %}
+  <tr><th colspan="3">Итого на деталь / на партию</th>
+      <th class="num">{{ r.route_card.total_time_h }} ч / {{ r.route_card.batch_time_h }} ч</th></tr>
+</table>
+
+<h2>4. Калькуляция себестоимости</h2>
+<table>
+  <tr><th>Статья затрат</th><th>Значение</th></tr>
+  {% for k, v in r.cost.breakdown.items() %}
+  <tr><td>{{ k }}</td><td class="num">{% if v is number %}{{ "{:,.2f}".format(v) }}{% else %}{{ v }}{% endif %}</td></tr>
+  {% endfor %}
+  <tr><th>Итого на партию, ₽</th><th class="num">{{ "{:,.2f}".format(r.cost.cost_total) }}</th></tr>
+  <tr><th>На единицу, ₽</th><th class="num">{{ "{:,.2f}".format(r.cost.cost_per_unit) }}</th></tr>
+</table>
+
+<h2>5. Геометрия и контроль</h2>
+<table>
+  <tr><th>Параметр</th><th>Значение</th></tr>
+  <tr><td>Габариты, мм</td><td>{{ r.geometry.bounding_box_mm | join(" × ") }}</td></tr>
+  <tr><td>Объём, см³</td><td class="num">{{ r.geometry.volume_cm3 }}</td></tr>
+  <tr><td>Масса детали, кг</td><td class="num">{{ r.geometry.mass_kg }}</td></tr>
+  <tr><td>Посадочных отверстий</td><td class="num">{{ r.geometry.bore_count }}</td></tr>
+  <tr><td>Рёбер жёсткости</td><td class="num">{{ r.geometry.rib_count }}</td></tr>
+</table>
+
+<h2>6. Результаты проверок</h2>
+<ul>
+  {% for v in r.validation %}
+  <li class="{{ 'err' if v.severity == 'error' else ('warn' if v.severity == 'warning' else 'ok') }}">
+    [{{ v.code }}] {{ v.message }}
+  </li>
+  {% endfor %}
+</ul>
+
+<h2>7. Риски и оснастка</h2>
+<table>
+  <tr><th>Риск</th><th>Уровень</th></tr>
+  {% for rk in r.risks %}
+  <tr><td>{{ rk.risk }}</td><td>{{ rk.level }}</td></tr>
+  {% else %}
+  <tr><td colspan="2">Существенных рисков не выявлено</td></tr>
+  {% endfor %}
+</table>
+<p><b>Необходимая оснастка:</b> {{ r.tooling | join(", ") }}</p>
+
+<p class="muted" style="margin-top:20px">
+  Расчёт носит предварительный характер и подлежит согласованию с технологом предприятия.
+  Значения себестоимости требуют калибровки по фактическим данным производства.
+</p>
+
+</body>
+</html>

@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
 import CompanyPage from "./pages/CompanyPage";
 import InvitePage from "./pages/InvitePage";
+import HybridControlPage from "./pages/HybridControlPage";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
@@ -38,6 +39,7 @@ function AppRoutes() {
         <ProtectedRoute><CompanyPage /></ProtectedRoute>
       } />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/hybrid-control" element={<HybridControlPage />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

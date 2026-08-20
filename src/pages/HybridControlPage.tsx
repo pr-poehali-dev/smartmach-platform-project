@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import Oscilloscope from '@/components/hybrid/Oscilloscope';
 import StabilityGauge from '@/components/hybrid/StabilityGauge';
+import { downloadProtocol } from '@/lib/pdf/protocolReport';
 import {
   Conditions,
   Correction,
@@ -46,6 +47,8 @@ export default function HybridControlPage() {
   });
   const [params, setParams] = useState<Record<string, number> | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [operator, setOperator] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const proc = PROCESSES[cond.processId];
   const mode = useMemo(() => selectMode(cond), [cond]);
@@ -113,6 +116,39 @@ export default function HybridControlPage() {
     );
   };
 
+  const exportProtocol = async () => {
+    setExporting(true);
+    try {
+      const name = await downloadProtocol({
+        process: proc,
+        conditions: {
+          gapMm: cond.gapMm,
+          surface: cond.surface,
+          electrodeWearPct: cond.electrodeWearPct,
+          qualityTarget: cond.qualityTarget,
+        },
+        signalLabel: SIGNAL_LABELS[signalKind],
+        signal,
+        baseParams: proc.startParams,
+        activeParams,
+        appliedRules: mode.applied,
+        detections: result.detections,
+        features: result.features,
+        stabilityIndex: result.stabilityIndex,
+        status: result.status,
+        corrections,
+        log: log.map((e) => ({ time: e.time, text: e.text })),
+        operator,
+        organization: 'СмартМаш',
+      });
+      addLog(`Сформирован протокол испытаний: ${name}`, 'ok');
+    } catch {
+      addLog('Не удалось сформировать протокол', 'crit');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Шапка */}
@@ -127,14 +163,30 @@ export default function HybridControlPage() {
                 Лазер + плазма · подбор режима, контроль стабильности, автокоррекция
               </p>
             </div>
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-xs font-medium text-foreground">
-                Демонстрационный режим
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={operator}
+                onChange={(e) => setOperator(e.target.value)}
+                placeholder="ФИО оператора для протокола"
+                className="h-9 w-56 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
+              />
+              <button
+                onClick={exportProtocol}
+                disabled={exporting}
+                className="flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+              >
+                <Icon name={exporting ? 'Loader2' : 'FileDown'} size={16} className={exporting ? 'animate-spin' : ''} />
+                {exporting ? 'Формирую…' : 'Протокол испытаний, PDF'}
+              </button>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-medium text-foreground">
+                  Демонстрационный режим
+                </span>
+              </div>
             </div>
           </div>
         </div>

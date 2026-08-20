@@ -1,0 +1,30 @@
+{
+  "parts": [
+    {
+      "name": "Фланец опорный",
+      "width_mm": 300,
+      "height_mm": 200,
+      "qty": 20,
+      "holes": [
+        { "x": 150, "y": 100, "diameter": 60 },
+        { "x": 40,  "y": 40,  "diameter": 18 },
+        { "x": 260, "y": 40,  "diameter": 18 },
+        { "x": 40,  "y": 160, "diameter": 18 },
+        { "x": 260, "y": 160, "diameter": 18 }
+      ]
+    },
+    {
+      "name": "Косынка усиливающая",
+      "width_mm": 150,
+      "height_mm": 150,
+      "qty": 40,
+      "holes": []
+    }
+  ],
+  "material": "S235",
+  "thickness_mm": 8,
+  "sheet": "1500x3000",
+  "quality": "standard",
+  "source": "plasma_air",
+  "postprocessor": "hypertherm"
+}

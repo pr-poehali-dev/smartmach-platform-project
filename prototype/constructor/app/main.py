@@ -186,3 +186,133 @@ def get_report(pid: str, fmt: Literal["json", "pdf", "xlsx"] = "json"):
 def get_rules() -> dict:
     """Текущий набор правил Decision Engine."""
     return ENGINE.rules_data
+
+
+# ═══════════════════ CAM: плазменная и лазерная резка ═══════════════════
+
+class HoleIn(BaseModel):
+    x: float
+    y: float
+    diameter: float = Field(gt=0)
+
+
+class PartIn(BaseModel):
+    name: str = "Деталь"
+    width_mm: float = Field(300, gt=0, le=6000)
+    height_mm: float = Field(200, gt=0, le=6000)
+    qty: int = Field(1, ge=1, le=10000)
+    holes: list[HoleIn] = []
+
+
+class CuttingIn(BaseModel):
+    parts: list[PartIn]
+    material: Literal["S235", "AISI304", "AlMg3"] = "S235"
+    thickness_mm: float = Field(8, gt=0, le=50)
+    sheet: Literal["1250x2500", "1500x3000", "2000x6000"] = "1500x3000"
+    quality: Literal["rough", "standard", "precision"] = "standard"
+
+
+class GCodeIn(CuttingIn):
+    source: Literal["plasma_air", "plasma_precision", "laser_fiber"] = "plasma_air"
+    postprocessor: Literal["hypertherm", "linuxcnc", "laser"] = "hypertherm"
+
+
+def _build_parts(items: list[PartIn]) -> list:
+    from app.cutting.geometry2d import Part, circle, rect
+    out = []
+    for p in items:
+        holes = [
+            circle(h.x, h.y, h.diameter, name=f"Отв{i}")
+            for i, h in enumerate(p.holes, 1)
+        ]
+        out.append(Part(
+            outer=rect(0, 0, p.width_mm, p.height_mm, "Контур"),
+            holes=holes, name=p.name, qty=p.qty,
+        ))
+    return out
+
+
+@app.get("/api/v1/cutting/database", tags=["Резка"])
+def cutting_database() -> dict:
+    """Справочник источников резки, материалов и классов качества."""
+    from app.cutting.postprocessor import CutDatabase
+    db = CutDatabase()
+    return {
+        "sources": db.sources(),
+        "materials": db.data["materials"],
+        "quality_grades": db.data["quality_grades"],
+        "postprocessors": ["hypertherm", "linuxcnc", "laser"],
+    }
+
+
+@app.post("/api/v1/cutting/compare", tags=["Резка"])
+def cutting_compare(payload: CuttingIn) -> dict:
+    """
+    Сравнение источников резки: плазма воздушная, плазма HD, волоконный лазер.
+    Возвращает время, себестоимость и коэффициент использования металла.
+    """
+    from app.cutting.nesting import STANDARD_SHEETS, CuttingCalculator, Nester
+    from app.cutting.geometry2d import validate_part
+    from app.cutting.postprocessor import CutDatabase
+
+    parts = _build_parts(payload.parts)
+    calc = CuttingCalculator(CutDatabase())
+    options = calc.compare_sources(
+        parts, payload.material, payload.thickness_mm, payload.sheet, payload.quality
+    )
+
+    w, h = STANDARD_SHEETS[payload.sheet]
+    nesting = Nester(w, h).nest(parts)
+
+    validation: list[dict] = []
+    ref_kerf = next((o["kerf_mm"] for o in options if o["feasible"]), 2.0)
+    for p in parts:
+        for issue in validate_part(p, ref_kerf, payload.thickness_mm):
+            if issue["code"] != "OK":
+                validation.append({"part": p.name, **issue})
+
+    return {
+        "options": options,
+        "nesting": {
+            "sheet": payload.sheet,
+            "sheets_used": nesting.sheets_used,
+            "utilization_pct": nesting.utilization(),
+            "placed": len(nesting.placements),
+            "unplaced": nesting.unplaced,
+        },
+        "validation": validation or [{"code": "OK", "severity": "info",
+                                      "message": "Замечаний по технологичности нет"}],
+    }
+
+
+@app.post("/api/v1/cutting/gcode", tags=["Резка"])
+def cutting_gcode(payload: GCodeIn) -> dict:
+    """Генерация управляющей программы (G-код) для выбранного станка."""
+    from app.cutting.postprocessor import CutDatabase, get_postprocessor
+
+    db = CutDatabase()
+    try:
+        mode = db.get_mode(payload.source, payload.material,
+                           payload.thickness_mm, payload.quality)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+    parts = _build_parts(payload.parts)
+    if not parts:
+        raise HTTPException(400, "Не передано ни одной детали")
+
+    pp = get_postprocessor(payload.postprocessor, mode)
+    gcode = pp.build(parts[0], db)
+
+    fname = f"cut_{uuid.uuid4().hex[:8]}.{pp.ext}"
+    (OUTPUT_DIR / fname).write_text(gcode, encoding="utf-8")
+
+    return {
+        "mode": {
+            "kerf_mm": mode.kerf, "feed_mm_min": mode.feed,
+            "pierce_s": mode.pierce_time, "amps": mode.amps,
+        },
+        "stats": pp.stats(),
+        "file": fname,
+        "gcode": gcode,
+    }

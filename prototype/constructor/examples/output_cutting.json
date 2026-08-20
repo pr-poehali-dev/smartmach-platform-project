@@ -1,0 +1,93 @@
+{
+  "options": [
+    {
+      "source": "plasma_air",
+      "title": "Плазма воздушная",
+      "feasible": true,
+      "kerf_mm": 2.2,
+      "feed_mm_min": 2150,
+      "tolerance_mm": 0.5,
+      "estimate": {
+        "cut_length_m": 52.99,
+        "pierce_count": 160,
+        "cut_time_min": 24.65,
+        "pierce_time_min": 1.73,
+        "rapid_time_min": 2.8,
+        "total_time_min": 41.18,
+        "material_mass_kg": 282.6,
+        "material_cost": 22042.8,
+        "machine_cost": 1235.42,
+        "consumable_cost": 288.27,
+        "total_cost": 23566.49,
+        "cost_per_part": 392.77,
+        "utilization_pct": 46.7,
+        "sheets_used": 1
+      },
+      "notes": "Универсальный вариант для конструкционной стали. Заужение реза, конусность 2-4 град."
+    },
+    {
+      "source": "plasma_precision",
+      "title": "Плазма прецизионная (HD)",
+      "feasible": true,
+      "kerf_mm": 1.63,
+      "feed_mm_min": 2067,
+      "tolerance_mm": 0.5,
+      "estimate": {
+        "cut_length_m": 52.93,
+        "pierce_count": 160,
+        "cut_time_min": 25.61,
+        "pierce_time_min": 2.46,
+        "rapid_time_min": 2.8,
+        "total_time_min": 42.87,
+        "material_mass_kg": 282.6,
+        "material_cost": 22042.8,
+        "machine_cost": 1857.71,
+        "consumable_cost": 557.31,
+        "total_cost": 24457.82,
+        "cost_per_part": 407.63,
+        "utilization_pct": 46.7,
+        "sheets_used": 1
+      },
+      "notes": "Меньшая конусность, качество реза ближе к лазеру на средних толщинах."
+    },
+    {
+      "source": "laser_fiber",
+      "title": "Волоконный лазер",
+      "feasible": true,
+      "kerf_mm": 0.24,
+      "feed_mm_min": 2200,
+      "tolerance_mm": 0.5,
+      "estimate": {
+        "cut_length_m": 52.93,
+        "pierce_count": 160,
+        "cut_time_min": 24.06,
+        "pierce_time_min": 5.4,
+        "rapid_time_min": 2.8,
+        "total_time_min": 44.26,
+        "material_mass_kg": 282.6,
+        "material_cost": 22042.8,
+        "machine_cost": 2360.43,
+        "consumable_cost": 191.79,
+        "total_cost": 24595.02,
+        "cost_per_part": 409.92,
+        "utilization_pct": 46.7,
+        "sheets_used": 1
+      },
+      "notes": "Высокая точность и малый керф. Экономичен на тонком листе, скорость падает с толщиной."
+    }
+  ],
+  "nesting": {
+    "sheet": "1500x3000",
+    "sheets_used": 1,
+    "utilization_pct": 46.7,
+    "placed": 60,
+    "unplaced": []
+  },
+  "validation": [
+    {
+      "code": "OK",
+      "severity": "info",
+      "message": "Замечаний по технологичности нет"
+    }
+  ]
+}

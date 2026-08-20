@@ -1,0 +1,111 @@
+{
+  "version": "1.0.0",
+  "description": "База технологических режимов термической резки. Значения ориентировочные, подлежат калибровке под конкретный источник и станок.",
+  "sources": {
+    "plasma_air": {
+      "title": "Плазма воздушная",
+      "gas": "Воздух",
+      "power_kw": 30,
+      "hourly_rate_rub": 1800,
+      "consumable_cost_per_hour": 420,
+      "pierce_delay_factor": 1.0,
+      "max_thickness_mm": 40,
+      "notes": "Универсальный вариант для конструкционной стали. Заужение реза, конусность 2-4 град."
+    },
+    "plasma_precision": {
+      "title": "Плазма прецизионная (HD)",
+      "gas": "O2 / N2",
+      "power_kw": 45,
+      "hourly_rate_rub": 2600,
+      "consumable_cost_per_hour": 780,
+      "pierce_delay_factor": 1.2,
+      "max_thickness_mm": 50,
+      "notes": "Меньшая конусность, качество реза ближе к лазеру на средних толщинах."
+    },
+    "laser_fiber": {
+      "title": "Волоконный лазер",
+      "gas": "N2 / O2",
+      "power_kw": 6,
+      "hourly_rate_rub": 3200,
+      "consumable_cost_per_hour": 260,
+      "pierce_delay_factor": 1.5,
+      "max_thickness_mm": 25,
+      "notes": "Высокая точность и малый керф. Экономичен на тонком листе, скорость падает с толщиной."
+    }
+  },
+  "modes": {
+    "plasma_air": {
+      "S235": [
+        {"thickness": 3,  "kerf": 1.6, "feed": 4200, "pierce_s": 0.3, "amps": 45},
+        {"thickness": 6,  "kerf": 2.0, "feed": 2600, "pierce_s": 0.5, "amps": 65},
+        {"thickness": 10, "kerf": 2.4, "feed": 1700, "pierce_s": 0.8, "amps": 85},
+        {"thickness": 16, "kerf": 3.0, "feed": 950,  "pierce_s": 1.4, "amps": 105},
+        {"thickness": 25, "kerf": 3.6, "feed": 520,  "pierce_s": 2.5, "amps": 130},
+        {"thickness": 40, "kerf": 4.4, "feed": 260,  "pierce_s": 4.5, "amps": 170}
+      ],
+      "AISI304": [
+        {"thickness": 3,  "kerf": 1.8, "feed": 3600, "pierce_s": 0.4, "amps": 45},
+        {"thickness": 6,  "kerf": 2.2, "feed": 2100, "pierce_s": 0.7, "amps": 65},
+        {"thickness": 10, "kerf": 2.6, "feed": 1300, "pierce_s": 1.1, "amps": 85},
+        {"thickness": 20, "kerf": 3.4, "feed": 600,  "pierce_s": 2.2, "amps": 120}
+      ],
+      "AlMg3": [
+        {"thickness": 3,  "kerf": 1.7, "feed": 4800, "pierce_s": 0.3, "amps": 45},
+        {"thickness": 8,  "kerf": 2.4, "feed": 2200, "pierce_s": 0.8, "amps": 75},
+        {"thickness": 15, "kerf": 3.1, "feed": 1000, "pierce_s": 1.6, "amps": 105}
+      ]
+    },
+    "plasma_precision": {
+      "S235": [
+        {"thickness": 3,  "kerf": 1.2, "feed": 3800, "pierce_s": 0.4, "amps": 50},
+        {"thickness": 6,  "kerf": 1.5, "feed": 2400, "pierce_s": 0.6, "amps": 70},
+        {"thickness": 12, "kerf": 1.9, "feed": 1400, "pierce_s": 1.1, "amps": 100},
+        {"thickness": 20, "kerf": 2.4, "feed": 780,  "pierce_s": 2.0, "amps": 130},
+        {"thickness": 30, "kerf": 3.0, "feed": 420,  "pierce_s": 3.4, "amps": 160}
+      ],
+      "AISI304": [
+        {"thickness": 4,  "kerf": 1.4, "feed": 3000, "pierce_s": 0.5, "amps": 60},
+        {"thickness": 10, "kerf": 1.9, "feed": 1500, "pierce_s": 1.0, "amps": 95},
+        {"thickness": 20, "kerf": 2.6, "feed": 700,  "pierce_s": 2.1, "amps": 130}
+      ]
+    },
+    "laser_fiber": {
+      "S235": [
+        {"thickness": 1,  "kerf": 0.10, "feed": 12000, "pierce_s": 0.15, "amps": 0},
+        {"thickness": 3,  "kerf": 0.15, "feed": 5500,  "pierce_s": 0.4,  "amps": 0},
+        {"thickness": 6,  "kerf": 0.20, "feed": 2800,  "pierce_s": 0.9,  "amps": 0},
+        {"thickness": 10, "kerf": 0.28, "feed": 1600,  "pierce_s": 1.8,  "amps": 0},
+        {"thickness": 16, "kerf": 0.38, "feed": 900,   "pierce_s": 3.5,  "amps": 0},
+        {"thickness": 25, "kerf": 0.50, "feed": 450,   "pierce_s": 6.0,  "amps": 0}
+      ],
+      "AISI304": [
+        {"thickness": 1,  "kerf": 0.10, "feed": 14000, "pierce_s": 0.15, "amps": 0},
+        {"thickness": 3,  "kerf": 0.16, "feed": 6000,  "pierce_s": 0.4,  "amps": 0},
+        {"thickness": 6,  "kerf": 0.22, "feed": 2400,  "pierce_s": 1.0,  "amps": 0},
+        {"thickness": 12, "kerf": 0.32, "feed": 1000,  "pierce_s": 2.4,  "amps": 0},
+        {"thickness": 20, "kerf": 0.45, "feed": 400,   "pierce_s": 5.0,  "amps": 0}
+      ],
+      "AlMg3": [
+        {"thickness": 2,  "kerf": 0.14, "feed": 8000, "pierce_s": 0.3, "amps": 0},
+        {"thickness": 5,  "kerf": 0.22, "feed": 3000, "pierce_s": 0.9, "amps": 0},
+        {"thickness": 10, "kerf": 0.35, "feed": 1100, "pierce_s": 2.2, "amps": 0}
+      ]
+    }
+  },
+  "materials": {
+    "S235":    {"title": "Сталь конструкционная Ст3", "density_kg_m3": 7850, "price_per_kg": 78},
+    "AISI304": {"title": "Нержавеющая сталь 08Х18Н10", "density_kg_m3": 7900, "price_per_kg": 420},
+    "AlMg3":   {"title": "Алюминий АМг3", "density_kg_m3": 2670, "price_per_kg": 390}
+  },
+  "quality_grades": {
+    "rough":    {"title": "Черновой рез", "feed_factor": 1.15, "tolerance_mm": 1.0},
+    "standard": {"title": "Стандартный",  "feed_factor": 1.0,  "tolerance_mm": 0.5},
+    "precision":{"title": "Прецизионный", "feed_factor": 0.75, "tolerance_mm": 0.2}
+  },
+  "lead_in_rules": {
+    "description": "Правила подводов/отводов. Длина зависит от керфа и толщины.",
+    "outer_contour": {"type": "line", "length_factor": 2.0, "min_mm": 4.0},
+    "inner_contour": {"type": "arc",  "length_factor": 1.5, "min_mm": 3.0},
+    "small_hole_threshold": 1.5
+  }
+}

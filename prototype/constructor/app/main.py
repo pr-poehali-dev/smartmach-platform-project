@@ -316,3 +316,104 @@ def cutting_gcode(payload: GCodeIn) -> dict:
         "file": fname,
         "gcode": gcode,
     }
+
+
+# ═════════ Адаптивное управление гибридным лазерно-плазменным процессом ═════════
+
+class ConditionsIn(BaseModel):
+    process_id: Literal["weld_al_6", "cut_steel_10"] = "weld_al_6"
+    gap_mm: float = Field(0.2, ge=0, le=5)
+    surface: Literal["clean", "oxidized", "contaminated"] = "clean"
+    electrode_wear_pct: float = Field(0, ge=0, le=100)
+    quality_target: Literal["standard", "high"] = "standard"
+    stability_priority: bool = False
+
+
+class SignalIn(BaseModel):
+    voltage: list[float] = []
+    current: list[float] = []
+    laser_power: list[float] = []
+    spectral_ratio: float | None = None
+    hydrogen_index: float | None = None
+
+
+class MonitorIn(BaseModel):
+    conditions: ConditionsIn = ConditionsIn()
+    signal: SignalIn | None = None
+    demo_signal: Literal["stable", "arc_wander", "double_arcing", "power_drift"] | None = None
+    baseline: dict | None = None
+    params: dict | None = None
+    allow_critical: bool = False
+
+
+@app.get("/api/v1/hybrid/processes", tags=["Гибридный процесс"])
+def hybrid_processes() -> dict:
+    """Список поддерживаемых гибридных процессов и правил подбора режима."""
+    from app.hybrid.adaptive_control import ModeSelector
+    ms = ModeSelector()
+    return {
+        "processes": ms.list_processes(),
+        "rules_count": len(ms.start_rules),
+        "signatures": {k: v["title"] for k, v in ms.data["instability_signatures"].items()},
+        "safety": ms.data["safety"],
+    }
+
+
+@app.post("/api/v1/hybrid/mode", tags=["Гибридный процесс"])
+def hybrid_mode(payload: ConditionsIn) -> dict:
+    """
+    Подбор стартового режима по условиям на рабочем месте.
+    Заменяет 3-5 пробных проходов обоснованной точкой входа.
+    """
+    from app.hybrid.adaptive_control import ModeSelector, ProcessConditions
+    try:
+        return ModeSelector().select(ProcessConditions(**payload.model_dump()))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/v1/hybrid/monitor", tags=["Гибридный процесс"])
+def hybrid_monitor(payload: MonitorIn) -> dict:
+    """
+    Полный цикл адаптивного управления: подбор режима, анализ осциллограмм,
+    детекция нестабильности и выработка безопасной коррекции.
+
+    Для демонстрации без установки можно передать demo_signal.
+    """
+    from app.hybrid.adaptive_control import (
+        AdaptiveController, InstabilityDetector, ModeSelector,
+        ProcessConditions, Signal, synth_signal,
+    )
+
+    ms, det, ctl = ModeSelector(), InstabilityDetector(), AdaptiveController()
+
+    try:
+        mode = ms.select(ProcessConditions(**payload.conditions.model_dump()))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+    params = payload.params or dict(mode["start_params"])
+
+    if payload.demo_signal:
+        sig = synth_signal(payload.demo_signal)
+        baseline = payload.baseline or det.features(synth_signal("stable"))
+    elif payload.signal:
+        sig = Signal(**payload.signal.model_dump())
+        baseline = payload.baseline
+    else:
+        raise HTTPException(400, "Передайте signal или demo_signal")
+
+    detection = det.detect(sig, baseline=baseline)
+    corrections = ctl.propose(detection, params, mode["limits"])
+    result = ctl.apply(params, corrections, allow_confirm_required=payload.allow_critical)
+
+    return {
+        "process": mode["process"],
+        "detection": detection,
+        "params_before": params,
+        "params_after": result["params"],
+        "applied": result["applied"],
+        "pending_confirmation": result["pending_confirmation"],
+        "safety_note": result["safety_note"],
+        "checklist": mode["checklist"],
+    }

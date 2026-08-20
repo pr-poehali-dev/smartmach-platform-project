@@ -1,0 +1,206 @@
+{
+  "version": "1.0.0",
+  "title": "База гибридных лазерно-плазменных процессов и правил адаптивного управления",
+  "disclaimer": "Диапазоны ориентировочные, подлежат калибровке на пилотных установках. Стартовые значения — точка входа для сокращения числа пробных проходов.",
+
+  "processes": {
+    "weld_al_6": {
+      "title": "Гибридная сварка стыка алюминия АМг6, 6 мм",
+      "kind": "welding",
+      "material": "AlMg6",
+      "thickness_mm": 6,
+      "start_params": {
+        "laser_power_w": 3200,
+        "plasma_current_a": 110,
+        "speed_mm_min": 900,
+        "focus_offset_mm": -1.5,
+        "beam_arc_distance_mm": 3.0,
+        "gas_flow_l_min": 18,
+        "wire_feed_m_min": 4.5
+      },
+      "limits": {
+        "laser_power_w": [2200, 4500],
+        "plasma_current_a": [80, 160],
+        "speed_mm_min": [500, 1400],
+        "focus_offset_mm": [-3.0, 0.5],
+        "beam_arc_distance_mm": [1.5, 5.0],
+        "gas_flow_l_min": [14, 26]
+      },
+      "gas": "Ar + 30% He",
+      "typical_defects": ["Пористость", "Несплавление корня", "Оксидная плёнка", "Подрез"],
+      "notes": "Алюминий требует катодной очистки от оксидной плёнки и повышенного тепловложения из-за высокой теплопроводности."
+    },
+    "cut_steel_10": {
+      "title": "Гибридная резка стали Ст3, 10 мм",
+      "kind": "cutting",
+      "material": "S235",
+      "thickness_mm": 10,
+      "start_params": {
+        "laser_power_w": 4000,
+        "plasma_current_a": 85,
+        "speed_mm_min": 1900,
+        "focus_offset_mm": -2.0,
+        "beam_arc_distance_mm": 2.5,
+        "gas_flow_l_min": 22,
+        "wire_feed_m_min": 0
+      },
+      "limits": {
+        "laser_power_w": [2500, 6000],
+        "plasma_current_a": [60, 120],
+        "speed_mm_min": [1200, 2600],
+        "focus_offset_mm": [-4.0, 0.0],
+        "beam_arc_distance_mm": [1.5, 4.0],
+        "gas_flow_l_min": [16, 30]
+      },
+      "gas": "O2 / воздух",
+      "typical_defects": ["Грат на нижней кромке", "Конусность реза", "Непрорез", "Зарезание"],
+      "notes": "Лазер стабилизирует плазменный шнур, что позволяет поднять скорость и снизить конусность относительно чистой плазмы."
+    }
+  },
+
+  "start_rules": [
+    {
+      "id": "SR-01",
+      "description": "Алюминий толще 6 мм требует повышенного тока для катодной очистки оксидной плёнки",
+      "when": [{"fact": "material_group", "op": "eq", "value": "aluminium"},
+               {"fact": "thickness_mm", "op": "gte", "value": 6}],
+      "then": {"param": "plasma_current_a", "factor": 1.15,
+               "reason": "Катодная очистка оксидной плёнки Al2O3 (Tпл 2050 C против 660 C у металла)"}
+    },
+    {
+      "id": "SR-02",
+      "description": "Высокая теплопроводность алюминия требует роста мощности лазера",
+      "when": [{"fact": "material_group", "op": "eq", "value": "aluminium"}],
+      "then": {"param": "laser_power_w", "factor": 1.10,
+               "reason": "Теплопроводность Al в 4 раза выше стали — компенсация теплоотвода"}
+    },
+    {
+      "id": "SR-03",
+      "description": "Зазор в стыке требует снижения скорости для заполнения",
+      "when": [{"fact": "gap_mm", "op": "gt", "value": 0.5}],
+      "then": {"param": "speed_mm_min", "factor": 0.85,
+               "reason": "Увеличенный зазор требует большего объёма расплава"}
+    },
+    {
+      "id": "SR-04",
+      "description": "Загрязнённая или окисленная поверхность снижает стабильность",
+      "when": [{"fact": "surface", "op": "in", "value": ["oxidized", "contaminated"]}],
+      "then": {"param": "plasma_current_a", "factor": 1.08,
+               "reason": "Компенсация потерь на разрушение окисной плёнки"}
+    },
+    {
+      "id": "SR-05",
+      "description": "Нержавеющая сталь: снижение тепловложения против коробления",
+      "when": [{"fact": "material_group", "op": "eq", "value": "stainless"}],
+      "then": {"param": "speed_mm_min", "factor": 1.10,
+               "reason": "Низкая теплопроводность — риск перегрева и межкристаллитной коррозии"}
+    },
+    {
+      "id": "SR-06",
+      "description": "Толстый металл требует заглубления фокуса",
+      "when": [{"fact": "thickness_mm", "op": "gte", "value": 10}],
+      "then": {"param": "focus_offset_mm", "delta": -1.0,
+               "reason": "Фокус заглубляется для формирования канала проплавления по всей толщине"}
+    },
+    {
+      "id": "SR-07",
+      "description": "Изношенный электрод — снижение тока во избежание двойной дуги",
+      "when": [{"fact": "electrode_wear_pct", "op": "gte", "value": 70}],
+      "then": {"param": "plasma_current_a", "factor": 0.92,
+               "reason": "Износ катода повышает риск двойного дугообразования и прогара сопла"}
+    },
+    {
+      "id": "SR-08",
+      "description": "Требование высокого качества кромки — снижение скорости",
+      "when": [{"fact": "quality_target", "op": "eq", "value": "high"}],
+      "then": {"param": "speed_mm_min", "factor": 0.88,
+               "reason": "Снижение скорости уменьшает конусность и грат"}
+    },
+    {
+      "id": "SR-09",
+      "description": "Резка: увеличение расхода газа на толстом металле для удаления расплава",
+      "when": [{"fact": "process_kind", "op": "eq", "value": "cutting"},
+               {"fact": "thickness_mm", "op": "gte", "value": 10}],
+      "then": {"param": "gas_flow_l_min", "factor": 1.12,
+               "reason": "Эффективное удаление расплава из полости реза"}
+    },
+    {
+      "id": "SR-10",
+      "description": "Малый зазор луч-дуга усиливает синергию, но требует контроля",
+      "when": [{"fact": "stability_priority", "op": "eq", "value": true}],
+      "then": {"param": "beam_arc_distance_mm", "delta": -0.5,
+               "reason": "Сближение зон повышает стабилизирующее действие лазера на плазменный шнур"}
+    }
+  ],
+
+  "instability_signatures": {
+    "arc_wander": {
+      "title": "Блуждание дуги",
+      "indicators": {"voltage_std_pct": 6.0, "current_std_pct": 5.0},
+      "severity": "high",
+      "cause": "Потеря привязки плазменного шнура, влияние магнитного дутья или износ сопла",
+      "action": {"param": "beam_arc_distance_mm", "delta": -0.3,
+                 "hint": "Сблизить зоны лазера и дуги для стабилизации шнура"}
+    },
+    "double_arcing": {
+      "title": "Двойное дугообразование",
+      "indicators": {"voltage_drop_pct": 12.0, "current_spike_pct": 18.0, "current_crest_min": 6.0},
+      "severity": "critical",
+      "cause": "Износ электрода или сопла, замыкание дуги на сопло",
+      "action": {"param": "plasma_current_a", "factor": 0.9,
+                 "hint": "Снизить ток и проверить состояние сопла — риск прогара"}
+    },
+    "power_drift": {
+      "title": "Дрейф мощности лазера",
+      "indicators": {"power_trend_pct": 5.0},
+      "severity": "medium",
+      "cause": "Загрязнение защитного стекла или расфокусировка",
+      "action": {"param": "laser_power_w", "factor": 1.05,
+                 "hint": "Проверить защитное стекло и юстировку оптического тракта"}
+    },
+    "penetration_loss": {
+      "title": "Потеря проплавления",
+      "indicators": {"voltage_mean_drop_pct": 7.0, "spectral_ratio_drop": 0.25},
+      "severity": "high",
+      "cause": "Избыточная скорость или недостаточное тепловложение",
+      "action": {"param": "speed_mm_min", "factor": 0.9,
+                 "hint": "Снизить скорость либо повысить мощность лазера"}
+    },
+    "porosity_risk": {
+      "title": "Риск пористости",
+      "indicators": {"spectral_hydrogen_index": 0.6, "voltage_std_pct": 4.0},
+      "severity": "medium",
+      "cause": "Влага, загрязнение кромок, нарушение газовой защиты",
+      "action": {"param": "gas_flow_l_min", "factor": 1.1,
+                 "hint": "Усилить газовую защиту, проверить подготовку кромок"}
+    }
+  },
+
+  "safety": {
+    "max_step_pct": 10.0,
+    "max_corrections_per_min": 4,
+    "require_operator_confirm": ["double_arcing"],
+    "description": "Автокоррекция ограничена шагом 10% за раз. Критические события требуют подтверждения оператора — исключает разгон системы и защищает оборудование."
+  },
+
+  "checklists": {
+    "welding": [
+      "Кромки зачищены до металлического блеска, обезжирены",
+      "Зазор в стыке измерен и не превышает допуска",
+      "Защитное стекло лазерной головки чистое, без налёта",
+      "Расход защитного газа проверен по ротаметру",
+      "Электрод и сопло осмотрены, износ менее 70%",
+      "Присадочная проволока подаётся без проскальзывания",
+      "Выполнен пробный проход на технологической планке"
+    ],
+    "cutting": [
+      "Лист очищен от окалины, ржавчины и масла",
+      "Лист прижат, отсутствует коробление и подъём кромки",
+      "Сопло и электрод осмотрены, посадка без люфта",
+      "Давление и чистота режущего газа в норме",
+      "Датчик высоты (THC) откалиброван",
+      "Выполнена пробная пробивка на краю листа",
+      "Проверено отсутствие грата на пробном резе"
+    ]
+  }
+}

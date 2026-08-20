@@ -6,9 +6,31 @@
  * к установке. Логика и пороги идентичны серверной реализации.
  */
 
-export type ProcessId = 'weld_al_6' | 'cut_steel_10';
+export type ProcessId =
+  | 'weld_al_6'
+  | 'cut_steel_6'
+  | 'cut_steel_10'
+  | 'cut_steel_12';
 export type SignalKind = 'stable' | 'arc_wander' | 'double_arcing' | 'power_drift';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
+
+/** Экономические нормативы процесса — основа расчёта себестоимости метра реза. */
+export interface ProcessEconomics {
+  /** Цена режущего газа, руб/м³ */
+  gasPriceRubM3: number;
+  /** Ресурс сопла при штатном режиме, часов горения */
+  nozzleLifeH: number;
+  /** Цена комплекта расходников (сопло + электрод), руб */
+  consumableSetRub: number;
+  /** Ставка машинного часа с учётом энергии и амортизации, руб/ч */
+  machineRateRubH: number;
+  /** Ставка оператора, руб/ч */
+  operatorRateRubH: number;
+  /** Нормативная доля брака при ручном подборе режима, % */
+  baselineDefectPct: number;
+  /** Стоимость метра погонного заготовки для оценки потерь от брака, руб */
+  materialCostPerMRub: number;
+}
 
 export interface ProcessDef {
   id: ProcessId;
@@ -20,7 +42,23 @@ export interface ProcessDef {
   startParams: Record<string, number>;
   limits: Record<string, [number, number]>;
   checklist: string[];
+  economics: ProcessEconomics;
 }
+
+/**
+ * Нормативы для резки углеродистой стали.
+ * Значения ориентировочные, калибруются под конкретное предприятие
+ * на этапе пилотного внедрения.
+ */
+const STEEL_ECONOMICS: ProcessEconomics = {
+  gasPriceRubM3: 42,
+  nozzleLifeH: 8,
+  consumableSetRub: 3400,
+  machineRateRubH: 1850,
+  operatorRateRubH: 620,
+  baselineDefectPct: 12,
+  materialCostPerMRub: 210,
+};
 
 export const PROCESSES: Record<ProcessId, ProcessDef> = {
   weld_al_6: {
@@ -54,6 +92,46 @@ export const PROCESSES: Record<ProcessId, ProcessDef> = {
       'Электрод и сопло осмотрены, износ менее 70%',
       'Выполнен пробный проход на технологической планке',
     ],
+    economics: {
+      ...STEEL_ECONOMICS,
+      gasPriceRubM3: 310, // смесь Ar + He существенно дороже кислорода
+      materialCostPerMRub: 480,
+      baselineDefectPct: 14,
+    },
+  },
+  cut_steel_6: {
+    id: 'cut_steel_6',
+    title: 'Гибридная резка Ст3, 6 мм',
+    kind: 'cutting',
+    material: 'S235',
+    thicknessMm: 6,
+    gas: 'O2 / воздух',
+    startParams: {
+      laser_power_w: 3000,
+      plasma_current_a: 65,
+      speed_mm_min: 2800,
+      focus_offset_mm: -1.2,
+      beam_arc_distance_mm: 2.2,
+      gas_flow_l_min: 17,
+    },
+    limits: {
+      laser_power_w: [2000, 4500],
+      plasma_current_a: [45, 95],
+      speed_mm_min: [1800, 3800],
+      focus_offset_mm: [-3.0, 0.0],
+      beam_arc_distance_mm: [1.5, 3.5],
+      gas_flow_l_min: [12, 24],
+    },
+    checklist: [
+      'Лист очищен от окалины, ржавчины и масла',
+      'Лист прижат, отсутствует коробление кромки',
+      'Сопло и электрод осмотрены, посадка без люфта',
+      'Давление и чистота режущего газа в норме',
+      'Датчик высоты (THC) откалиброван',
+      'Выполнена пробная пробивка на краю листа',
+      'Проверено отсутствие грата на пробном резе',
+    ],
+    economics: { ...STEEL_ECONOMICS, materialCostPerMRub: 140 },
   },
   cut_steel_10: {
     id: 'cut_steel_10',
@@ -85,7 +163,43 @@ export const PROCESSES: Record<ProcessId, ProcessDef> = {
       'Давление и чистота режущего газа в норме',
       'Датчик высоты (THC) откалиброван',
       'Выполнена пробная пробивка на краю листа',
+      'Проверено отсутствие грата на пробном резе',
     ],
+    economics: STEEL_ECONOMICS,
+  },
+  cut_steel_12: {
+    id: 'cut_steel_12',
+    title: 'Гибридная резка Ст3, 12 мм',
+    kind: 'cutting',
+    material: 'S235',
+    thicknessMm: 12,
+    gas: 'O2 / воздух',
+    startParams: {
+      laser_power_w: 4600,
+      plasma_current_a: 100,
+      speed_mm_min: 1450,
+      focus_offset_mm: -2.6,
+      beam_arc_distance_mm: 2.8,
+      gas_flow_l_min: 25,
+    },
+    limits: {
+      laser_power_w: [3000, 6500],
+      plasma_current_a: [70, 140],
+      speed_mm_min: [900, 2100],
+      focus_offset_mm: [-5.0, -0.5],
+      beam_arc_distance_mm: [1.5, 4.5],
+      gas_flow_l_min: [18, 34],
+    },
+    checklist: [
+      'Лист очищен от окалины, ржавчины и масла',
+      'Лист прижат, отсутствует коробление кромки',
+      'Сопло и электрод осмотрены, посадка без люфта',
+      'Давление и чистота режущего газа в норме',
+      'Датчик высоты (THC) откалиброван',
+      'Выполнена пробная пробивка на краю листа',
+      'Проверено отсутствие грата на пробном резе',
+    ],
+    economics: { ...STEEL_ECONOMICS, materialCostPerMRub: 270 },
   },
 };
 

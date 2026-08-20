@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import Oscilloscope from '@/components/hybrid/Oscilloscope';
 import StabilityGauge from '@/components/hybrid/StabilityGauge';
+import EdgeQualityPanel from '@/components/hybrid/EdgeQualityPanel';
+import EconomicsPanel from '@/components/hybrid/EconomicsPanel';
 import { downloadProtocol } from '@/lib/pdf/protocolReport';
+import {
+  CutJobInput,
+  compareEconomics,
+  predictEdgeQuality,
+  proposeEdgeCorrections,
+} from '@/lib/steelCutting';
 import {
   Conditions,
   Correction,
@@ -32,13 +40,16 @@ const SEVERITY_STYLE: Record<string, string> = {
 };
 
 export default function HybridControlPage() {
-  const [cond, setCond] = useState<Conditions>({
-    processId: 'weld_al_6',
+  const [cond, setCond] = useState<Conditions>(() => ({
+    processId: ((): ProcessId => {
+      const q = new URLSearchParams(window.location.search).get('process');
+      return q && q in PROCESSES ? (q as ProcessId) : 'weld_al_6';
+    })(),
     gapMm: 0.8,
     surface: 'oxidized',
     electrodeWearPct: 20,
     qualityTarget: 'standard',
-  });
+  }));
   // Сценарий можно открыть прямой ссылкой (?signal=double_arcing) —
   // удобно для демонстрации конкретного случая на защите заявки.
   const [signalKind, setSignalKind] = useState<SignalKind>(() => {
@@ -49,6 +60,7 @@ export default function HybridControlPage() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [operator, setOperator] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [job, setJob] = useState<CutJobInput>({ cutLengthM: 250, pierceCount: 60 });
 
   const proc = PROCESSES[cond.processId];
   const mode = useMemo(() => selectMode(cond), [cond]);
@@ -72,6 +84,24 @@ export default function HybridControlPage() {
 
   const autoCorrections = corrections.filter((c) => !c.requiresConfirm);
   const pending = corrections.filter((c) => c.requiresConfirm);
+
+  // Контроль кромки и экономика применимы только к резке
+  const isCutting = proc.kind === 'cutting';
+
+  const edgeQuality = useMemo(
+    () => predictEdgeQuality(proc, activeParams, result),
+    [proc, activeParams, result],
+  );
+
+  const edgeCorrections = useMemo(
+    () => proposeEdgeCorrections(edgeQuality, activeParams, proc.limits),
+    [edgeQuality, activeParams, proc.limits],
+  );
+
+  const economics = useMemo(
+    () => compareEconomics(proc, activeParams, job, edgeQuality.expectedDefectPct),
+    [proc, activeParams, job, edgeQuality.expectedDefectPct],
+  );
 
   const addLog = (text: string, tone: LogEntry['tone']) =>
     setLog((prev) =>
@@ -108,6 +138,21 @@ export default function HybridControlPage() {
     addLog('Режим сброшен к расчётному стартовому', 'info');
   };
 
+  const applyEdgeCorrections = () => {
+    if (!edgeCorrections.length) return;
+    const next = { ...activeParams };
+    edgeCorrections.forEach((c) => {
+      next[c.param] = c.newValue;
+      const p = PARAM_LABELS[c.param];
+      addLog(
+        `Коррекция по кромке: ${p.label} ${c.oldValue} → ${c.newValue} ${p.unit} `
+          + `(${c.changePct > 0 ? '+' : ''}${c.changePct}%) — ${c.signature}`,
+        'warn',
+      );
+    });
+    setParams(next);
+  };
+
   const applyStartMode = () => {
     setParams(mode.params);
     addLog(
@@ -140,6 +185,14 @@ export default function HybridControlPage() {
         log: log.map((e) => ({ time: e.time, text: e.text })),
         operator,
         organization: 'СмартМаш',
+        ...(isCutting
+          ? {
+              edgeQuality,
+              economics,
+              job,
+              baselineDefectPct: proc.economics.baselineDefectPct,
+            }
+          : {}),
       });
       addLog(`Сформирован протокол испытаний: ${name}`, 'ok');
     } catch {
@@ -465,6 +518,23 @@ export default function HybridControlPage() {
                 </ul>
               )}
             </div>
+
+            {isCutting && (
+              <>
+                <EdgeQualityPanel
+                  quality={edgeQuality}
+                  onApply={applyEdgeCorrections}
+                  canApply={edgeCorrections.length > 0}
+                />
+                <EconomicsPanel
+                  economics={economics}
+                  job={job}
+                  onJobChange={setJob}
+                  baselineDefectPct={proc.economics.baselineDefectPct}
+                  expectedDefectPct={edgeQuality.expectedDefectPct}
+                />
+              </>
+            )}
           </section>
 
           {/* ─── Колонка 3: режим и журнал ─── */}

@@ -18,6 +18,13 @@ import {
   ProcessDef,
   SignalData,
 } from '@/lib/hybridControl';
+import {
+  CutJobInput,
+  DEFECT_KIND_LABELS,
+  EDGE_GRADE_LABELS,
+  EconomicsComparison,
+  EdgeQualityResult,
+} from '@/lib/steelCutting';
 
 const FONT = 'NotoSans';
 
@@ -61,6 +68,11 @@ export interface ProtocolData {
   log: ProtocolLogEntry[];
   operator?: string;
   organization?: string;
+  /** Разделы по резке стали — включаются только для процессов резки */
+  edgeQuality?: EdgeQualityResult;
+  economics?: EconomicsComparison;
+  job?: CutJobInput;
+  baselineDefectPct?: number;
 }
 
 const SURFACE_LABELS: Record<string, string> = {
@@ -178,6 +190,9 @@ function table(
   const padX = 2;
 
   const drawHead = () => {
+    // Отступ перед шапкой: без него плашка наезжает на предыдущий абзац,
+    // так как заливка рисуется выше базовой линии текста.
+    cur.gap(1.5);
     cur.need(rowH + 2);
     pdf.setFillColor(COLOR.head[0], COLOR.head[1], COLOR.head[2]);
     pdf.rect(PAGE.ml, cur.y - 4, CONTENT_W, rowH, 'F');
@@ -676,8 +691,156 @@ export async function buildProtocolPdf(data: ProtocolData): Promise<jsPDF> {
       + 'пределами процесса.',
   );
 
-  /* ── 10. Журнал ── */
-  heading(pdf, cur, '10', 'Журнал событий');
+  /* ── 10. Качество кромки (только для резки) ── */
+  let section = 10;
+  const eq = data.edgeQuality;
+  if (eq) {
+    heading(pdf, cur, String(section), 'Прогноз качества кромки');
+    section += 1;
+
+    paragraph(
+      pdf,
+      cur,
+      'Оценка выполняется по сочетанию параметров режима и признаков сигнала. '
+        + 'Индекс кромки учитывает вероятность и значимость каждого дефекта: '
+        + 'значение ниже 55 означает выход кромки за допуск.',
+    );
+
+    keyValueGrid(pdf, cur, [
+      ['Индекс качества кромки', String(eq.edgeQualityIndex)],
+      ['Заключение', EDGE_GRADE_LABELS[eq.grade] ?? '—'],
+      ['Ожидаемая доля брака, %', String(eq.expectedDefectPct)],
+      ['Скорость к оптимуму', String(eq.speedRatio)],
+      ['Расход газа к нормативу', String(eq.gasRatio)],
+      ['Выявлено рисков', String(eq.defects.length)],
+    ]);
+
+    if (eq.defects.length === 0) {
+      setFont(pdf, 'bold', 9, COLOR.green);
+      cur.need(6);
+      pdf.text(
+        'Предпосылок для дефектов кромки не выявлено.',
+        PAGE.ml,
+        cur.y,
+      );
+      cur.gap(7);
+    } else {
+      table(
+        pdf,
+        cur,
+        [
+          { title: 'Дефект', width: 34 },
+          { title: 'Вид', width: 20 },
+          { title: 'Риск, %', width: 16, align: 'right' },
+          { title: 'Причина', width: 55 },
+          { title: 'Рекомендуемое действие', width: 52 },
+        ],
+        eq.defects.map((d) => [
+          d.title,
+          DEFECT_KIND_LABELS[d.kind] ?? d.kind,
+          String(d.risk),
+          d.cause,
+          d.action,
+        ]),
+        eq.defects.map((d) =>
+          d.risk >= 70 ? COLOR.red : d.risk >= 40 ? COLOR.amber : null,
+        ),
+      );
+    }
+  }
+
+  /* ── 11. Экономика (только для резки) ── */
+  const ec = data.economics;
+  if (ec && data.job) {
+    heading(pdf, cur, String(section), 'Технико-экономическая оценка задания');
+    section += 1;
+
+    paragraph(
+      pdf,
+      cur,
+      `Расчёт для задания длиной ${data.job.cutLengthM} м при ${data.job.pierceCount} пробивках. `
+        + 'Вариант «вручную» соответствует табличному режиму и нормативной доле брака '
+        + 'предприятия, вариант «с комплексом» — фактическому режиму после коррекций.',
+    );
+
+    table(
+      pdf,
+      cur,
+      [
+        { title: 'Статья затрат', width: 62 },
+        { title: 'Ручной подбор', width: 38, align: 'right' },
+        { title: 'С комплексом', width: 38, align: 'right' },
+        { title: 'Разница', width: 39, align: 'right' },
+      ],
+      [
+        ['Время резки, мин', `${ec.manual.cutTimeMin}`, `${ec.adaptive.cutTimeMin}`,
+          `${(ec.adaptive.cutTimeMin - ec.manual.cutTimeMin).toFixed(1)}`],
+        ['Расход газа, м³', `${ec.manual.gasM3}`, `${ec.adaptive.gasM3}`,
+          `${(ec.adaptive.gasM3 - ec.manual.gasM3).toFixed(3)}`],
+        ['Газ на метр реза, л', `${ec.manual.gasPerMeterL}`, `${ec.adaptive.gasPerMeterL}`,
+          `${(ec.adaptive.gasPerMeterL - ec.manual.gasPerMeterL).toFixed(1)}`],
+        ['Стоимость газа, ₽', `${ec.manual.gasCost}`, `${ec.adaptive.gasCost}`,
+          `${ec.adaptive.gasCost - ec.manual.gasCost}`],
+        ['Расходники, ₽', `${ec.manual.consumableCost}`, `${ec.adaptive.consumableCost}`,
+          `${ec.adaptive.consumableCost - ec.manual.consumableCost}`],
+        ['Машинное время, ₽', `${ec.manual.machineCost}`, `${ec.adaptive.machineCost}`,
+          `${ec.adaptive.machineCost - ec.manual.machineCost}`],
+        ['Оплата оператора, ₽', `${ec.manual.operatorCost}`, `${ec.adaptive.operatorCost}`,
+          `${ec.adaptive.operatorCost - ec.manual.operatorCost}`],
+        ['Потери от брака, ₽', `${ec.manual.defectLossCost}`, `${ec.adaptive.defectLossCost}`,
+          `${ec.adaptive.defectLossCost - ec.manual.defectLossCost}`],
+        ['Доля брака, %', `${data.baselineDefectPct ?? '—'}`,
+          `${data.edgeQuality?.expectedDefectPct ?? '—'}`, ''],
+        ['ИТОГО, ₽', `${ec.manual.totalCost}`, `${ec.adaptive.totalCost}`,
+          `${ec.adaptive.totalCost - ec.manual.totalCost}`],
+        ['Себестоимость метра, ₽', `${ec.manual.costPerMeter}`, `${ec.adaptive.costPerMeter}`,
+          `${ec.adaptive.costPerMeter - ec.manual.costPerMeter}`],
+      ],
+    );
+
+    // Итоговый эффект. Оформление зависит от знака: выдавать убыток
+    // за «эффект» в отчётном документе недопустимо.
+    const positive = ec.savingRub > 0;
+    cur.need(22);
+    const boxH = 16;
+
+    if (positive) {
+      pdf.setFillColor(240, 253, 244);
+      pdf.setDrawColor(COLOR.green[0], COLOR.green[1], COLOR.green[2]);
+    } else {
+      pdf.setFillColor(255, 251, 235);
+      pdf.setDrawColor(COLOR.amber[0], COLOR.amber[1], COLOR.amber[2]);
+    }
+    pdf.setLineWidth(0.3);
+    pdf.rect(PAGE.ml, cur.y, CONTENT_W, boxH, 'FD');
+
+    setFont(pdf, 'bold', 8, COLOR.text);
+    pdf.text(
+      positive
+        ? 'Эффект от применения комплекса'
+        : 'Результат по текущему режиму: экономический эффект не достигнут',
+      PAGE.ml + 3,
+      cur.y + 5,
+    );
+
+    setFont(pdf, 'normal', 8, COLOR.text);
+    const effects = positive
+      ? [
+          `экономия ${ec.savingRub.toLocaleString('ru-RU')} ₽ (${ec.savingPct}%)`,
+          `снижение брака на ${ec.defectReductionPp} п.п.`,
+          `себестоимость метра ${ec.manual.costPerMeter} \u2192 ${ec.adaptive.costPerMeter} ₽`,
+        ]
+      : [
+          `перерасход ${Math.abs(ec.savingRub).toLocaleString('ru-RU')} ₽`,
+          'режим требует коррекции по рекомендациям раздела о качестве кромки',
+        ];
+    pdf.text(effects.join(' · '), PAGE.ml + 3, cur.y + 11.5);
+    cur.gap(boxH + 5);
+  }
+
+  /* ── Журнал ── */
+  heading(pdf, cur, String(section), 'Журнал событий');
+  section += 1;
   if (data.log.length === 0) {
     paragraph(pdf, cur, 'Действий оператора в ходе испытания не зафиксировано.');
   } else {
@@ -692,8 +855,9 @@ export async function buildProtocolPdf(data: ProtocolData): Promise<jsPDF> {
     );
   }
 
-  /* ── 11. Чек-лист ── */
-  heading(pdf, cur, '11', 'Чек-лист готовности оборудования');
+  /* ── Чек-лист ── */
+  heading(pdf, cur, String(section), 'Чек-лист готовности оборудования');
+  section += 1;
   proc.checklist.forEach((item) => {
     cur.need(5);
     pdf.setDrawColor(COLOR.muted[0], COLOR.muted[1], COLOR.muted[2]);
@@ -705,8 +869,8 @@ export async function buildProtocolPdf(data: ProtocolData): Promise<jsPDF> {
   });
   cur.gap(3);
 
-  /* ── 12. Подписи ── */
-  heading(pdf, cur, '12', 'Подписи');
+  /* ── Подписи ── */
+  heading(pdf, cur, String(section), 'Подписи');
   cur.need(26);
   const sigW = CONTENT_W / 2 - 5;
   const sigs: [string, string][] = [

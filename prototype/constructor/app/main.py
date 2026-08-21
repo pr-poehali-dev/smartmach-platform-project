@@ -417,3 +417,330 @@ def hybrid_monitor(payload: MonitorIn) -> dict:
         "safety_note": result["safety_note"],
         "checklist": mode["checklist"],
     }
+
+
+# ═══════════════ Слой интеграции: REST API для ЧПУ, CAM и MES ═══════════════
+
+class RecommendIn(BaseModel):
+    """Запрос подбора режима — основной вход для CAM и технолога."""
+    material: Literal["Ст3", "S235", "09Г2С"] = "Ст3"
+    thickness_mm: float = Field(10, ge=3, le=20)
+    edge_quality: Literal["min_burr", "max_speed", "balanced"] = "balanced"
+    gas: Literal["O2", "air", "N2"] = "O2"
+
+
+class StabilityIn(BaseModel):
+    """Осциллограммы с датчиков для детекции нестабильности."""
+    current_a_series: list[float] = Field(default_factory=list)
+    voltage_v_series: list[float] = Field(default_factory=list)
+    laser_power_w_series: list[float] = Field(default_factory=list)
+    thickness_mm: float = Field(10, ge=3, le=20)
+    params: dict | None = None
+
+
+class CamAugmentIn(BaseModel):
+    """Обогащение управляющей программы режимами по сегментам."""
+    gcode: str
+    thickness_mm: float = Field(10, ge=3, le=20)
+    params: dict | None = None
+
+
+class CostIn(BaseModel):
+    thickness_mm: float = Field(10, ge=3, le=20)
+    cut_length_m: float = Field(250, gt=0)
+    pierce_count: int = Field(60, ge=0)
+    params: dict | None = None
+    expected_defect_pct: float | None = None
+    # Довести режим до оптимума перед расчётом. Именно это делает комплекс
+    # в работе, поэтому сравнение «как есть» против «как должно быть»
+    # отражает реальную выгоду от внедрения.
+    optimize: bool = True
+
+
+class MachineConnectIn(BaseModel):
+    transport: Literal["opcua", "modbus", "mqtt", "simulator"] = "simulator"
+    endpoint: str | None = None
+    scenario: Literal["stable", "arc_wander", "double_arcing", "power_drift"] = "stable"
+
+
+def _steel_process(thickness_mm: float):
+    """Подбирает ближайший процесс резки из технологической базы."""
+    from app.hybrid.adaptive_control import ModeSelector
+
+    ms = ModeSelector()
+    cutting = {k: v for k, v in ms.processes.items() if v["kind"] == "cutting"}
+    best = min(cutting.items(),
+               key=lambda kv: abs(kv[1]["thickness_mm"] - thickness_mm))
+    return best[0], best[1]
+
+
+@app.post("/api/v1/recommend", tags=["Интеграция"])
+def recommend_mode(payload: RecommendIn) -> dict:
+    """
+    Подбор режима резки под материал, толщину и требования к кромке.
+
+    Заменяет 3-5 пробных проходов обоснованной точкой входа.
+    """
+    from app.hybrid.cam_adapter import EVENT_LOG
+    from app.hybrid.steel_cutting import (
+        nominal_gas_flow, optimal_speed, predict_edge_quality,
+    )
+
+    proc_id, proc = _steel_process(payload.thickness_mm)
+    t = payload.thickness_mm
+
+    params = dict(proc["start_params"])
+    params["speed_mm_min"] = round(optimal_speed(t, params["laser_power_w"]), 1)
+    params["gas_flow_l_min"] = round(nominal_gas_flow(t), 1)
+    params["focus_offset_mm"] = round(-t * 0.22, 2)
+
+    # Приоритет качества кромки против производительности
+    if payload.edge_quality == "min_burr":
+        params["speed_mm_min"] = round(params["speed_mm_min"] * 0.88, 1)
+        params["gas_flow_l_min"] = round(params["gas_flow_l_min"] * 1.1, 1)
+    elif payload.edge_quality == "max_speed":
+        params["speed_mm_min"] = round(params["speed_mm_min"] * 1.08, 1)
+
+    for key, lim in proc["limits"].items():
+        if key in params:
+            params[key] = round(max(lim[0], min(lim[1], params[key])), 2)
+
+    quality = predict_edge_quality(t, params)
+
+    EVENT_LOG.add("recommend", f"Подбор режима: {payload.material} {t:g} мм",
+                  {"edge_quality": payload.edge_quality,
+                   "edge_quality_index": quality.edge_quality_index})
+
+    return {
+        "process_id": proc_id,
+        "material": payload.material,
+        "thickness_mm": t,
+        "gas": payload.gas,
+        "laser_power_w": params["laser_power_w"],
+        "plasma_current_a": params["plasma_current_a"],
+        "feed_rate_mm_min": params["speed_mm_min"],
+        "gas_flow_l_min": params["gas_flow_l_min"],
+        "focus_offset_mm": params["focus_offset_mm"],
+        "params": params,
+        "limits": proc["limits"],
+        "edge_quality": quality.to_dict(),
+        "checklist": proc.get("checklist", []),
+    }
+
+
+@app.post("/api/v1/stability", tags=["Интеграция"])
+def check_stability(payload: StabilityIn) -> dict:
+    """
+    Детекция нестабильности по осциллограммам и прогноз качества кромки.
+
+    Возвращает категорию дефекта, уверенность и готовую рекомендацию
+    для оператора либо для автоматической коррекции подачи.
+    """
+    from app.hybrid.adaptive_control import InstabilityDetector, Signal
+    from app.hybrid.cam_adapter import EVENT_LOG
+    from app.hybrid.steel_cutting import predict_edge_quality, propose_edge_corrections
+
+    if not payload.current_a_series and not payload.voltage_v_series:
+        raise HTTPException(400, "Передайте current_a_series и voltage_v_series")
+
+    det = InstabilityDetector()
+    sig = Signal(
+        voltage=payload.voltage_v_series,
+        current=payload.current_a_series,
+        laser_power=payload.laser_power_w_series,
+    )
+    detection = det.detect(sig)
+
+    proc_id, proc = _steel_process(payload.thickness_mm)
+    params = payload.params or dict(proc["start_params"])
+    quality = predict_edge_quality(payload.thickness_mm, params, detection["features"])
+    edge_corr = propose_edge_corrections(quality, params, proc["limits"])
+
+    top = detection["detections"][0] if detection["detections"] else None
+    defect = quality.defects[0] if quality.defects else None
+
+    # Рекомендация в машиночитаемом виде — для автоматической отработки
+    recommendation = None
+    if edge_corr:
+        c = edge_corr[0]
+        direction = "increase" if c["change_pct"] > 0 else "reduce"
+        recommendation = f"{direction}_{c['param']}_by_{abs(c['change_pct']):.0f}_percent"
+
+    EVENT_LOG.add(
+        "detection",
+        f"Анализ сигнала: индекс {detection['stability_index']}, кромка {quality.edge_quality_index}",
+        {"stability_index": detection["stability_index"],
+         "edge_quality_index": quality.edge_quality_index},
+    )
+
+    return {
+        "is_unstable": detection["status"] != "stable",
+        "stability_index": detection["stability_index"],
+        "status": detection["status"],
+        "defect_type": defect.kind if defect else (top["key"] if top else None),
+        "defect_title": defect.title if defect else (top["title"] if top else None),
+        "confidence": round(max([d["confidence"] for d in detection["detections"]] or [0]), 2),
+        "recommendation": recommendation,
+        "features": detection["features"],
+        "detections": detection["detections"],
+        "edge_quality": quality.to_dict(),
+        "corrections": edge_corr,
+    }
+
+
+@app.post("/api/v1/cam/augment", tags=["Интеграция"])
+def cam_augment(payload: CamAugmentIn) -> dict:
+    """
+    Привязка режимов к сегментам траектории.
+
+    На углах и малых радиусах скорость снижается — именно эти участки
+    дают основную долю брака при постоянном режиме обработки.
+    """
+    from app.hybrid.cam_adapter import (
+        EVENT_LOG, augment_path, parse_gcode, path_summary,
+    )
+    from app.hybrid.steel_cutting import nominal_gas_flow, optimal_speed
+
+    segments = parse_gcode(payload.gcode)
+    if not segments:
+        raise HTTPException(400, "В управляющей программе не найдено перемещений")
+
+    proc_id, proc = _steel_process(payload.thickness_mm)
+    base = payload.params or {
+        **proc["start_params"],
+        "speed_mm_min": round(optimal_speed(payload.thickness_mm,
+                                            proc["start_params"]["laser_power_w"]), 1),
+        "gas_flow_l_min": round(nominal_gas_flow(payload.thickness_mm), 1),
+    }
+
+    modes = augment_path(segments, base, payload.thickness_mm)
+    summary = path_summary(modes)
+
+    EVENT_LOG.add("cam", f"Обогащено сегментов: {summary['segments_total']}",
+                  {"cut_length_m": summary["cut_length_m"]})
+
+    return {
+        "process_id": proc_id,
+        "thickness_mm": payload.thickness_mm,
+        "base_params": base,
+        "summary": summary,
+        "segments": [m.to_dict() for m in modes],
+    }
+
+
+@app.post("/api/v1/cost", tags=["Интеграция"])
+def calc_job_cost(payload: CostIn) -> dict:
+    """Себестоимость задания: сравнение ручного подбора и работы с комплексом."""
+    from app.hybrid.steel_cutting import (
+        Economics, compare_economics, converge_to_optimum, predict_edge_quality,
+    )
+
+    proc_id, proc = _steel_process(payload.thickness_mm)
+    params = payload.params or dict(proc["start_params"])
+
+    convergence: list[dict] = []
+    final_params = dict(params)
+
+    if payload.optimize:
+        convergence = converge_to_optimum(
+            payload.thickness_mm, params, proc["limits"],
+        )
+        final_params = dict(convergence[-1]["params"])
+
+    quality = predict_edge_quality(payload.thickness_mm, final_params)
+    defect_pct = (payload.expected_defect_pct
+                  if payload.expected_defect_pct is not None
+                  else quality.expected_defect_pct)
+
+    result = compare_economics(
+        payload.thickness_mm, params, final_params,
+        payload.cut_length_m, payload.pierce_count, defect_pct, Economics(),
+    )
+    result["process_id"] = proc_id
+    result["params_before"] = params
+    result["params_after"] = final_params
+    result["edge_quality"] = quality.to_dict()
+    result["convergence"] = [
+        {
+            "step": s["step"],
+            "edge_quality_index": s["edge_quality_index"],
+            "expected_defect_pct": s["expected_defect_pct"],
+            "speed_mm_min": round(s["params"].get("speed_mm_min", 0), 1),
+            "gas_flow_l_min": round(s["params"].get("gas_flow_l_min", 0), 1),
+        }
+        for s in convergence
+    ]
+    result["corrections_needed"] = max(0, len(convergence) - 1)
+    return result
+
+
+@app.get("/api/v1/events", tags=["Интеграция"])
+def get_events(kind: str | None = None, since: str | None = None,
+               limit: int = 200) -> dict:
+    """Журнал событий и производственные метрики для MES и отчётов."""
+    from app.hybrid.cam_adapter import EVENT_LOG
+
+    return {
+        "events": EVENT_LOG.query(kind=kind, since=since, limit=limit),
+        "metrics": EVENT_LOG.metrics(),
+    }
+
+
+@app.get("/api/v1/events/export", tags=["Интеграция"])
+def export_events() -> dict:
+    """Выгрузка журнала в CSV для 1С, Excel и отчётных документов."""
+    from app.hybrid.cam_adapter import EVENT_LOG
+
+    return {"format": "csv", "delimiter": ";", "content": EVENT_LOG.to_csv()}
+
+
+@app.get("/api/v1/machine/transports", tags=["Интеграция"])
+def machine_transports() -> dict:
+    """
+    Доступные транспорты связи с оборудованием.
+
+    Драйверы промышленных протоколов опциональны: при их отсутствии
+    работает симулятор, что позволяет проверить весь контур без цеха.
+    """
+    from app.hybrid.cnc_adapters import transports_info
+
+    return {"transports": transports_info()}
+
+
+@app.post("/api/v1/machine/status", tags=["Интеграция"])
+def machine_status(payload: MachineConnectIn) -> dict:
+    """Состояние станка через выбранный транспорт."""
+    from app.hybrid.adaptive_control import InstabilityDetector, Signal
+    from app.hybrid.cnc_adapters import create_adapter
+
+    kwargs: dict = {}
+    if payload.transport == "simulator":
+        kwargs["scenario"] = payload.scenario
+    elif payload.endpoint:
+        kwargs["endpoint"] = payload.endpoint
+
+    adapter = create_adapter(payload.transport, **kwargs)
+    conn = adapter.connect()
+    if not conn.ok:
+        return {"connected": False, "detail": conn.detail,
+                "transport": payload.transport, "adapter": adapter.describe()}
+
+    status = adapter.read_status()
+    signal = adapter.read_signal(240)
+
+    detection = None
+    if signal["current"]:
+        det = InstabilityDetector()
+        detection = det.detect(Signal(
+            voltage=signal["voltage"],
+            current=signal["current"],
+            laser_power=signal["laser_power"],
+        ))
+
+    return {
+        "connected": True,
+        "transport": payload.transport,
+        "status": status.to_dict(),
+        "detection": detection,
+        "adapter": adapter.describe(),
+    }

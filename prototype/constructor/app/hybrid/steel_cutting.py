@@ -69,6 +69,10 @@ class EdgeDefect:
     action: str
     param: str
     suggest_pct: float
+    # Целевое абсолютное значение параметра. Нужно там, где относительный
+    # шаг бессмысленен: смещение фокуса задаётся величиной для толщины,
+    # а не процентом от текущей (оно отрицательное, знак процента путает).
+    target_value: float | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -81,6 +85,7 @@ class EdgeDefect:
             "action": self.action,
             "param": self.param,
             "suggest_pct": self.suggest_pct,
+            "target_value": self.target_value,
         }
 
 
@@ -213,6 +218,7 @@ def predict_edge_quality(
             action=f"Установить смещение фокуса {opt_focus:.1f} мм",
             param="focus_offset_mm",
             suggest_pct=0,
+            target_value=round(opt_focus, 2),
         ))
 
     # Шероховатость по нестабильности дуги
@@ -226,9 +232,13 @@ def predict_edge_quality(
                 severity="high" if cur_std >= 6 else "medium",
                 cause=(f"Разброс тока {cur_std:.1f}% — колебания дуги оставляют "
                        "волнистость и борозды на поверхности реза"),
-                action="Устранить причину нестабильности дуги, проверить сопло",
-                param="plasma_current_a",
-                suggest_pct=0,
+                # Первопричина — сопло и привязка дуги, её устраняет оператор.
+                # Но пока причина не устранена, снижение скорости уменьшает
+                # шаг борозд и вытягивает кромку в допуск.
+                action=("Проверить сопло и привязку дуги; до устранения причины "
+                        "снизить скорость для уменьшения шага борозд"),
+                param="speed_mm_min",
+                suggest_pct=-min(10, round(cur_std)),
             ))
 
     # Подрез
@@ -270,12 +280,21 @@ def propose_edge_corrections(
     used: set[str] = set()
 
     for d in quality.defects:
-        if not d.suggest_pct or d.param in used or d.param not in params:
+        if d.param in used or d.param not in params:
+            continue
+        if not d.suggest_pct and d.target_value is None:
             continue
 
         before = params[d.param]
-        step = max(-max_step_pct, min(max_step_pct, d.suggest_pct))
-        nxt = before * (1 + step / 100)
+
+        if d.target_value is not None:
+            # Параметр выставляется в расчётное значение целиком: ограничение
+            # шага в процентах к нему неприменимо (значение может быть
+            # отрицательным или проходить через ноль).
+            nxt = d.target_value
+        else:
+            step = max(-max_step_pct, min(max_step_pct, d.suggest_pct))
+            nxt = before * (1 + step / 100)
 
         lim = limits.get(d.param)
         if lim:
@@ -288,7 +307,9 @@ def propose_edge_corrections(
             "param": d.param,
             "old_value": round(before, 2),
             "new_value": round(nxt, 2),
-            "change_pct": round((nxt - before) / before * 100, 1) if before else 0.0,
+            # Знаменатель по модулю: смещение фокуса отрицательное, и деление
+            # на само значение переворачивало бы знак процента.
+            "change_pct": round((nxt - before) / abs(before) * 100, 1) if before else 0.0,
             "signature": d.title,
             "severity": d.severity,
             "requires_confirm": False,

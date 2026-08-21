@@ -144,9 +144,13 @@ export default function HybridControlPage() {
     edgeCorrections.forEach((c) => {
       next[c.param] = c.newValue;
       const p = PARAM_LABELS[c.param];
+      // Для абсолютной установки процент не пишем — он вводит в заблуждение
+      const delta = c.absolute
+        ? ''
+        : ` (${c.changePct > 0 ? '+' : ''}${c.changePct}%)`;
       addLog(
-        `Коррекция по кромке: ${p.label} ${c.oldValue} → ${c.newValue} ${p.unit} `
-          + `(${c.changePct > 0 ? '+' : ''}${c.changePct}%) — ${c.signature}`,
+        `Коррекция по кромке: ${p.label} ${c.oldValue} → ${c.newValue} ${p.unit}`
+          + `${delta} — ${c.signature}`,
         'warn',
       );
     });
@@ -567,6 +571,9 @@ export default function HybridControlPage() {
                   const [lo, hi] = proc.limits[k];
                   const pct = ((v - lo) / (hi - lo)) * 100;
                   const changed = params && mode.params[k] !== v;
+                  const step = k === 'speed_mm_min' ? 10
+                    : k === 'laser_power_w' ? 50
+                      : k.endsWith('_mm') ? 0.1 : 1;
                   return (
                     <li key={k}>
                       <div className="flex items-baseline justify-between text-xs">
@@ -577,7 +584,24 @@ export default function HybridControlPage() {
                           {v} {p.unit}
                         </span>
                       </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                      {/* Параметр редактируется вручную: технолог должен иметь
+                          возможность задать свой режим и увидеть, как система
+                          оценит его качество кромки и себестоимость. */}
+                      <input
+                        type="range"
+                        min={lo}
+                        max={hi}
+                        step={step}
+                        value={v}
+                        onChange={(e) => setParams({ ...activeParams, [k]: +e.target.value })}
+                        aria-label={`${p.label}, ${p.unit}`}
+                        className={`mt-1 w-full ${changed ? 'accent-amber-500' : 'accent-primary'}`}
+                      />
+                      <div className="flex justify-between font-mono text-[10px] text-muted-foreground">
+                        <span>{lo}</span>
+                        <span>{hi}</span>
+                      </div>
+                      <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-muted">
                         <div
                           className={`h-full rounded-full transition-all ${changed ? 'bg-amber-500' : 'bg-primary'}`}
                           style={{ width: `${Math.max(2, Math.min(100, pct))}%` }}

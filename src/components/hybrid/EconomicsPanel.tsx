@@ -114,6 +114,19 @@ export default function EconomicsPanel({
         </div>
       </div>
 
+      {/* Честная оговорка: без изменения режима разница держится только
+          на разной доле брака, а не на оптимизации параметров. */}
+      {economics.sameMode && (
+        <p className="mt-2.5 flex items-start gap-1.5 rounded-md border border-border bg-muted/50 p-2 text-[11px] leading-snug text-muted-foreground">
+          <Icon name="Info" size={12} className="mt-0.5 shrink-0" />
+          <span>
+            Режим совпадает с табличным: разница объясняется только прогнозной
+            долей брака ({expectedDefectPct}% против норматива {baselineDefectPct}%).
+            Измените параметры режима, чтобы увидеть вклад оптимизации.
+          </span>
+        </p>
+      )}
+
       {/* KPI */}
       <div className="mt-3 grid grid-cols-3 gap-2">
         {[

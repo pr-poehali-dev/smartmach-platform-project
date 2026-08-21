@@ -9,6 +9,7 @@
 export type ProcessId =
   | 'weld_al_6'
   | 'cut_steel_6'
+  | 'cut_steel_8'
   | 'cut_steel_10'
   | 'cut_steel_12';
 export type SignalKind = 'stable' | 'arc_wander' | 'double_arcing' | 'power_drift';
@@ -132,6 +133,40 @@ export const PROCESSES: Record<ProcessId, ProcessDef> = {
       'Проверено отсутствие грата на пробном резе',
     ],
     economics: { ...STEEL_ECONOMICS, materialCostPerMRub: 140 },
+  },
+  cut_steel_8: {
+    id: 'cut_steel_8',
+    title: 'Гибридная резка Ст3, 8 мм',
+    kind: 'cutting',
+    material: 'S235',
+    thicknessMm: 8,
+    gas: 'O2 / воздух',
+    startParams: {
+      laser_power_w: 3500,
+      plasma_current_a: 75,
+      speed_mm_min: 2300,
+      focus_offset_mm: -1.8,
+      beam_arc_distance_mm: 2.4,
+      gas_flow_l_min: 20,
+    },
+    limits: {
+      laser_power_w: [2200, 5000],
+      plasma_current_a: [55, 110],
+      speed_mm_min: [1500, 3200],
+      focus_offset_mm: [-4.0, 0.0],
+      beam_arc_distance_mm: [1.5, 4.0],
+      gas_flow_l_min: [14, 28],
+    },
+    checklist: [
+      'Лист очищен от окалины, ржавчины и масла',
+      'Лист прижат, отсутствует коробление кромки',
+      'Сопло и электрод осмотрены, посадка без люфта',
+      'Давление и чистота режущего газа в норме',
+      'Датчик высоты (THC) откалиброван',
+      'Выполнена пробная пробивка на краю листа',
+      'Проверено отсутствие грата на пробном резе',
+    ],
+    economics: { ...STEEL_ECONOMICS, materialCostPerMRub: 175 },
   },
   cut_steel_10: {
     id: 'cut_steel_10',
@@ -432,6 +467,12 @@ export interface Correction {
   severity: Severity;
   requiresConfirm: boolean;
   reason: string;
+  /**
+   * Параметр выставляется в расчётное значение целиком, а не сдвигается
+   * на процент. Для таких коррекций процент изменения не показывается:
+   * у смещения фокуса он вводит в заблуждение (−0.5 → −2.2 мм это «−340 %»).
+   */
+  absolute?: boolean;
 }
 
 const ACTIONS: Record<string, { param: string; factor?: number; delta?: number }> = {

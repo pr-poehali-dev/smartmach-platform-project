@@ -33,6 +33,13 @@ export interface EdgeDefect {
   param: string;
   /** Рекомендуемое относительное изменение параметра, % */
   suggestPct: number;
+  /**
+   * Целевое абсолютное значение параметра.
+   * Нужно там, где относительный шаг бессмысленен: смещение фокуса
+   * задаётся конкретной величиной для толщины, а не процентом от текущей
+   * (тем более что оно отрицательное и знак процента вводит в заблуждение).
+   */
+  targetValue?: number;
 }
 
 export interface EdgeQualityResult {
@@ -220,10 +227,14 @@ export function predictEdgeQuality(
       action: `Установить смещение фокуса ${optFocus.toFixed(1)} мм`,
       param: 'focus_offset_mm',
       suggestPct: 0,
+      targetValue: Math.round(optFocus * 100) / 100,
     });
   }
 
-  /* ── Шероховатость: нестабильность дуги ── */
+  /* ── Шероховатость: нестабильность дуги ──
+     Первопричина — состояние сопла и привязка дуги, её устраняет оператор.
+     Но пока причина не устранена, снижение скорости уменьшает шаг борозд
+     и вытягивает кромку в допуск, поэтому даётся и параметрическое действие. */
   if (f && f.currentStdPct >= 4) {
     defects.push({
       kind: 'roughness',
@@ -233,9 +244,11 @@ export function predictEdgeQuality(
       cause:
         `Разброс тока ${f.currentStdPct.toFixed(1)}% — колебания дуги оставляют `
         + 'волнистость и борозды на поверхности реза',
-      action: 'Устранить причину нестабильности дуги, проверить сопло',
-      param: 'plasma_current_a',
-      suggestPct: 0,
+      action:
+        'Проверить сопло и привязку дуги; до устранения причины снизить '
+        + 'скорость для уменьшения шага борозд',
+      param: 'speed_mm_min',
+      suggestPct: -Math.min(10, Math.round(f.currentStdPct)),
     });
   }
 
@@ -290,11 +303,21 @@ export function proposeEdgeCorrections(
   const used = new Set<string>();
 
   for (const d of quality.defects) {
-    if (!d.suggestPct || used.has(d.param) || !(d.param in params)) continue;
+    if (used.has(d.param) || !(d.param in params)) continue;
+    if (!d.suggestPct && d.targetValue === undefined) continue;
 
     const before = params[d.param];
-    const step = Math.max(-maxStepPct, Math.min(maxStepPct, d.suggestPct));
-    let next = before * (1 + step / 100);
+    let next: number;
+
+    if (d.targetValue !== undefined) {
+      // Параметр выставляется в расчётное значение целиком: ограничение
+      // шага в процентах к нему неприменимо (значение может быть
+      // отрицательным или проходить через ноль).
+      next = d.targetValue;
+    } else {
+      const step = Math.max(-maxStepPct, Math.min(maxStepPct, d.suggestPct));
+      next = before * (1 + step / 100);
+    }
 
     const lim = limits[d.param];
     if (lim) next = Math.max(lim[0], Math.min(lim[1], next));
@@ -305,11 +328,17 @@ export function proposeEdgeCorrections(
       param: d.param,
       oldValue: Math.round(before * 100) / 100,
       newValue: Math.round(next * 100) / 100,
-      changePct: Math.round(((next - before) / before) * 1000) / 10,
+      // Знаменатель по модулю: смещение фокуса отрицательное, и деление
+      // на само значение переворачивало бы знак процента.
+      // Нулевое исходное значение процентом не описывается.
+      changePct: before
+        ? Math.round(((next - before) / Math.abs(before)) * 1000) / 10
+        : 0,
       signature: d.title,
       severity: d.severity,
       requiresConfirm: false,
       reason: d.cause,
+      absolute: d.targetValue !== undefined,
     });
   }
 
@@ -399,6 +428,12 @@ export interface EconomicsComparison {
   savingPct: number;
   gasSavingPct: number;
   defectReductionPp: number;
+  /**
+   * Режимы совпадают — оператор не отклонялся от табличного.
+   * В этом случае вся разница объясняется только разной долей брака,
+   * и подавать её как «экономию от комплекса» некорректно.
+   */
+  sameMode: boolean;
 }
 
 /** Расчёт себестоимости резки для заданного режима и доли брака. */
@@ -467,6 +502,11 @@ export function compareEconomics(
   const manual = calcCost(proc, proc.startParams, job, proc.economics.baselineDefectPct);
   const adaptive = calcCost(proc, adaptiveParams, job, expectedDefectPct);
 
+  // Влияют только параметры, входящие в расчёт себестоимости
+  const sameMode = (['speed_mm_min', 'gas_flow_l_min'] as const).every(
+    (k) => Math.abs((adaptiveParams[k] ?? 0) - (proc.startParams[k] ?? 0)) < 1e-9,
+  );
+
   const savingRub = manual.totalCost - adaptive.totalCost;
   const gasSavingPct = manual.gasM3
     ? ((manual.gasM3 - adaptive.gasM3) / manual.gasM3) * 100
@@ -482,6 +522,7 @@ export function compareEconomics(
     gasSavingPct: Math.round(gasSavingPct * 10) / 10,
     defectReductionPp:
       Math.round((proc.economics.baselineDefectPct - expectedDefectPct) * 10) / 10,
+    sameMode,
   };
 }
 

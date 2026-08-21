@@ -181,6 +181,48 @@ def test_cam_reduces_feed_on_corners() -> None:
     assert all(s["feed_override_pct"] == 100 for s in lines)
 
 
+def test_roughness_defect_yields_actionable_correction() -> None:
+    """
+    Регрессия: дефект «шероховатость» имел нулевой шаг коррекции, из-за чего
+    единственный достижимый в интерфейсе дефект не давал ни одной коррекции,
+    и кнопка применения оставалась неактивной при любых настройках.
+    """
+    current, voltage = _noisy_signal(7.0, 2.2)
+    r = client.post("/api/v1/stability", json={
+        "current_a_series": current,
+        "voltage_v_series": voltage,
+        "thickness_mm": 10,
+    })
+    d = r.json()
+
+    kinds = {x["kind"] for x in d["edge_quality"]["defects"]}
+    assert "roughness" in kinds
+    assert d["corrections"], "шероховатость обязана давать коррекцию режима"
+
+
+def test_focus_correction_sets_absolute_value() -> None:
+    """
+    Смещение фокуса выставляется расчётным значением, а не процентом:
+    параметр отрицательный, и относительный шаг для него бессмыслен.
+    """
+    current, voltage = _noisy_signal(0.8, 0.25)
+    r = client.post("/api/v1/stability", json={
+        "current_a_series": current,
+        "voltage_v_series": voltage,
+        "thickness_mm": 10,
+        "params": {
+            "laser_power_w": 4000, "plasma_current_a": 85,
+            "speed_mm_min": 1900, "focus_offset_mm": -0.5, "gas_flow_l_min": 22,
+        },
+    })
+    d = r.json()
+
+    focus = [c for c in d["corrections"] if c["param"] == "focus_offset_mm"]
+    assert focus, "отклонение фокуса должно давать коррекцию"
+    # Рекомендуемое смещение для 10 мм: -0.22 * 10 = -2.2 мм
+    assert abs(focus[0]["new_value"] - (-2.2)) < 0.01
+
+
 def test_cam_rejects_empty_program() -> None:
     r = client.post("/api/v1/cam/augment",
                     json={"gcode": "; только комментарий", "thickness_mm": 10})

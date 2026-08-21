@@ -176,18 +176,52 @@ body {
   }
 }
 
-/* Печать BOM-спецификации */
+/* Печать BOM-спецификации.
+   Скрытие содержимого включается только на страницах, где спецификация
+   действительно есть: иначе правило гасит любую другую печатаемую
+   страницу и на печать уходит пустой лист. */
 @media print {
-  body > * {
+  body:has(.bom-print) > * {
     display: none !important;
   }
-  .bom-print {
+  body:has(.bom-print) .bom-print {
     display: block !important;
   }
   .bom-print * {
     color: black !important;
     background: white !important;
     border-color: #ccc !important;
+  }
+}
+
+/* Печать документов для заявки: схема архитектуры, протоколы */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 10mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Цветные плашки слоёв несут смысл, поэтому фон должен сохраняться */
+  .doc-print,
+  .doc-print * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Блоки не должны разрываться между листами */
+  .doc-print section,
+  .doc-print table,
+  .doc-print thead {
+    break-inside: avoid;
+  }
+
+  .doc-print h2 {
+    break-after: avoid;
   }
 }
 

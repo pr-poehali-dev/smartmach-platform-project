@@ -231,6 +231,13 @@ export default function HybridControlPage() {
                 <Icon name={exporting ? 'Loader2' : 'FileDown'} size={16} className={exporting ? 'animate-spin' : ''} />
                 {exporting ? 'Формирую…' : 'Протокол испытаний, PDF'}
               </button>
+              <a
+                href="/architecture"
+                className="flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                <Icon name="Network" size={15} />
+                Схема архитектуры
+              </a>
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />

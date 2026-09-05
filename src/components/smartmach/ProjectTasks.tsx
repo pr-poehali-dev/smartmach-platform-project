@@ -17,7 +17,7 @@ interface Props {
 const inp = "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white";
 
 function TaskRow({
-  task, depth, employees, onStatusChange, onEdit,
+  task, depth, onStatusChange, onEdit,
 }: {
   task: ProjectTask;
   depth: number;

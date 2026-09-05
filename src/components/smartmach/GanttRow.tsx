@@ -29,16 +29,12 @@ export default function GanttRow({
   geom,
   localDate,
   isDragging,
-  isSaving,
   dragMode,
-  dayW,
   todayX,
   onPointerDown,
   onMouseEnter,
   onMouseLeave,
 }: Props) {
-  const cfg    = TASK_STATUS_CFG[task.status];
-  const priCfg = PRIORITY_CFG[task.priority];
   const colors = BAR_CFG[task.status];
   const pct    = Math.min(100, Math.max(0, task.progress_pct ?? 0));
 

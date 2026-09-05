@@ -32,7 +32,6 @@ export default function Oscilloscope({
     const halfSpan = Math.abs(m) * 0.2 || 1;
     const lo = m - halfSpan;
     const span = halfSpan * 2;
-    const hi = m + halfSpan;
     const w = 100;
 
     const pts = data

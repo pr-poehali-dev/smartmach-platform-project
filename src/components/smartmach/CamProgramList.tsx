@@ -39,7 +39,7 @@ export default function CamProgramList({ programs, filtered, loading, error, onS
           {filtered.map((p) => {
             const cfg = STATUS_CFG[p.status] ?? STATUS_CFG.queue;
             const nextAction = NEXT_LABEL[p.status];
-            const pr = (p as Record<string, unknown>).priority as string | undefined;
+            const pr = (p as unknown as Record<string, unknown>).priority as string | undefined;
             const prio = PRIORITY_CFG[pr ?? "normal"];
             return (
               <div key={p.id}

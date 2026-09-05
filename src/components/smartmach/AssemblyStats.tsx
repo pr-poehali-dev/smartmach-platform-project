@@ -15,7 +15,6 @@ const CARDS = [
 ] as const;
 
 export default function AssemblyStats({ stats }: Props) {
-  const issues = Number(stats.issues_count);
   return (
     <div className="space-y-3">
       {/* Главная карточка */}

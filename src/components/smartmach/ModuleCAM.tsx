@@ -15,7 +15,7 @@ interface Props {
   onNavigateToPart?: () => void;
 }
 
-export default function ModuleCAM({ preselectPartId, onNavigateToJob, onNavigateToPart }: Props) {
+export default function ModuleCAM({ preselectPartId, onNavigateToJob }: Props) {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);

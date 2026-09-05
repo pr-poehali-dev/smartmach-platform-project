@@ -2,7 +2,7 @@ import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import {
   Project, STATUS_CFG, PRIORITY_CFG,
-  fmt, fmtDate, isOverdue,
+  fmtDate, isOverdue,
 } from "@/lib/projects";
 
 interface Props {

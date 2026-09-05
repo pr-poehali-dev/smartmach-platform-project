@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
-import { FONT, MODULES } from "./landing.data";
+import { FONT } from "./landing.data";
 
 /* ── NavBar ──────────────────────────────────────────────────── */
 

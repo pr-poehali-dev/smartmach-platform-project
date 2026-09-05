@@ -16,9 +16,13 @@ interface Props {
   showAgent: boolean;
   onAgentApplied: (d: { title?: string; designation?: string; material?: string }) => void;
   onCloseAgent: () => void;
+  /** Переключение видимости слоя — приходит из useCad2DActions */
+  onToggleLayer: (id: string) => void;
 }
 
-export default function MachineDrawingCanvas({ canvas, scrollX, scrollY, showAgent, onAgentApplied, onCloseAgent }: Props) {
+export default function MachineDrawingCanvas({
+  canvas, scrollX, scrollY, showAgent, onAgentApplied, onCloseAgent, onToggleLayer,
+}: Props) {
   return (
     <div className="flex flex-1 overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -32,7 +36,7 @@ export default function MachineDrawingCanvas({ canvas, scrollX, scrollY, showAge
               activeLayerRef={canvas.activeLayerRef}
               onSetActiveLayer={canvas.setActiveLayerState}
               onSetLayers={canvas.setLayers}
-              fabricRef={canvas.fabricRef}
+              onToggleLayer={onToggleLayer}
             />
           )}
 
@@ -43,24 +47,30 @@ export default function MachineDrawingCanvas({ canvas, scrollX, scrollY, showAge
               <AiDraftAgentPanel
                 fabricRef={canvas.fabricRef}
                 paperSize={canvas.paperSize}
-                saveHistory={canvas.saveHistory}
+                // Агент вызывает saveHistory без аргументов,
+                // поэтому холст подставляем здесь
+                saveHistory={() => {
+                  const fc = canvas.fabricRef.current;
+                  if (fc) canvas.saveHistory(fc);
+                }}
                 onApplied={onAgentApplied}
                 onClose={onCloseAgent}
               />
             )}
+            {/* Линейка рисует обе шкалы сразу и берёт размеры холста
+                из самого canvas: отдельного canvasSize в хуке нет */}
             <Cad2DRuler
-              orientation="horizontal"
               zoom={canvas.zoom}
-              scroll={scrollX}
-              size={canvas.canvasSize.width}
+              scrollX={scrollX}
+              scrollY={scrollY}
+              cursorX={canvas.coords.x}
+              cursorY={canvas.coords.y}
+              canvasW={canvas.fabricRef.current?.width ?? 1122}
+              canvasH={canvas.fabricRef.current?.height ?? 794}
+              theme={canvas.theme}
+              rulerSize={20}
             />
             <div className="flex flex-1 min-h-0">
-              <Cad2DRuler
-                orientation="vertical"
-                zoom={canvas.zoom}
-                scroll={scrollY}
-                size={canvas.canvasSize.height}
-              />
               <div
                 ref={canvas.containerRef}
                 className="flex-1 overflow-auto"
@@ -74,13 +84,10 @@ export default function MachineDrawingCanvas({ canvas, scrollX, scrollY, showAge
           {/* Панель свойств */}
           {canvas.showProps && (
             <Cad2DPropsPanel
-              fabricRef={canvas.fabricRef}
-              strokeW={canvas.strokeW}
-              setStrokeW={canvas.setStrokeW}
-              lineType={canvas.lineType}
-              setLineType={canvas.setLineType}
+              selectedObj={canvas.selectedObj}
               layers={canvas.layers}
-              activeLayer={canvas.activeLayer}
+              fabricRef={canvas.fabricRef}
+              onSaveHistory={canvas.saveHistory}
             />
           )}
         </div>

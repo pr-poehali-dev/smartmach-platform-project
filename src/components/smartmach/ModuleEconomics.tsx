@@ -44,12 +44,24 @@ export default function ModuleEconomics() {
         ]);
         if (Array.isArray(empRes)) setEmployees(empRes.filter((e: Employee) => e.status !== "fired"));
         if (dataRes && typeof dataRes === "object") {
-          if (dataRes.materials)    setMaterials(dataRes.materials);
-          if (dataRes.workers)      setWorkers(dataRes.workers);
-          if (dataRes.overheads)    setOverheads(dataRes.overheads);
-          if (dataRes.products)     setProducts(dataRes.products);
-          if (dataRes.settings) {
-            const s = dataRes.settings;
+          // Ответ приходит нетипизированным; описываем ожидаемую форму,
+          // иначе обращение к полям не проходит проверку типов
+          const data = dataRes as {
+            materials?: Material[];
+            workers?: Worker[];
+            overheads?: Overhead[];
+            products?: Product[];
+            settings?: {
+              workDays?: number; hoursDay?: number; vatPct?: number;
+              profitPct?: number; responsibleId?: number;
+            };
+          };
+          if (data.materials)    setMaterials(data.materials);
+          if (data.workers)      setWorkers(data.workers);
+          if (data.overheads)    setOverheads(data.overheads);
+          if (data.products)     setProducts(data.products);
+          if (data.settings) {
+            const s = data.settings;
             if (s.workDays)      setWorkDays(s.workDays);
             if (s.hoursDay)      setHoursDay(s.hoursDay);
             if (s.vatPct)        setVatPct(s.vatPct);

@@ -51,7 +51,7 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
     return () => el.removeEventListener("scroll", onScroll);
   }, [canvas.containerRef]);
 
-  const { insertPartDrawing } = useCad2DDrawing({
+  useCad2DDrawing({
     fabricRef: canvas.fabricRef, drawingRef: canvas.drawingRef,
     startRef: canvas.startRef, activeShapeRef: canvas.activeShapeRef,
     polyPointsRef: canvas.polyPointsRef, snapRef: canvas.snapRef,
@@ -119,7 +119,9 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
           drawGostFrame(fc2, pw, ph, template.gost);
           template.drawGeometry(fc2, pw, ph);
           fc2.renderAll();
-          canvas.saveHistory();
+          // saveHistory принимает холст: без аргумента шаг истории
+          // не записывался и отмена действия не работала
+          canvas.saveHistory(fc2);
         }
       }, 120);
       return true;
@@ -322,6 +324,7 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
         canvas={canvas}
         scrollX={scrollX}
         scrollY={scrollY}
+        onToggleLayer={actions.toggleLayer}
         showAgent={showAgent}
         onAgentApplied={(d) => {
           if (d.title || d.designation) {

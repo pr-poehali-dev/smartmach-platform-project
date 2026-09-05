@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas, Line, Rect, IText } from "fabric";
+import { Canvas, Line, IText } from "fabric";
 import { type Tool, type Layer, PAPER_SIZES, GRID, GRID_MAJOR } from "@/components/smartmach/cad2d.data";
 import { DEFAULT_OSNAP_STATE, type OsnapState } from "@/components/smartmach/useCad2DOsnap";
 import type { SnapResult } from "@/lib/cad/osnap";
@@ -496,12 +496,14 @@ export function useCad2DCanvas() {
     (fc as any).__tool    = tool;
     (fc as any).__color   = getColor();
     (fc as any).__strokeW = strokeW;
-    const map: Record<Tool, string> = {
-      select: "default", move: "grab", line: "crosshair", polyline: "crosshair",
-      rect: "crosshair", circle: "crosshair", ellipse: "crosshair", arc: "crosshair",
-      dimension: "crosshair", text: "text", hatch: "crosshair", erase: "not-allowed",
+    // Словарь неполный намеренно: у большинства инструментов курсор
+    // одинаковый. Раньше тип требовал перечислить все, но 14 из них
+    // отсутствовали, и курсор для них становился undefined.
+    const map: Partial<Record<Tool, string>> = {
+      select: "default", move: "grab", text: "text", mtext: "text",
+      erase: "not-allowed",
     };
-    fc.defaultCursor = map[tool];
+    fc.defaultCursor = map[tool] ?? "crosshair";
   }, [tool, strokeW, getColor]);
 
   /* ── слой → цвет ── */

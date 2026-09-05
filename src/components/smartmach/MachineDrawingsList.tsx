@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Icon from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
 import { apiGet, apiDelete } from "@/lib/api";
 import { MACHINE_TEMPLATES } from "@/components/smartmach/machineDrawingTemplates";
 import { exportDrawingsPackage, type PackageSignatures } from "@/components/smartmach/machinePdfExport";

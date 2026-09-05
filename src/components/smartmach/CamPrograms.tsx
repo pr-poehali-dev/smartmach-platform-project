@@ -38,7 +38,7 @@ export default function CamPrograms({
 
   const filtered = programs.filter((p) => {
     const matchStatus   = filterStatus === "all"   || p.status === filterStatus;
-    const matchPriority = filterPriority === "all" || (p as Record<string, unknown>).priority === filterPriority;
+    const matchPriority = filterPriority === "all" || (p as unknown as Record<string, unknown>).priority === filterPriority;
     const q = search.toLowerCase();
     const matchSearch   = !q || p.name.toLowerCase().includes(q) || (p.part_name ?? "").toLowerCase().includes(q) || (p.machine_name ?? "").toLowerCase().includes(q);
     return matchStatus && matchPriority && matchSearch;

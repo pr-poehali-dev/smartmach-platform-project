@@ -18,7 +18,6 @@ const DIM_COLOR   = "#1e40af";   // синий (слой Размеры)
 const DIM_SW      = 0.7;          // толщина размерной линии (px)
 const FONT_FAMILY = "Courier Prime, Courier New, monospace";
 const DIM_FONT_SZ = 11;           // кегль числа размера
-const LABEL_SZ    = 9;            // кегль подписей типа «∅», «R»
 
 // ── Вспомогательные функции для ГОСТ 2.307 ──────────────────────────
 
@@ -32,17 +31,6 @@ function makeArrow(tx: number, ty: number, dir: number): [number, number, number
   ];
 }
 
-/** Добавляет стрелку в конце линии на canvas. */
-function addArrow(fc: Canvas, tx: number, ty: number, dir: number, layer: string) {
-  makeArrow(tx, ty, dir).forEach(([x1, y1, x2, y2]) => {
-    const l = new Line([x1, y1, x2, y2], {
-      stroke: DIM_COLOR, strokeWidth: DIM_SW + 0.3,
-      selectable: false, evented: false,
-    });
-    (l as any).__layer = layer;
-    fc.add(l); fc.sendObjectToBack(l);
-  });
-}
 
 /**
  * Линейный размер по ГОСТ 2.307.
@@ -58,7 +46,7 @@ function addArrow(fc: Canvas, tx: number, ty: number, dir: number, layer: string
  *  5. Текст по центру размерной линии, повёрнут вдоль неё (читается снизу или слева).
  */
 function addLinearDim(
-  fc: Canvas,
+  _fc: Canvas,
   x1: number, y1: number, x2: number, y2: number,
   offset: number, label: string | null, layer: string,
 ): Group {
@@ -144,7 +132,7 @@ function addLinearDim(
  * Текст «Rxx» у начала линии (у центра).
  */
 function addRadiusDim(
-  fc: Canvas, cx: number, cy: number, r: number, layer: string,
+  _fc: Canvas, cx: number, cy: number, r: number, layer: string,
 ): Group {
   // Направление выноски — 45° вправо-вверх (наиболее читаемо)
   const ang = -Math.PI / 4;
@@ -186,7 +174,7 @@ function addRadiusDim(
  * Текст над серединой линии.
  */
 function addDiameterDim(
-  fc: Canvas, cx: number, cy: number, r: number, layer: string,
+  _fc: Canvas, cx: number, cy: number, r: number, layer: string,
 ): Group {
   // Горизонтальная линия через центр
   const x1 = cx - r, y1 = cy;
@@ -248,7 +236,7 @@ interface DrawingDeps {
 
 export function useCad2DDrawing({
   fabricRef, drawingRef, startRef, activeShapeRef, polyPointsRef,
-  snapRef, activeLayerRef, setCoords, setTool, saveHistory, part,
+  snapRef, activeLayerRef, setCoords, saveHistory, part,
   resolvePoint, snapFromRef,
 }: DrawingDeps) {
 
@@ -336,8 +324,10 @@ export function useCad2DDrawing({
       if (t === "select" || t === "move") return;
 
       if (t === "erase") {
-        const target = fc.findTarget(opt.e as MouseEvent);
-        if (target && !(target as any).__grid && !(target as any).__frame) {
+        // В Fabric 7 findTarget возвращает объект с расширенными полями,
+        // поэтому приводим его к базовому типу перед удалением
+        const target = fc.findTarget(opt.e as MouseEvent) as any;
+        if (target && !target.__grid && !target.__frame) {
           fc.remove(target); fc.renderAll(); saveHistory(fc);
         }
         return;

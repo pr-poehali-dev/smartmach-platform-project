@@ -336,22 +336,44 @@ export function useCad2DActions({
     Promise.all(promises).then(() => { fc.renderAll(); saveHistory(fc); });
   }, [fabricRef, saveHistory]);
 
-  // ── Группировать ──────────────────────────────────────────────────
+  /* ── Группировать ──────────────────────────────────────────────────
+     В Fabric 7 методов toGroup/toActiveSelection больше нет, поэтому
+     обе команды не работали. Группа собирается вручную: объекты
+     снимаются с холста и передаются в конструктор Group. */
   const groupSelected = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
-    const active = fc.getActiveObject() as any;
+    const active = fc.getActiveObject();
     if (!active || !(active instanceof ActiveSelection)) return;
-    const group = active.toGroup();
+
+    const objects = active.getObjects()
+      .filter((o: any) => !o.__grid && !o.__frame);
+    if (objects.length < 2) return;
+
+    fc.discardActiveObject();
+    objects.forEach((o) => fc.remove(o));
+
+    const group = new Group(objects, { selectable: true });
+    (group as any).__layer = (objects[0] as any).__layer;
+    fc.add(group);
     fc.setActiveObject(group);
     fc.renderAll(); saveHistory(fc);
   }, [fabricRef, saveHistory]);
 
-  // ── Разгруппировать ───────────────────────────────────────────────
+  /* ── Разгруппировать ───────────────────────────────────────────────
+     removeAll возвращает объекты уже в координатах холста, поэтому
+     их достаточно добавить обратно и заново выделить. */
   const ungroupSelected = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
-    const active = fc.getActiveObject() as any;
+    const active = fc.getActiveObject();
     if (!active || !(active instanceof Group)) return;
-    active.toActiveSelection();
+
+    const objects = active.removeAll();
+    fc.remove(active);
+    objects.forEach((o) => fc.add(o));
+
+    if (objects.length) {
+      fc.setActiveObject(new ActiveSelection(objects, { canvas: fc }));
+    }
     fc.renderAll(); saveHistory(fc);
   }, [fabricRef, saveHistory]);
 
@@ -379,7 +401,7 @@ export function useCad2DActions({
     const minLeft = Math.min(...bounds.map((b) => b.left));
     const maxRight = Math.max(...bounds.map((b) => b.left + b.width));
     const centerX = (minLeft + maxRight) / 2;
-    objs.forEach((o, i) => {
+    objs.forEach((o) => {
       const w = (o.width ?? 0) * (o.scaleX ?? 1);
       if (dir === "left")   o.set("left", minLeft);
       if (dir === "center") o.set("left", centerX - w / 2);

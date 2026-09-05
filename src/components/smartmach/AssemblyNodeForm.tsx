@@ -2,7 +2,7 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import {
   AssemblyNode, NodeType, NodeStatus,
-  NODE_TYPE_CFG, NODE_STATUS_CFG,
+  NODE_STATUS_CFG,
   asmPost, asmPut,
 } from "@/lib/assembly";
 

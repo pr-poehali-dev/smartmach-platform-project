@@ -25,8 +25,27 @@ import {
   findSnap,
 } from '@/lib/cad/osnap';
 
+/**
+ * Объект холста с полями, которые проект добавляет к примитивам Fabric.
+ * Геометрия читается из разных типов фигур, поэтому набор полей описан
+ * как необязательный, а не через отдельные типы на каждую фигуру.
+ */
+interface CanvasShape {
+  type?: string;
+  visible?: boolean;
+  left?: number; top?: number;
+  width?: number; height?: number;
+  radius?: number; rx?: number; ry?: number;
+  x1?: number; y1?: number; x2?: number; y2?: number;
+  scaleX?: number; scaleY?: number;
+  originX?: string; originY?: string;
+  points?: Pt[];
+  __grid?: boolean; __frame?: boolean;
+  __dim?: boolean; __snapMarker?: boolean;
+}
+
 /** Служебные объекты холста в геометрию не попадают. */
-function isServiceObject(o: any): boolean {
+function isServiceObject(o: CanvasShape): boolean {
   return Boolean(o.__grid || o.__frame || o.__dim || o.__snapMarker);
 }
 
@@ -35,21 +54,27 @@ function isServiceObject(o: any): boolean {
  * Прямоугольник раскладывается на четыре стороны — иначе привязка
  * к его углам и серединам сторон была бы недоступна.
  */
-export function entitiesFromObject(o: any): Entity[] {
+export function entitiesFromObject(shape: object): Entity[] {
+  // Объекты Fabric описаны обобщённо и не совпадают с CanvasShape
+  // структурно, поэтому приводим их к читаемому виду в одном месте
+  const o = shape as CanvasShape;
   if (isServiceObject(o) || o.visible === false) return [];
 
-  const type = o.type as string;
+  const type = o.type;
 
   if (type === 'line') {
     return [{
       kind: 'segment',
-      a: { x: o.x1, y: o.y1 },
-      b: { x: o.x2, y: o.y2 },
+      a: { x: o.x1 ?? 0, y: o.y1 ?? 0 },
+      b: { x: o.x2 ?? 0, y: o.y2 ?? 0 },
     }];
   }
 
   if (type === 'rect') {
-    const { left: l, top: t, width: w, height: h } = o;
+    const l = o.left ?? 0;
+    const t = o.top ?? 0;
+    const w = o.width ?? 0;
+    const h = o.height ?? 0;
     const sw = w * (o.scaleX ?? 1);
     const sh = h * (o.scaleY ?? 1);
     const corners: Pt[] = [
@@ -66,10 +91,12 @@ export function entitiesFromObject(o: any): Entity[] {
   }
 
   if (type === 'circle') {
-    const r = o.radius * (o.scaleX ?? 1);
+    const r = (o.radius ?? 0) * (o.scaleX ?? 1);
+    const left = o.left ?? 0;
+    const top = o.top ?? 0;
     // originX/Y у примитивов холста — 'left'/'top', центр смещён на радиус
-    const cx = o.originX === 'center' ? o.left : o.left + r;
-    const cy = o.originY === 'center' ? o.top : o.top + r;
+    const cx = o.originX === 'center' ? left : left + r;
+    const cy = o.originY === 'center' ? top : top + r;
     return [{ kind: 'circle', c: { x: cx, y: cy }, r }];
   }
 
@@ -77,10 +104,12 @@ export function entitiesFromObject(o: any): Entity[] {
     // Эллипс аппроксимируется окружностью по среднему радиусу:
     // точная привязка к нему требует решения уравнения четвёртой степени,
     // что несоразмерно задаче. Центр при этом определяется точно.
-    const rx = o.rx * (o.scaleX ?? 1);
-    const ry = o.ry * (o.scaleY ?? 1);
-    const cx = o.originX === 'center' ? o.left : o.left + rx;
-    const cy = o.originY === 'center' ? o.top : o.top + ry;
+    const rx = (o.rx ?? 0) * (o.scaleX ?? 1);
+    const ry = (o.ry ?? 0) * (o.scaleY ?? 1);
+    const left = o.left ?? 0;
+    const top = o.top ?? 0;
+    const cx = o.originX === 'center' ? left : left + rx;
+    const cy = o.originY === 'center' ? top : top + ry;
     return [{ kind: 'circle', c: { x: cx, y: cy }, r: (rx + ry) / 2 }];
   }
 
@@ -270,7 +299,8 @@ export function useCad2DOsnap({
     const onAfterRender = () => {
       const snap = lastSnapRef.current;
       if (!snap || snap.kind === 'grid') return;
-      const ctx = fc.getSelectionContext?.() ?? (fc as any).contextTop;
+      const ctx = fc.getSelectionContext?.()
+        ?? (fc as unknown as { contextTop?: CanvasRenderingContext2D }).contextTop;
       if (!ctx) return;
       drawMarker(ctx, snap.point, snap.kind);
     };

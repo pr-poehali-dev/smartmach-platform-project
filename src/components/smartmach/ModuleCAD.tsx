@@ -135,7 +135,7 @@ export default function ModuleCAD({ onNavigateToCam }: Props) {
   }
 
   const f = (k: keyof typeof EMPTY, v: string) => setForm((p) => ({ ...p, [k]: v }));
-  const selectedPartInfo = selected ? partInfoFromPart(selected as Parameters<typeof partInfoFromPart>[0], form) : null;
+  const selectedPartInfo = selected ? partInfoFromPart(selected as unknown as Parameters<typeof partInfoFromPart>[0], form) : null;
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-5">

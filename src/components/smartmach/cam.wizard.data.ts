@@ -112,7 +112,7 @@ export interface CuttingResult {
  */
 export function calcCuttingParams(
   material: string,
-  toolType: ToolType,
+  _toolType: ToolType,
   diameter: number,
   flutes: number,
   operation: OperationType,

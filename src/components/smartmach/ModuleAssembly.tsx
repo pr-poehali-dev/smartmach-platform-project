@@ -368,7 +368,7 @@ export default function ModuleAssembly({ onNavigateToPart }: { onNavigateToPart?
                     assemblyRevision={selected.revision}
                   />
                 ) : (
-                  <AiAssistant system={AI_SYSTEM} suggestions={AI_SUGGESTIONS} />
+                  <AiAssistant systemPrompt={AI_SYSTEM} suggestions={AI_SUGGESTIONS} />
                 )}
               </>
             ) : (

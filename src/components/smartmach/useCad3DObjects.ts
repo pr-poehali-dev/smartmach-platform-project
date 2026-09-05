@@ -2,7 +2,7 @@
 import { useCallback, type MutableRefObject } from "react";
 import * as THREE from "three";
 import {
-  makeGeometry, makeMaterial, makeTextSprite,
+  makeGeometry, makeMaterial, makeTextSprite, SHAPES,
   type ShapeType, type MatType, type ViewMode,
   type SceneObject,
 } from "@/components/smartmach/cad3d.types";
@@ -43,9 +43,10 @@ export function useCad3DObjects({
     const id = `${shapeType}-${Date.now()}`;
     const obj: SceneObject = {
       id, type: shapeType,
-      label: `${["box","cylinder","sphere","cone","torus","tube","wedge","prism"].includes(shapeType)
-        ? { box: "Параллелепипед", cylinder: "Цилиндр", sphere: "Сфера", cone: "Конус", torus: "Тор", tube: "Труба", wedge: "Клин", prism: "Призма" }[shapeType]
-        : shapeType} ${objectsRef.current.length + 1}`,
+      // Название берётся из общего справочника SHAPES: локальный словарь
+      // покрывал только 8 примитивов из 15, и профили, пирамида, кольцо
+      // и пружина получали в подписи служебный идентификатор
+      label: `${SHAPES.find((s) => s.id === shapeType)?.label ?? shapeType} ${objectsRef.current.length + 1}`,
       color, matType, mesh, dims: { ...dims }, visible: true,
     };
     (mesh as any).__id = id;

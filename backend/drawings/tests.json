@@ -5,6 +5,30 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 401
+    },
+    {
+      "name": "GET revisions without auth returns 401",
+      "method": "GET",
+      "path": "/?revisions=1",
+      "expectedStatus": 401
+    },
+    {
+      "name": "POST restore without auth returns 401",
+      "method": "POST",
+      "path": "/?restore=1",
+      "expectedStatus": 401
+    },
+    {
+      "name": "GET diff without auth returns 401",
+      "method": "GET",
+      "path": "/?diff_a=1&diff_b=2",
+      "expectedStatus": 401
+    },
+    {
+      "name": "OPTIONS returns CORS 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
     }
   ]
 }

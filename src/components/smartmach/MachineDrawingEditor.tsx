@@ -15,7 +15,8 @@ import MachineDrawingSaveDialog from "@/components/smartmach/MachineDrawingSaveD
 import MachineDrawingTopBar from "@/components/smartmach/MachineDrawingTopBar";
 import MachineDrawingCanvas from "@/components/smartmach/MachineDrawingCanvas";
 import { useAuth } from "@/context/AuthContext";
-import { apiPost, apiPut } from "@/lib/api";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+import DrawingRevisions from "@/components/smartmach/DrawingRevisions";
 import { toast } from "sonner";
 import type { MachineDrawing } from "@/components/smartmach/MachineDrawingsList";
 import type { MachineTemplate } from "@/components/smartmach/machineDrawingTemplates";
@@ -40,7 +41,38 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
   const [saveError, setSaveError] = useState<string | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showAgent, setShowAgent] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [revLabel, setRevLabel] = useState<string | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Подтягиваем номер текущей версии
+  const loadRev = useCallback(async () => {
+    if (!drawing?.id) { setRevLabel(null); return; }
+    try {
+      const list = await apiGet<{ rev_no: number; rev_letter: string | null; is_current: boolean }[]>(
+        "drawings", "", { revisions: drawing.id });
+      const cur = list.find((r) => r.is_current) ?? list[0];
+      if (cur) setRevLabel(cur.rev_letter ? `вер. ${cur.rev_no} · изм. ${cur.rev_letter}` : `вер. ${cur.rev_no}`);
+    } catch { /* история необязательна */ }
+  }, [drawing?.id]);
+
+  useEffect(() => { loadRev(); }, [loadRev]);
+
+  // После отката — перезагружаем чертёж в холст
+  const handleRestored = useCallback(async () => {
+    if (!drawing?.id) return;
+    try {
+      const fresh = await apiGet<{ canvas_json?: string }>("drawings", "", { id: drawing.id });
+      const fc = canvas.fabricRef.current;
+      if (fc && fresh.canvas_json) {
+        fc.loadFromJSON(fresh.canvas_json, () => { fc.renderAll(); canvas.saveHistory(fc); });
+      }
+      await loadRev();
+      toast.success("Чертёж восстановлен");
+    } catch {
+      toast.error("Не удалось загрузить восстановленную версию");
+    }
+  }, [drawing?.id, canvas, loadRev]);
 
   // Синхронизируем scroll с линейкой
   useEffect(() => {
@@ -143,7 +175,7 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
     autoSaveTimer.current = setTimeout(async () => {
       setAutoSaveStatus("saving");
       try {
-        await apiPut("drawings", { canvas_json: canvasJson }, { id: drawing.id });
+        await apiPut("drawings", { canvas_json: canvasJson, new_revision: false }, { id: drawing.id });
         setAutoSaveStatus("saved");
         setTimeout(() => setAutoSaveStatus("idle"), 2000);
       } catch { setAutoSaveStatus("idle"); }
@@ -182,10 +214,15 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
       };
 
       if (drawing?.id) {
-        await apiPut("drawings", payload, { id: drawing.id });
+        const upd = await apiPut<{ rev_no?: number; rev_letter?: string | null }>(
+          "drawings", { ...payload, change_note: description || undefined }, { id: drawing.id });
+        if (upd?.rev_no) {
+          setRevLabel(upd.rev_letter ? `вер. ${upd.rev_no} · изм. ${upd.rev_letter}` : `вер. ${upd.rev_no}`);
+        }
         onSaved({ ...drawing, name, description, updated_at: new Date().toISOString() });
       } else {
         const res = await apiPost<{ id: number; file_url: string }>("drawings", payload);
+        setRevLabel("вер. 1");
         onSaved({
           id: res.id,
           name,
@@ -262,10 +299,20 @@ export default function MachineDrawingEditor({ drawing, template, onBack, onSave
         drawingName={drawing?.name}
         autoSaveStatus={autoSaveStatus}
         showAgent={showAgent}
+        revLabel={revLabel}
         onBack={onBack}
         onToggleAgent={() => setShowAgent((v) => !v)}
         onSave={openSaveDialog}
+        onHistory={drawing?.id ? () => setShowHistory(true) : undefined}
       />
+
+      {showHistory && drawing?.id && (
+        <DrawingRevisions
+          drawingId={drawing.id}
+          onClose={() => setShowHistory(false)}
+          onRestored={handleRestored}
+        />
+      )}
 
       {/* Ribbon toolbar */}
       <Cad2DToolbar

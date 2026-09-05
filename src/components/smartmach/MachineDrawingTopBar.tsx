@@ -10,12 +10,14 @@ interface Props {
   drawingName?: string;
   autoSaveStatus: "idle" | "saving" | "saved";
   showAgent: boolean;
+  revLabel?: string | null;
   onBack: () => void;
   onToggleAgent: () => void;
   onSave: () => void;
+  onHistory?: () => void;
 }
 
-export default function MachineDrawingTopBar({ drawingName, autoSaveStatus, showAgent, onBack, onToggleAgent, onSave }: Props) {
+export default function MachineDrawingTopBar({ drawingName, autoSaveStatus, showAgent, revLabel, onBack, onToggleAgent, onSave, onHistory }: Props) {
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-700 bg-[#0f1020]">
       <button
@@ -26,9 +28,15 @@ export default function MachineDrawingTopBar({ drawingName, autoSaveStatus, show
         К списку чертежей
       </button>
       <div className="w-px h-4 bg-gray-700" />
-      <span className="text-xs font-semibold text-gray-200 flex-1 truncate">
+      <span className="text-xs font-semibold text-gray-200 truncate">
         {drawingName ?? "Новый чертёж"}
       </span>
+      {revLabel && (
+        <span className="px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-300 text-[10px] font-mono border border-gray-600 shrink-0">
+          {revLabel}
+        </span>
+      )}
+      <div className="flex-1" />
       <div className={cn(
         "flex items-center gap-1.5 text-[10px] transition-all",
         autoSaveStatus === "saving" ? "text-yellow-400" :
@@ -39,6 +47,16 @@ export default function MachineDrawingTopBar({ drawingName, autoSaveStatus, show
         {autoSaveStatus === "saving" ? "Сохранение…" :
          autoSaveStatus === "saved"  ? "Сохранено"  : ""}
       </div>
+      {onHistory && (
+        <button
+          onClick={onHistory}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-all"
+          title="История версий чертежа"
+        >
+          <Icon name="History" size={14} />
+          История
+        </button>
+      )}
       <button
         onClick={onToggleAgent}
         className={cn(

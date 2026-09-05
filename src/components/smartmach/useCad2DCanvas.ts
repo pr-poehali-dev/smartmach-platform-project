@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Canvas, Line, Rect, IText } from "fabric";
 import { type Tool, type Layer, PAPER_SIZES, GRID, GRID_MAJOR } from "@/components/smartmach/cad2d.data";
+import { DEFAULT_OSNAP_STATE, type OsnapState } from "@/components/smartmach/useCad2DOsnap";
+import type { SnapResult } from "@/lib/cad/osnap";
 
 export interface GostFrameOptions {
   paperSize: string;
@@ -325,11 +327,19 @@ export function useCad2DCanvas() {
   // true после применения ГОСТ-рамки — тогда смена формата не перерисовывает простую рамку
   const gostFrameActiveRef = useRef(false);
 
+  /* ── Объектные привязки, орто и полярное отслеживание ──
+     Состояние держится и в ref, и в state: обработчики мыши читают
+     актуальное значение без переподписки, интерфейс — перерисовывается. */
+  const osnapRef = useRef<OsnapState>({ ...DEFAULT_OSNAP_STATE });
+  const snapFromRef = useRef<{ x: number; y: number } | null>(null);
+
   const [tool,      setTool]      = useState<Tool>("select");
   const [strokeW,   setStrokeW]   = useState(1);
   const [lineType,  setLineType]  = useState("Сплошная");
   const [showGrid,  setShowGrid]  = useState(true);
   const [snapGrid,  setSnapGrid]  = useState(true);
+  const [osnap,     setOsnapState] = useState<OsnapState>({ ...DEFAULT_OSNAP_STATE });
+  const [activeSnap, setActiveSnap] = useState<SnapResult | null>(null);
   const [zoom,      setZoom]      = useState(1);
   const [coords,    setCoords]    = useState({ x: 0, y: 0 });
   const [histIdx,   setHistIdx]   = useState(0);
@@ -504,6 +514,25 @@ export function useCad2DCanvas() {
   /* ── снапинг ── */
   useEffect(() => { snapRef.current = snapGrid; }, [snapGrid]);
 
+  // Привязка к сетке остаётся частью общего набора привязок,
+  // чтобы старый переключатель и новая панель не противоречили друг другу
+  useEffect(() => {
+    osnapRef.current = { ...osnap, modes: { ...osnap.modes, grid: snapGrid } };
+  }, [osnap, snapGrid]);
+
+  /** Меняет часть состояния привязок, не затирая остальное. */
+  const setOsnap = useCallback((patch: Partial<OsnapState>) => {
+    setOsnapState((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  /** Включает или выключает одну объектную привязку. */
+  const toggleSnapMode = useCallback((kind: keyof OsnapState["modes"]) => {
+    setOsnapState((prev) => ({
+      ...prev,
+      modes: { ...prev.modes, [kind]: !prev.modes[kind] },
+    }));
+  }, []);
+
   return {
     canvasRef, fabricRef, containerRef,
     drawingRef, startRef, activeShapeRef, polyPointsRef,
@@ -513,6 +542,8 @@ export function useCad2DCanvas() {
     lineType, setLineType,
     showGrid, setShowGrid,
     snapGrid, setSnapGrid,
+    osnap, setOsnap, toggleSnapMode, osnapRef, snapFromRef,
+    activeSnap, setActiveSnap,
     zoom, setZoom,
     coords, setCoords,
     histIdx, setHistIdx,

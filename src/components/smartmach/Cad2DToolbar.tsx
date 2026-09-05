@@ -42,6 +42,7 @@ interface Props {
   onTrim: () => void;
   onExtend: () => void;
   onFillet: () => void;
+  onChamfer?: () => void;
   onArray: () => void;
   onGroupSelected: () => void;
   onUngroupSelected: () => void;
@@ -65,7 +66,7 @@ export default function Cad2DToolbar({
   onZoom, onFitView,
   onUndo, onRedo, onCopy, onPaste, onDeleteSelected, onClearCanvas,
   onImportSVG, onExportDXF, onExportPNG,
-  onMirror, onRotate, onScale, onOffset, onTrim, onExtend, onFillet, onArray,
+  onMirror, onRotate, onScale, onOffset, onTrim, onExtend, onFillet, onChamfer, onArray,
   onGroupSelected, onUngroupSelected, onBringForward, onSendBackward,
   onAlignLeft, onAlignCenter, onAlignRight, onOpenGost, onSaveDrawing,
   theme, onToggleTheme,
@@ -108,16 +109,18 @@ export default function Cad2DToolbar({
         <ToolMenuItem id="erase"   tool={tool} onTool={onTool} />
         <ToolMenuItem id="move"    tool={tool} onTool={onTool} />
         <MenuDivider />
-        <ToolMenuItem id="rotate"  tool={tool} onTool={onTool} />
-        <ToolMenuItem id="mirror"  tool={tool} onTool={onTool} />
-        <ToolMenuItem id="scale"   tool={tool} onTool={onTool} />
-        <ToolMenuItem id="offset"  tool={tool} onTool={onTool} />
+        <ToolMenuItem id="rotate"  tool={tool} onTool={(t) => { onTool(t); onRotate(); }} />
+        <ToolMenuItem id="mirror"  tool={tool} onTool={(t) => { onTool(t); onMirror(); }} />
+        <ToolMenuItem id="scale"   tool={tool} onTool={(t) => { onTool(t); onScale(); }} />
+        <ToolMenuItem id="offset"  tool={tool} onTool={(t) => { onTool(t); onOffset(); }} />
         <MenuDivider />
-        <ToolMenuItem id="trim"    tool={tool} onTool={onTool} />
-        <ToolMenuItem id="extend"  tool={tool} onTool={onTool} />
-        <ToolMenuItem id="fillet"  tool={tool} onTool={onTool} />
-        <ToolMenuItem id="chamfer" tool={tool} onTool={onTool} />
-        <ToolMenuItem id="array"   tool={tool} onTool={onTool} />
+        {/* Команды применяются к выделению сразу при выборе: пункт меню
+            только переключал режим, а сами действия были недостижимы. */}
+        <ToolMenuItem id="trim"    tool={tool} onTool={(t) => { onTool(t); onTrim(); }} />
+        <ToolMenuItem id="extend"  tool={tool} onTool={(t) => { onTool(t); onExtend(); }} />
+        <ToolMenuItem id="fillet"  tool={tool} onTool={(t) => { onTool(t); onFillet(); }} />
+        <ToolMenuItem id="chamfer" tool={tool} onTool={(t) => { onTool(t); onChamfer?.(); }} />
+        <ToolMenuItem id="array"   tool={tool} onTool={(t) => { onTool(t); onArray(); }} />
         <ToolMenuItem id="stretch" tool={tool} onTool={onTool} />
         <ToolMenuItem id="break"   tool={tool} onTool={onTool} />
       </Dropdown>

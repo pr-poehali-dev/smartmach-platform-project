@@ -8,6 +8,8 @@ import Cad2DBlockLibrary from "@/components/smartmach/Cad2DBlockLibrary";
 import { Cad2DPartPanel } from "@/components/smartmach/Cad2DPanels";
 import { useCad2DCanvas, drawGostFrame } from "@/components/smartmach/useCad2DCanvas";
 import { useCad2DDrawing } from "@/components/smartmach/useCad2DDrawing";
+import { useCad2DOsnap } from "@/components/smartmach/useCad2DOsnap";
+import Cad2DOsnapBar from "@/components/smartmach/Cad2DOsnapBar";
 import { useCad2DActions } from "@/components/smartmach/useCad2DActions";
 import { useCad2DBlocks } from "@/components/smartmach/useCad2DBlocks";
 import Cad2DEditorToolbar from "@/components/smartmach/Cad2DEditorToolbar";
@@ -29,6 +31,28 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
     saveHistory:    canvas.saveHistory,
   });
 
+  /* Горячие клавиши режимов черчения — раскладка как в промышленных САПР.
+     Обрабатываются на этапе всплытия, но не мешают вводу текста в поля. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+
+      if (e.key === 'F3') {
+        e.preventDefault();
+        canvas.setOsnap({ enabled: !canvas.osnap.enabled });
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        canvas.setOsnap({ ortho: !canvas.osnap.ortho, polar: false });
+      } else if (e.key === 'F10') {
+        e.preventDefault();
+        canvas.setOsnap({ polar: !canvas.osnap.polar, ortho: false });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [canvas]);
+
   // Синхронизируем scroll контейнера канваса с линейкой
   useEffect(() => {
     const el = canvas.containerRef.current;
@@ -37,6 +61,15 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
   }, [canvas.containerRef]);
+
+  // Объектные привязки: превращают координату курсора в точную точку
+  // геометрии и подсвечивают найденную привязку маркером
+  const osnap = useCad2DOsnap({
+    fabricRef:   canvas.fabricRef,
+    stateRef:    canvas.osnapRef,
+    fromRef:     canvas.snapFromRef,
+    onSnapChange: canvas.setActiveSnap,
+  });
 
   const { insertPartDrawing } = useCad2DDrawing({
     fabricRef:      canvas.fabricRef,
@@ -50,6 +83,8 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
     setTool:        canvas.setTool,
     saveHistory:    canvas.saveHistory,
     part,
+    resolvePoint:   osnap.resolve,
+    snapFromRef:    canvas.snapFromRef,
   });
 
   const actions = useCad2DActions({
@@ -151,6 +186,14 @@ export default function CadEditor2D({ part }: { part?: PartInfo | null }) {
         actions={actions}
         scrollX={scrollX}
         scrollY={scrollY}
+      />
+
+      <Cad2DOsnapBar
+        osnap={canvas.osnap}
+        setOsnap={canvas.setOsnap}
+        toggleSnapMode={canvas.toggleSnapMode}
+        activeSnap={canvas.activeSnap}
+        coords={canvas.coords}
       />
 
       {/* Кнопка открытия библиотеки блоков */}

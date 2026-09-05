@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useCallback, type MutableRefObject, type Dispatch, type SetStateAction } from "react";
-import { Canvas, Line, Circle, Rect, IText, Group, ActiveSelection } from "fabric";
+import { Canvas, Line, Circle, Rect, IText, Group, ActiveSelection, Path } from "fabric";
 import { type Tool, type Layer } from "@/components/smartmach/cad2d.data";
+import { entitiesFromObject } from "@/components/smartmach/useCad2DOsnap";
+import type { Entity, SegEntity } from "@/lib/cad/osnap";
+import {
+  chamferSegments, extendSegment, filletSegments, trimSegment,
+} from "@/lib/cad/edit";
 
 interface ActionsDeps {
   fabricRef:       MutableRefObject<Canvas | null>;
@@ -153,27 +158,161 @@ export function useCad2DActions({
     saveHistory(fc);
   }, [fabricRef, saveHistory]);
 
-  // ── Обрезать (удалить выбранные объекты) ─────────────────────────
+  /* ── Обрезка по режущим кромкам (ГОСТ-корректная геометрия) ───────
+     Выбранный отрезок делится пересечениями с остальной геометрией;
+     удаляется участок, ближайший к центру выделения. Раньше команда
+     просто стирала объект целиком, что обрезкой не является. */
   const trimSelected = useCallback(() => {
-    deleteSelected();
-  }, [deleteSelected]);
+    const fc = fabricRef.current; if (!fc) return;
+    const targets = fc.getActiveObjects().filter((o) => o.type === "line");
+    if (!targets.length) { deleteSelected(); return; }
 
-  // ── Удлинить (stretch +10% по X) ──────────────────────────────────
+    // Режущие кромки — вся остальная геометрия чертежа
+    const cutters: Entity[] = [];
+    fc.getObjects().forEach((o) => {
+      if (!targets.includes(o as any)) cutters.push(...entitiesFromObject(o));
+    });
+
+    let touched = false;
+    targets.forEach((o: any) => {
+      const seg: SegEntity = {
+        kind: "segment",
+        a: { x: o.x1, y: o.y1 },
+        b: { x: o.x2, y: o.y2 },
+      };
+      const click = { x: (o.x1 + o.x2) / 2, y: (o.y1 + o.y2) / 2 };
+      const res = trimSegment(seg, cutters, click);
+      if (!res.changed) return;
+
+      touched = true;
+      const style = {
+        stroke: o.stroke, strokeWidth: o.strokeWidth,
+        strokeDashArray: o.strokeDashArray, selectable: true,
+      };
+      fc.remove(o);
+      res.segments.forEach((s) => {
+        const l = new Line([s.a.x, s.a.y, s.b.x, s.b.y], style);
+        (l as any).__layer = o.__layer;
+        fc.add(l);
+      });
+    });
+
+    if (touched) { fc.discardActiveObject(); fc.renderAll(); saveHistory(fc); }
+  }, [fabricRef, saveHistory, deleteSelected]);
+
+  /* ── Удлинение до ближайшей границы ───────────────────────────────
+     Продлевается конец, ближний к центру соседней геометрии.
+     Прежняя реализация умножала масштаб на 1.1, растягивая отрезок
+     в обе стороны и смещая его относительно чертежа. */
   const extendSelected = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return;
-    fc.getActiveObjects().forEach((o) => {
-      o.set("scaleX", (o.scaleX ?? 1) * 1.1);
+    const targets = fc.getActiveObjects().filter((o) => o.type === "line");
+    if (!targets.length) return;
+
+    const bounds: Entity[] = [];
+    fc.getObjects().forEach((o) => {
+      if (!targets.includes(o as any)) bounds.push(...entitiesFromObject(o));
     });
-    fc.renderAll(); saveHistory(fc);
+
+    let touched = false;
+    targets.forEach((o: any) => {
+      const seg: SegEntity = {
+        kind: "segment",
+        a: { x: o.x1, y: o.y1 },
+        b: { x: o.x2, y: o.y2 },
+      };
+      // Пробуем оба конца — удлиняем тот, для которого нашлась граница
+      for (const click of [seg.b, seg.a]) {
+        const res = extendSegment(seg, bounds, click);
+        if (res.changed) {
+          o.set({
+            x1: res.segment.a.x, y1: res.segment.a.y,
+            x2: res.segment.b.x, y2: res.segment.b.y,
+          });
+          o.setCoords();
+          touched = true;
+          break;
+        }
+      }
+    });
+
+    if (touched) { fc.renderAll(); saveHistory(fc); }
   }, [fabricRef, saveHistory]);
 
-  // ── Сопряжение (скруглить углы — визуальный эффект) ───────────────
-  const filletSelected = useCallback(() => {
+  /* ── Сопряжение двух отрезков дугой ───────────────────────────────
+     Строится настоящая дуга радиуса R с подрезкой сторон до точек
+     касания. Прежняя версия ставила rx=8 у прямоугольника — это
+     свойство отрисовки, геометрия при этом не менялась. */
+  const filletSelected = useCallback((radius = 20) => {
     const fc = fabricRef.current; if (!fc) return;
-    fc.getActiveObjects().forEach((o) => {
-      if (o instanceof Rect) o.set("rx", 8);
-    });
-    fc.renderAll(); saveHistory(fc);
+    const lines = fc.getActiveObjects().filter((o) => o.type === "line");
+
+    if (lines.length !== 2) {
+      // Для прямоугольника оставляем прежнее поведение как визуальное
+      fc.getActiveObjects().forEach((o) => { if (o instanceof Rect) o.set("rx", 8); });
+      fc.renderAll(); saveHistory(fc);
+      return;
+    }
+
+    const [o1, o2] = lines as any[];
+    const s1: SegEntity = { kind: "segment", a: { x: o1.x1, y: o1.y1 }, b: { x: o1.x2, y: o1.y2 } };
+    const s2: SegEntity = { kind: "segment", a: { x: o2.x1, y: o2.y1 }, b: { x: o2.x2, y: o2.y2 } };
+
+    const res = filletSegments(s1, s2, radius);
+    if (!res) return;
+
+    o1.set({ x1: res.seg1.a.x, y1: res.seg1.a.y, x2: res.seg1.b.x, y2: res.seg1.b.y });
+    o2.set({ x1: res.seg2.a.x, y1: res.seg2.a.y, x2: res.seg2.b.x, y2: res.seg2.b.y });
+    o1.setCoords(); o2.setCoords();
+
+    // Дуга сопряжения строится как SVG-путь по точкам касания
+    const { c, r, a0, a1 } = res.arc;
+    const p0 = { x: c.x + r * Math.cos(a0!), y: c.y + r * Math.sin(a0!) };
+    const p1 = { x: c.x + r * Math.cos(a1!), y: c.y + r * Math.sin(a1!) };
+    let sweep = (a1! - a0!) % (Math.PI * 2);
+    if (sweep < 0) sweep += Math.PI * 2;
+    const largeArc = sweep > Math.PI ? 1 : 0;
+
+    const arc = new Path(
+      `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${largeArc} 1 ${p1.x} ${p1.y}`,
+      {
+        stroke: o1.stroke, strokeWidth: o1.strokeWidth,
+        fill: "transparent", selectable: true,
+      },
+    );
+    (arc as any).__layer = o1.__layer;
+    fc.add(arc);
+
+    fc.discardActiveObject(); fc.renderAll(); saveHistory(fc);
+  }, [fabricRef, saveHistory]);
+
+  /* ── Фаска между двумя отрезками ──────────────────────────────────
+     Команда была объявлена в панели инструментов, но не имела
+     реализации вовсе. */
+  const chamferSelected = useCallback((offset = 15) => {
+    const fc = fabricRef.current; if (!fc) return;
+    const lines = fc.getActiveObjects().filter((o) => o.type === "line");
+    if (lines.length !== 2) return;
+
+    const [o1, o2] = lines as any[];
+    const s1: SegEntity = { kind: "segment", a: { x: o1.x1, y: o1.y1 }, b: { x: o1.x2, y: o1.y2 } };
+    const s2: SegEntity = { kind: "segment", a: { x: o2.x1, y: o2.y1 }, b: { x: o2.x2, y: o2.y2 } };
+
+    const res = chamferSegments(s1, s2, offset);
+    if (!res) return;
+
+    o1.set({ x1: res.seg1.a.x, y1: res.seg1.a.y, x2: res.seg1.b.x, y2: res.seg1.b.y });
+    o2.set({ x1: res.seg2.a.x, y1: res.seg2.a.y, x2: res.seg2.b.x, y2: res.seg2.b.y });
+    o1.setCoords(); o2.setCoords();
+
+    const ch = new Line(
+      [res.chamfer.a.x, res.chamfer.a.y, res.chamfer.b.x, res.chamfer.b.y],
+      { stroke: o1.stroke, strokeWidth: o1.strokeWidth, selectable: true },
+    );
+    (ch as any).__layer = o1.__layer;
+    fc.add(ch);
+
+    fc.discardActiveObject(); fc.renderAll(); saveHistory(fc);
   }, [fabricRef, saveHistory]);
 
   // ── Массив (3×3 сетка копий) ──────────────────────────────────────
@@ -340,7 +479,7 @@ export function useCad2DActions({
     exportDXF, exportPNG, importSVG,
     mirrorSelected, rotateSelected, scaleSelected,
     offsetSelected, trimSelected, extendSelected,
-    filletSelected, arraySelected,
+    filletSelected, chamferSelected, arraySelected,
     groupSelected, ungroupSelected,
     bringForward, sendBackward,
     alignLeft:   () => alignObjects("left"),

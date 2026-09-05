@@ -54,6 +54,7 @@ export default function Cad2DEditorToolbar({ canvas, actions, onOpenGost, onSave
       onTrim={actions.trimSelected}
       onExtend={actions.extendSelected}
       onFillet={actions.filletSelected}
+      onChamfer={actions.chamferSelected}
       onArray={actions.arraySelected}
       onGroupSelected={actions.groupSelected}
       onUngroupSelected={actions.ungroupSelected}

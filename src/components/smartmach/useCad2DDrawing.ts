@@ -237,11 +237,19 @@ interface DrawingDeps {
   setTool:         (t: Tool) => void;
   saveHistory:     (fc: Canvas) => void;
   part?:           PartInfo | null;
+  /**
+   * Приводит координату курсора к точке построения: объектные привязки,
+   * орто и полярное отслеживание. Без неё черчение идёт «на глаз».
+   */
+  resolvePoint?:   (p: { x: number; y: number }) => { x: number; y: number };
+  /** Опорная точка построения — от неё считаются орто и перпендикуляр */
+  snapFromRef?:    MutableRefObject<{ x: number; y: number } | null>;
 }
 
 export function useCad2DDrawing({
   fabricRef, drawingRef, startRef, activeShapeRef, polyPointsRef,
   snapRef, activeLayerRef, setCoords, setTool, saveHistory, part,
+  resolvePoint, snapFromRef,
 }: DrawingDeps) {
 
   /* ── вставка детали из библиотеки с проекциями и ГОСТ-размерами ── */
@@ -294,10 +302,22 @@ export function useCad2DDrawing({
   useEffect(() => {
     const fc = fabricRef.current; if (!fc) return;
 
+    /**
+     * Точка построения из позиции курсора.
+     * Приоритет у объектных привязок; если их нет — работает старое
+     * поведение с сеткой, чтобы редактор не зависел от нового модуля.
+     */
+    const toPoint = (e: MouseEvent) => {
+      const p = fc.getViewportPoint(e);
+      if (resolvePoint) return resolvePoint(p);
+      return {
+        x: snapRef.current ? snapToGrid(p.x) : Math.round(p.x),
+        y: snapRef.current ? snapToGrid(p.y) : Math.round(p.y),
+      };
+    };
+
     const onMove = (opt: TPointerEventInfo) => {
-      const p = fc.getViewportPoint(opt.e as MouseEvent);
-      const x = snapRef.current ? snapToGrid(p.x) : Math.round(p.x);
-      const y = snapRef.current ? snapToGrid(p.y) : Math.round(p.y);
+      const { x, y } = toPoint(opt.e as MouseEvent);
       setCoords({ x, y });
       if (!drawingRef.current || !activeShapeRef.current) return;
       const { x: sx, y: sy } = startRef.current;
@@ -311,9 +331,7 @@ export function useCad2DDrawing({
 
     const onDown = (opt: TPointerEventInfo) => {
       const t = (fc as any).__tool as Tool;
-      const p = fc.getViewportPoint(opt.e as MouseEvent);
-      const x = snapRef.current ? snapToGrid(p.x) : Math.round(p.x);
-      const y = snapRef.current ? snapToGrid(p.y) : Math.round(p.y);
+      const { x, y } = toPoint(opt.e as MouseEvent);
 
       if (t === "select" || t === "move") return;
 
@@ -328,6 +346,8 @@ export function useCad2DDrawing({
       if (t === "polyline") {
         if (polyPointsRef.current.length === 0) drawingRef.current = true;
         polyPointsRef.current.push({ x, y });
+        // Опора для орто и перпендикуляра — последняя поставленная вершина
+        if (snapFromRef) snapFromRef.current = { x, y };
         if (polyPointsRef.current.length >= 2) {
           const pts = polyPointsRef.current;
           const last = pts[pts.length - 2];
@@ -368,6 +388,8 @@ export function useCad2DDrawing({
 
       startRef.current = { x, y };
       drawingRef.current = true;
+      // С этой точки считаются орто, полярный угол и перпендикуляр
+      if (snapFromRef) snapFromRef.current = { x, y };
       fc.selection = false;
 
       const color = (fc as any).__color ?? "#000";
@@ -395,9 +417,7 @@ export function useCad2DDrawing({
       if (t === "polyline") return;
       if (!drawingRef.current) return;
       drawingRef.current = false; fc.selection = true;
-      const p = fc.getViewportPoint(opt.e as MouseEvent);
-      const ex = snapRef.current ? snapToGrid(p.x) : Math.round(p.x);
-      const ey = snapRef.current ? snapToGrid(p.y) : Math.round(p.y);
+      const { x: ex, y: ey } = toPoint(opt.e as MouseEvent);
       const sh = activeShapeRef.current;
       const { x: sx, y: sy } = startRef.current;
       const DIM_LAYER = "layer-1";
@@ -554,6 +574,8 @@ export function useCad2DDrawing({
       }
 
       activeShapeRef.current = null;
+      // Построение завершено — опора для орто больше не действует
+      if (snapFromRef) snapFromRef.current = null;
       fc.renderAll();
       saveHistory(fc);
     };
@@ -563,6 +585,7 @@ export function useCad2DDrawing({
       if (t === "polyline") {
         polyPointsRef.current = [];
         drawingRef.current = false;
+        if (snapFromRef) snapFromRef.current = null;
         saveHistory(fc);
       }
     };
@@ -577,7 +600,7 @@ export function useCad2DDrawing({
       fc.off("mouse:up",       onUp       as any);
       fc.off("mouse:dblclick", onDblClick as any);
     };
-  }, [saveHistory, fabricRef, drawingRef, startRef, activeShapeRef, polyPointsRef, snapRef, activeLayerRef, setCoords]);
+  }, [saveHistory, fabricRef, drawingRef, startRef, activeShapeRef, polyPointsRef, snapRef, activeLayerRef, setCoords, resolvePoint, snapFromRef]);
 
   return { insertPartDrawing };
 }

@@ -97,6 +97,11 @@ export const MODULE_SEO: Record<ModuleId, SeoMeta> = {
     description: "Реестр проектов, декомпозиция задач, бюджет план/факт и аналитика по всем проектам предприятия.",
     noIndex: true,
   },
+  aidesign: {
+    title: `ИИ-конструктор — ${BASE_TITLE}`,
+    description: "Чертёж детали по текстовому описанию и техкарта для производства — два ИИ-агента работают параллельно.",
+    noIndex: true,
+  },
   techcards: {
     title: `Техкарты — ${BASE_TITLE}`,
     description: "Технологические процессы: маршрут операций, переходы, режимы резания, нормы времени и маршрутные карты по ГОСТ 3.1118.",
@@ -124,6 +129,7 @@ export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
   projects:  ["Управление проектами"],
   machine:   ["Разработка станка МАТ-1"],
   techcards: ["Техкарты"],
+  aidesign:  ["ИИ-конструктор"],
 };
 
 export { OG_IMAGE, BASE_TITLE, BASE_URL };

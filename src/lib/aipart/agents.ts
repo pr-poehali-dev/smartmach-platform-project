@@ -1,0 +1,271 @@
+/**
+ * ИИ-конструктор и ИИ-технолог.
+ * Конструктор: описание → параметрическая модель детали (чертёж строит программа).
+ * Технолог: модель + оборудование цеха + партия → маршрутно-операционный техпроцесс.
+ * Ответы моделей всегда проходят проверку и нормализацию — в систему не попадает «сырой» ответ.
+ */
+import { URLS } from "@/lib/api";
+import { normalizeModel, type PartModel, type Normalized, totalLength, fmt, num } from "@/lib/aipart/model";
+
+export const CONSTRUCTOR_MODEL = "openai/gpt-4o";
+export const TECHNOLOGIST_MODEL = "openai/gpt-4o";
+
+export const CONSTRUCTOR_PROMPT = `Ты — ведущий инженер-конструктор машиностроительного КБ (ЕСКД; ГОСТ 2.307, 2.308, 2.309; допуски ГОСТ 25347; шпонки ГОСТ 23360).
+По описанию детали определи её ПАРАМЕТРИЧЕСКУЮ МОДЕЛЬ. Чертёж по модели построит программа — ты отвечаешь за инженерное содержание: размеры, допуски, шероховатость, материал, технические требования.
+
+Выбери один класс:
+- "shaft" — тела вращения, длина больше диаметра: валы, оси, пальцы, штифты, втулки, гильзы (втулка = shaft + bore).
+- "disc" — тела вращения, диаметр больше длины: фланцы, крышки, диски, ступицы, шкивы, заготовки колёс, кольца, шайбы.
+- "plate" — призматические плоские детали: плиты, пластины, планки, прокладки, накладки.
+
+Верни ТОЛЬКО JSON без markdown и комментариев:
+{
+ "kind": "shaft|disc|plate",
+ "name": "Вал тихоходный",
+ "designation": "СМ.01.001",
+ "material": "Сталь 45 ГОСТ 1050-2013",
+ "hardness": "235...262 HB" | null,
+ "ra_general": 6.3,
+ "requirements": ["Неуказанные предельные отклонения размеров: H14, h14, ±IT14/2.", "..."],
+ "shaft": {
+   "sections": [ {"d": 35, "l": 40, "tol": "k6", "ra": 0.8, "thread": null, "note": "под подшипник"} ],
+   "chamfer": 1.6,
+   "bore": {"d": 20, "tol": "H7", "l": 0} | null,
+   "keyways": [ {"section": 1, "b": 12, "l": 50, "t1": 5, "from": 5} ],
+   "center_holes": true
+ } | null,
+ "disc": {
+   "D": 160, "D_tol": "h9", "H": 30,
+   "hub": {"d": 80, "h": 55} | null,
+   "bore": {"d": 50, "tol": "H7"},  (для глухих крышек и дисков без отверстия — d: 0)
+   "holes": {"n": 6, "d": 13.5, "pcd": 130} | null,
+   "keyway": {"b": 14, "t2": 3.8} | null,
+   "chamfer": 2, "ra_bore": 1.6, "ra_faces": 3.2
+ } | null,
+ "plate": {
+   "L": 200, "W": 120, "H": 20,
+   "holes": [ {"x": 20, "y": 20, "d": 11, "thread": null} ],
+   "chamfer": 1, "ra_faces": 3.2
+ } | null
+}
+Заполняй только объект своего класса, остальные — null.
+
+ПРАВИЛА:
+1. Ступени вала — слева направо. В keyways "section" — индекс ступени с 0, "from" — отступ паза от левого торца ступени; l + 2·from ≤ длины ступени. bore.l = 0 — сквозное отверстие.
+2. Размеры — из нормальных рядов ГОСТ 6636. Под подшипники качения — k6 (или js6), Ra 0,8; под зубчатые колёса, шкивы, муфты — k6/m6/n6, Ra 1,6; свободные ступени — tol null, ra null. Отверстия под валы — H7, Ra 1,6.
+3. Шпоночные пазы — по ГОСТ 23360 для данного диаметра: b, t1 (вал), t2 (ступица); длина из ряда 14…200 и меньше длины ступени.
+4. Резьба на ступени: "thread": "М30×1,5-6g" — тогда d = наружный диаметр резьбы.
+5. Отверстия плиты: координаты x (вдоль L) и y (вдоль W) от левого верхнего угла; резьбовые — d = диаметр под резьбу, "thread": "М12-7H".
+6. Если в описании чего-то нет — прими типовое инженерное решение и отрази его в requirements.
+7. requirements — 3–6 пунктов по ГОСТ 2.316: неуказанные предельные отклонения, неуказанные радиусы/фаски, допуски формы и расположения посадочных мест (радиальное биение), покрытие. Твёрдость — только в поле hardness, не дублируй её в requirements.
+8. Обозначение — если не задано, придумай в формате "СМ.XX.XXX".`;
+
+export const TECHNOLOGIST_PROMPT = `Ты — главный технолог машиностроительного завода (ЕСТД, ГОСТ 3.1118, 3.1702; общемашиностроительные нормативы режимов резания и времени).
+По параметрической модели детали, программе выпуска и оборудованию цеха разработай маршрутно-операционный техпроцесс механической обработки.
+
+Верни ТОЛЬКО JSON без markdown:
+{
+ "blank_type": "Прокат круглый ГОСТ 2590-2006",
+ "blank_size": "∅55×305",
+ "blank_mass": 5.6,
+ "ops": [
+  {"op_no": "005", "name": "Отрезная", "equipment_id": 3, "equipment_name": "Ленточнопильный станок",
+   "fixture": "Тиски станочные", "profession": "Резчик на пилах", "worker_rank": 2,
+   "t_aux": 1.2, "t_pz": 6, "k_service_pct": 6,
+   "steps": [
+     {"description": "Точить поверхность ∅45,6 на L=60 предварительно", "tool": "Резец проходной PCLNR 2525M12 T15K6",
+      "measuring_tool": "Штангенциркуль ШЦ-I-250-0,05", "diameter": 50, "length": 60, "overrun": 3,
+      "depth": 2.2, "passes": 1, "feed": 0.35, "speed": 160, "t_main": null}
+   ]}
+ ]
+}
+
+ПРАВИЛА:
+1. Номера операций 005, 010, 015… Порядок: заготовительная → базирование (торцы, центровые) → черновая → (термообработка «улучшение», если задана твёрдость) → чистовая → фрезерные/сверлильные (пазы, отверстия, резьбы) → шлифование поверхностей Ra ≤ 0,8 → слесарная (притупить кромки) → моечная → контрольная.
+2. equipment_id — СТРОГО id из списка оборудования, подходящий по типу. Если подходящего нет — null и типовая модель станка в equipment_name (например «16К20Ф3 Токарный с ЧПУ»).
+3. Каждый переход резания — с режимами: diameter (мм: обрабатываемый диаметр; для фрезерования и сверления — диаметр инструмента), length (длина рабочего хода, мм), overrun (врезание + перебег 2–5 мм), depth, passes, feed (мм/об), speed (м/мин), t_main = null — его рассчитает система.
+4. Переходы без резания (термообработка, мойка, контроль, слесарная) — diameter/length/feed/speed = null, t_main — норма времени в минутах.
+5. Ориентиры режимов (твёрдый сплав, сталь 45/40Х): черновое точение t=2–3, S=0,3–0,5, V=140–180; чистовое t=0,3–1, S=0,1–0,2, V=180–250. Шпоночный паз концевой фрезой HSS: S=0,05–0,12 мм/об, V=20–30, проходы по глубине. Сверление HSS: S=0,15–0,3, V=18–25. Круглое шлифование: V детали 25–40 м/мин, S 0,3–0,6 ширины круга (мм/об), припуск 0,15–0,3, 5–10 проходов. Чугун — V на 30% ниже; алюминий — в 2–3 раза выше; нержавеющая сталь — на 40% ниже.
+6. Припуски: под чистовое точение 1–1,5 мм на сторону, под шлифование 0,2–0,3 мм на диаметр. Заготовка — ближайший больший размер сортамента + 2–3 мм на торец.
+7. t_aux — вспомогательное время на операцию 0,5–4 мин; t_pz — подготовительно-заключительное 5–30 мин; k_service_pct 6–9.
+8. Профессия и разряд — по ЕТКС.
+9. Обработай ВСЕ поверхности модели: каждую ступень с допуском и Ra, каждый паз, каждое отверстие и резьбу.`;
+
+/* ── вызов ИИ ────────────────────────────────────────────────────── */
+
+export class AiError extends Error {}
+
+type Fetcher = typeof fetch;
+
+export async function callAi(system: string, user: string, opts: { model: string; maxTokens: number; fetcher?: Fetcher; signal?: AbortSignal }): Promise<string> {
+  const f = opts.fetcher ?? fetch;
+  const url = URLS["chatgpt-polza-chatgpt"];
+  if (!url) throw new AiError("ИИ не подключён к проекту");
+  let lastErr = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await f(`${url}?action=generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: opts.signal,
+        body: JSON.stringify({
+          model: opts.model, temperature: 0.2, max_tokens: opts.maxTokens,
+          messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.content) return data.content as string;
+      lastErr = data.error || `ИИ вернул ошибку ${res.status}`;
+      if (res.status === 400 || res.status === 401) break;
+    } catch (e) {
+      if (opts.signal?.aborted) throw new AiError("Отменено");
+      lastErr = e instanceof Error ? e.message : "Сеть недоступна";
+    }
+  }
+  throw new AiError(humanize(lastErr));
+}
+
+function humanize(e: string): string {
+  if (/timeout|504/i.test(e)) return "ИИ не успел ответить. Попробуйте ещё раз или упростите описание.";
+  if (/api key|401|unauthor/i.test(e)) return "Ключ доступа к ИИ не настроен или недействителен.";
+  if (/balance|insufficient|402|quota/i.test(e)) return "На счёте ИИ-сервиса закончились средства.";
+  return e || "ИИ не ответил";
+}
+
+/** Достаёт JSON-объект из ответа (markdown-обёртки, текст до/после) */
+export function extractJson(text: string): unknown {
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const body = fence ? fence[1] : text;
+  const a = body.indexOf("{"), b = body.lastIndexOf("}");
+  if (a < 0 || b <= a) throw new AiError("ИИ вернул ответ не в том формате");
+  const raw = body.slice(a, b + 1);
+  try { return JSON.parse(raw); }
+  catch {
+    try { return JSON.parse(raw.replace(/,\s*([}\]])/g, "$1").replace(/\/\/[^\n]*/g, "")); }
+    catch { throw new AiError("ИИ вернул повреждённые данные. Попробуйте ещё раз."); }
+  }
+}
+
+/* ── ИИ-конструктор ──────────────────────────────────────────────── */
+
+export async function runConstructor(description: string, opts: { fetcher?: Fetcher; signal?: AbortSignal } = {}): Promise<Normalized> {
+  const text = await callAi(CONSTRUCTOR_PROMPT, `Описание детали: ${description}`, { model: CONSTRUCTOR_MODEL, maxTokens: 2500, ...opts });
+  return normalizeModel(extractJson(text));
+}
+
+/* ── ИИ-технолог ─────────────────────────────────────────────────── */
+
+export interface EquipmentRef { id: number; name: string; model: string; type: string }
+
+export interface PlanStep {
+  description: string; tool: string | null; measuring_tool: string | null;
+  diameter: number | null; length: number | null; overrun: number; depth: number | null;
+  passes: number; feed: number | null; speed: number | null; t_main: number | null;
+}
+export interface PlanOp {
+  op_no: string; name: string; equipment_id: number | null; equipment_name: string | null;
+  fixture: string | null; profession: string | null; worker_rank: number | null;
+  t_aux: number; t_pz: number; k_service_pct: number; steps: PlanStep[];
+}
+export interface TechPlan { blank_type: string | null; blank_size: string | null; blank_mass: number | null; ops: PlanOp[] }
+
+/** Краткая сводка модели для технолога — меньше токенов, меньше путаницы */
+export function modelBrief(m: PartModel): string {
+  const lines = [`${m.name} (${m.designation}), материал: ${m.material}${m.hardness ? `, твёрдость ${m.hardness}` : ""}, общая шероховатость Ra ${fmt(m.ra_general)}.`];
+  if (m.shaft) {
+    const s = m.shaft;
+    lines.push(`Вал, общая длина ${fmt(totalLength(s))} мм. Ступени слева направо:`);
+    s.sections.forEach((x, i) => lines.push(`  ${i}: ∅${fmt(x.d)}${x.tol ?? ""} L=${fmt(x.l)}${x.ra ? ` Ra ${fmt(x.ra)}` : ""}${x.thread ? ` резьба ${x.thread}` : ""}`));
+    s.keyways.forEach((k) => lines.push(`  Шпоночный паз ${fmt(k.b)}P9 на ступени ${k.section}: длина ${fmt(k.l)}, глубина t1=${fmt(k.t1)}`));
+    if (s.bore) lines.push(`  Осевое отверстие ∅${fmt(s.bore.d)}${s.bore.tol ?? ""} ${s.bore.l ? `глубиной ${fmt(s.bore.l)}` : "сквозное"}`);
+    lines.push(`  Фаски ${fmt(s.chamfer)}×45°${s.center_holes ? ", центровые отверстия" : ""}`);
+  }
+  if (m.disc) {
+    const d = m.disc;
+    lines.push(`Диск/фланец ∅${fmt(d.D)}${d.D_tol ?? ""}, толщина ${fmt(d.H)}, отверстие ∅${fmt(d.bore.d)}${d.bore.tol ?? ""} Ra ${fmt(d.ra_bore)}, торцы Ra ${fmt(d.ra_faces)}.`);
+    if (d.hub) lines.push(`  Ступица ∅${fmt(d.hub.d)}, общая высота ${fmt(d.hub.h)}`);
+    if (d.holes) lines.push(`  ${d.holes.n} отв. ∅${fmt(d.holes.d)} на ∅${fmt(d.holes.pcd)}`);
+    if (d.keyway) lines.push(`  Шпоночный паз в отверстии ${fmt(d.keyway.b)}Js9, t2=${fmt(d.keyway.t2)}`);
+  }
+  if (m.plate) {
+    const p = m.plate;
+    lines.push(`Плита ${fmt(p.L)}×${fmt(p.W)}×${fmt(p.H)}, плоскости Ra ${fmt(p.ra_faces)}.`);
+    p.holes.forEach((h) => lines.push(`  Отверстие ${h.thread ?? `∅${fmt(h.d)}`} в точке X=${fmt(h.x)}, Y=${fmt(h.y)}`));
+  }
+  return lines.join("\n");
+}
+
+const n = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const x = num(v, NaN);
+  return Number.isFinite(x) ? x : null;
+};
+const s = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+export function normalizePlan(raw: unknown, equipment: EquipmentRef[]): { plan: TechPlan; warnings: string[] } {
+  const w: string[] = [];
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const ids = new Set(equipment.map((e) => e.id));
+  const rawOps = Array.isArray(r.ops) ? r.ops : [];
+  if (!rawOps.length) throw new AiError("ИИ-технолог не предложил ни одной операции");
+
+  const ops: PlanOp[] = rawOps.slice(0, 30).map((x, i) => {
+    const o = (x ?? {}) as Record<string, unknown>;
+    let eqId = n(o.equipment_id);
+    if (eqId !== null && !ids.has(eqId)) {
+      w.push(`Операция «${s(o.name) ?? i + 1}»: станок #${eqId} нет в справочнике — привязка снята`);
+      eqId = null;
+    }
+    const eq = equipment.find((e) => e.id === eqId);
+    const steps: PlanStep[] = (Array.isArray(o.steps) ? o.steps : []).slice(0, 30).map((y) => {
+      const t = (y ?? {}) as Record<string, unknown>;
+      const feed = n(t.feed), speed = n(t.speed);
+      return {
+        description: s(t.description) ?? "Переход",
+        tool: s(t.tool), measuring_tool: s(t.measuring_tool),
+        diameter: n(t.diameter), length: n(t.length), overrun: n(t.overrun) ?? 0, depth: n(t.depth),
+        passes: Math.max(1, Math.round(n(t.passes) ?? 1)),
+        feed: feed !== null && feed > 0 && feed < 20 ? feed : null,
+        speed: speed !== null && speed > 0 && speed < 2000 ? speed : null,
+        t_main: n(t.t_main),
+      };
+    }).map((st) => {
+      // переход без режимов и без нормы — ставим минимальную норму, чтобы он не обнулял время операции
+      const computable = st.feed && st.length && (st.speed || st.diameter);
+      if (!computable && (st.t_main === null || st.t_main <= 0)) {
+        w.push(`«${st.description.slice(0, 40)}»: нет режимов и нормы — принято 1 мин, уточните`);
+        return { ...st, t_main: 1 };
+      }
+      return st;
+    });
+    return {
+      op_no: String(o.op_no ?? (i + 1) * 5).replace(/\D/g, "").padStart(3, "0") || String((i + 1) * 5).padStart(3, "0"),
+      name: s(o.name) ?? `Операция ${i + 1}`,
+      equipment_id: eqId,
+      equipment_name: eq ? `${eq.model} ${eq.name}` : s(o.equipment_name),
+      fixture: s(o.fixture), profession: s(o.profession),
+      worker_rank: n(o.worker_rank) !== null ? Math.min(8, Math.max(1, Math.round(n(o.worker_rank)!))) : null,
+      t_aux: Math.max(0, n(o.t_aux) ?? 1), t_pz: Math.max(0, n(o.t_pz) ?? 10),
+      k_service_pct: Math.min(20, Math.max(0, n(o.k_service_pct) ?? 8)),
+      steps,
+    };
+  });
+
+  const seen = new Set<string>();
+  ops.forEach((o, i) => { if (seen.has(o.op_no)) o.op_no = String((i + 1) * 5).padStart(3, "0"); seen.add(o.op_no); });
+  ops.sort((a, b) => Number(a.op_no) - Number(b.op_no));
+
+  return {
+    plan: { blank_type: s(r.blank_type), blank_size: s(r.blank_size), blank_mass: n(r.blank_mass), ops },
+    warnings: w,
+  };
+}
+
+export async function runTechnologist(m: PartModel, equipment: EquipmentRef[], batch: number, opts: { fetcher?: Fetcher; signal?: AbortSignal } = {}) {
+  const eq = equipment.length
+    ? equipment.map((e) => `{"id":${e.id},"model":"${e.model}","name":"${e.name}","type":"${e.type}"}`).join("\n")
+    : "Справочник оборудования пуст — укажи типовые модели станков, equipment_id = null.";
+  const user = `Деталь:\n${modelBrief(m)}\n\nОборудование цеха:\n${eq}\n\nПрограмма выпуска: партия ${batch} шт.`;
+  const text = await callAi(TECHNOLOGIST_PROMPT, user, { model: TECHNOLOGIST_MODEL, maxTokens: 6000, ...opts });
+  return normalizePlan(extractJson(text), equipment);
+}

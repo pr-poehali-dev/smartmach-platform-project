@@ -10,11 +10,11 @@ import DemoDataButton from "@/components/smartmach/DemoDataButton";
 import { mGetPartsList, type Part } from "@/lib/manufacture";
 import { type TechProcessListItem, TP_STATUS, tcList, tcCreate, tcDelete, fmtMin } from "@/lib/techcard";
 
-export default function ModuleTechCards() {
+export default function ModuleTechCards({ initialOpenId }: { initialOpenId?: number } = {}) {
   const [items, setItems] = useState<TechProcessListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(initialOpenId ?? null);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
 

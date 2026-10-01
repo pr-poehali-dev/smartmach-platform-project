@@ -57,6 +57,7 @@ const MODULES: [string, () => Promise<{ default: ComponentType<any> }>][] = [
   ["Проекты", () => import("@/components/smartmach/ModuleProjects")],
   ["Станок МАТ-1", () => import("@/components/smartmach/ModuleMachine")],
   ["Техкарты", () => import("@/components/smartmach/ModuleTechCards")],
+  ["ИИ-конструктор", () => import("@/components/smartmach/ModuleAiDesigner")],
 ];
 
 const noop = () => {};

@@ -188,6 +188,73 @@ def clean(data):
     return {k: (None if v == "" else v) for k, v in data.items()}
 
 
+def import_process(body, cur, conn, company_id, user_id, ok, err):
+    """Создаёт техкарту целиком: шапка + операции + переходы, затем пересчёт норм.
+    Если part_id не задан, а передан part — создаёт деталь."""
+    proc = body.get("process") or {}
+    ops = body.get("operations") or []
+    if not (proc.get("name") or "").strip():
+        return err("Укажите наименование техпроцесса.")
+    if not ops:
+        return err("В техпроцессе нет операций.")
+    if len(ops) > 40:
+        return err("Слишком много операций (максимум 40).")
+
+    part_id = proc.get("part_id")
+    part = body.get("part")
+    if part_id:
+        cur.execute(f"SELECT id FROM {S}.parts WHERE id=%s AND company_id=%s", (part_id, company_id))
+        if not cur.fetchone():
+            return err("Деталь не найдена.", 404)
+    elif part and (part.get("code") or "").strip() and (part.get("name") or "").strip():
+        cur.execute(f"""INSERT INTO {S}.parts (code, name, material, version, status, collisions, author_id,
+            notes, category, is_template, dimensions, weight_kg, company_id)
+            VALUES (%s,%s,%s,'v1.0','ok',0,%s,%s,%s,false,%s,%s,%s) RETURNING id""",
+            (part["code"].strip()[:100], part["name"].strip()[:300], part.get("material"), user_id,
+             part.get("notes"), part.get("category") or "Прочее", part.get("dimensions"),
+             num(part.get("weight_kg")), company_id))
+        part_id = cur.fetchone()["id"]
+
+    data = clean(pick(proc, PROCESS_FIELDS))
+    data.update(company_id=company_id, author_id=user_id, part_id=part_id)
+    pid = insert(cur, "tech_processes", data)
+
+    cur.execute(f"SELECT id FROM {S}.equipment WHERE company_id=%s", (company_id,))
+    own_eq = {r["id"] for r in cur.fetchall()}
+    cur.execute(f"SELECT id FROM {S}.cnc_programs WHERE company_id=%s", (company_id,))
+    own_cam = {r["id"] for r in cur.fetchall()}
+
+    for i, op in enumerate(ops):
+        od = clean(pick(op, OPERATION_FIELDS))
+        if not od.get("name"):
+            od["name"] = f"Операция {i + 1}"
+        if not od.get("op_no"):
+            od["op_no"] = f"{(i + 1) * 5:03d}"
+        if od.get("equipment_id") not in own_eq:
+            od["equipment_id"] = None
+        if od.get("cam_program_id") not in own_cam:
+            od["cam_program_id"] = None
+        od.setdefault("sort", int(od["op_no"]) if str(od["op_no"]).isdigit() else i)
+        od.update(process_id=pid, company_id=company_id)
+        op_id = insert(cur, "tech_operations", od)
+        for j, st in enumerate((op.get("steps") or [])[:40]):
+            sd = clean(pick(st, STEP_FIELDS))
+            if not sd.get("description"):
+                continue
+            sd.setdefault("step_no", j + 1)
+            sd.setdefault("sort", j + 1)
+            if sd.get("t_main") is None:
+                sd.pop("t_main", None)
+            elif not sd.get("feed") or not sd.get("length"):
+                sd["manual_time"] = True
+            sd.update(operation_id=op_id, company_id=company_id)
+            insert(cur, "tech_steps", sd)
+
+    recalc_process(cur, pid)
+    conn.commit()
+    return ok({"id": pid, "part_id": part_id}, 201)
+
+
 def handle(method, qs, body, cur, conn, company_id, user_id, ok, err):
     """resource=techcards | tech_ops | tech_steps"""
     resource = qs.get("resource")
@@ -247,6 +314,10 @@ def handle(method, qs, body, cur, conn, company_id, user_id, ok, err):
             cur.execute(f"DELETE FROM {S}.tech_processes WHERE id=%s", (rid,))
             conn.commit()
             return ok({"ok": True})
+
+    # ─── ИМПОРТ ГОТОВОГО ТЕХПРОЦЕССА (ИИ-технолог) ───────────────
+    if resource == "techcard_import" and method == "POST":
+        return import_process(body, cur, conn, company_id, user_id, ok, err)
 
     # ─── ОПЕРАЦИИ ─────────────────────────────────────────────────
     if resource == "tech_ops":

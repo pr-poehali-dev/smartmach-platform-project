@@ -15,6 +15,7 @@ import ModuleAssembly  from "@/components/smartmach/ModuleAssembly";
 import ModuleProjects  from "@/components/smartmach/ModuleProjects";
 import ModuleMachine  from "@/components/smartmach/ModuleMachine";
 import ModuleTechCards from "@/components/smartmach/ModuleTechCards";
+import ModuleAiDesigner from "@/components/smartmach/ModuleAiDesigner";
 import SeoHead from "@/components/ui/seo-head";
 import Breadcrumbs from "@/components/ui/breadcrumbs";
 import { MODULE_SEO, MODULE_BREADCRUMB } from "@/lib/seo.data";
@@ -22,7 +23,7 @@ import NotificationBell from "@/components/smartmach/NotificationBell";
 import Icon from "@/components/ui/icon";
 import MobileBottomNav from "@/components/smartmach/MobileBottomNav";
 
-export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics" | "employees" | "assembly" | "projects" | "machine" | "techcards";
+export type ModuleId = "home" | "cad" | "cam" | "cae" | "plm" | "cnc" | "analytics" | "equipment" | "economics" | "employees" | "assembly" | "projects" | "machine" | "techcards" | "aidesign";
 
 export default function Index() {
   const [activeModule,     setActiveModule]     = useState<ModuleId>("home");
@@ -34,10 +35,13 @@ export default function Index() {
   /** partId / programId предвыбраны при переходе CAM → Analytics */
   const [jobPartId,     setJobPartId]     = useState<number | undefined>();
   const [jobProgramId,  setJobProgramId]  = useState<number | undefined>();
+  /** Техкарта, открываемая сразу (переход из ИИ-конструктора) */
+  const [techCardId,    setTechCardId]    = useState<number | undefined>();
 
   function navigate(module: ModuleId) {
     if (module !== "cam")       setCamPartId(undefined);
     if (module !== "analytics") { setJobPartId(undefined); setJobProgramId(undefined); }
+    setTechCardId(undefined);
     setActiveModule(module);
     setMobileMenuOpen(false);
   }
@@ -91,7 +95,13 @@ export default function Index() {
       case "assembly":  return <ModuleAssembly onNavigateToPart={goToCad} />;
       case "projects":  return <ModuleProjects />;
       case "machine":   return <ModuleMachine />;
-      case "techcards": return <ModuleTechCards />;
+      case "techcards": return <ModuleTechCards key={techCardId ?? "list"} initialOpenId={techCardId} />;
+      case "aidesign":  return (
+        <ModuleAiDesigner
+          onOpenTechCard={(id) => { setTechCardId(id); setActiveModule("techcards"); }}
+          onOpenCad={goToCad}
+        />
+      );
       default:          return <DashboardHome onNavigate={navigate} />;
     }
   };

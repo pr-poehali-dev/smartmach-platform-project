@@ -74,7 +74,7 @@ def handler(event: dict, context) -> dict:
         cur.execute(f"SELECT user_id FROM {S}.sessions WHERE id = %s", (sid,))
         user_id = cur.fetchone()["user_id"]
 
-        if resource in ("techcards", "tech_ops", "tech_steps"):
+        if resource in ("techcards", "tech_ops", "tech_steps", "techcard_import"):
             resp = techcard.handle(method, qs, body, cur, conn, company_id, user_id, ok, err)
             if resp is not None:
                 return resp

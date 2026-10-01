@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Icon from "@/components/ui/icon";
 import { mGet, Stats } from "@/lib/manufacture";
 import { apiGet } from "@/lib/api";
 import { ModuleId } from "@/pages/Index";
@@ -89,7 +90,13 @@ export default function DashboardHome({ onNavigate }: Props) {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">СмартМаш</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Единая система управления производственным циклом</p>
         </div>
-        <DemoDataButton onChanged={() => window.location.reload()} />
+        <div className="flex items-center gap-2">
+          <DemoDataButton onChanged={() => window.location.reload()} />
+          <button onClick={() => onNavigate("aidesign")}
+            className="inline-flex items-center gap-1.5 h-9 rounded-md px-3 text-sm font-medium text-white bg-gradient-to-r from-violet-600 to-blue-600 hover:opacity-90">
+            <Icon name="Sparkles" size={15} />Деталь по описанию
+          </button>
+        </div>
       </div>
 
       {/* KPI карточки */}

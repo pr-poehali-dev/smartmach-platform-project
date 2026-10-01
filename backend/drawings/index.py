@@ -102,7 +102,7 @@ def make_revision(cur, drawing_id, company_id, author_id, rev_no, data, note=Non
         f"UPDATE {S}.drawing_revisions SET is_current = false WHERE drawing_id = %s",
         (drawing_id,)
     )
-    letter = rev_letter_for(rev_no)
+    letter = rev_letter_for(rev_no) or ""
     cur.execute(f"""
         INSERT INTO {S}.drawing_revisions
             (drawing_id, company_id, author_id, rev_no, rev_letter, name,

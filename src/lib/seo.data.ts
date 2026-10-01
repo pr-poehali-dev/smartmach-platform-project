@@ -97,6 +97,11 @@ export const MODULE_SEO: Record<ModuleId, SeoMeta> = {
     description: "Реестр проектов, декомпозиция задач, бюджет план/факт и аналитика по всем проектам предприятия.",
     noIndex: true,
   },
+  techcards: {
+    title: `Техкарты — ${BASE_TITLE}`,
+    description: "Технологические процессы: маршрут операций, переходы, режимы резания, нормы времени и маршрутные карты по ГОСТ 3.1118.",
+    noIndex: true,
+  },
   machine: {
     title: `Разработка станка МАТ-1 — ${BASE_TITLE}`,
     description: "Собственная разработка: гибридный компактный станок с токарной, фрезерной и лазерной обработкой. ЧПУ на базе LinuxCNC/GRBL.",
@@ -118,6 +123,7 @@ export const MODULE_BREADCRUMB: Record<ModuleId, string[]> = {
   assembly:  ["Состав изделия (BOM)"],
   projects:  ["Управление проектами"],
   machine:   ["Разработка станка МАТ-1"],
+  techcards: ["Техкарты"],
 };
 
 export { OG_IMAGE, BASE_TITLE, BASE_URL };

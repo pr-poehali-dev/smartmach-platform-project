@@ -8,6 +8,8 @@ import json
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import techcard
+import demo
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -68,6 +70,21 @@ def handler(event: dict, context) -> dict:
         company_id = get_company_id(cur, sid)
         if not company_id:
             return err("Не авторизован или не выбрано предприятие.", 401)
+
+        cur.execute(f"SELECT user_id FROM {S}.sessions WHERE id = %s", (sid,))
+        user_id = cur.fetchone()["user_id"]
+
+        if resource in ("techcards", "tech_ops", "tech_steps"):
+            resp = techcard.handle(method, qs, body, cur, conn, company_id, user_id, ok, err)
+            if resp is not None:
+                return resp
+            return err("Маршрут не найден.", 404)
+
+        if resource == "demo":
+            resp = demo.handle(method, qs, cur, conn, company_id, user_id, ok, err)
+            if resp is not None:
+                return resp
+            return err("Маршрут не найден.", 404)
 
         # ─── USERS ───────────────────────────────────────────────────
         if resource == "users":

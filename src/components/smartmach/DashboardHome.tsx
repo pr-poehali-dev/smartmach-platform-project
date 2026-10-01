@@ -6,6 +6,7 @@ import { type Machine as EquipmentItem } from "@/components/smartmach/equipment.
 import DashboardKpiCards, { type KpiCard } from "@/components/smartmach/DashboardKpiCards";
 import DashboardEquipment from "@/components/smartmach/DashboardEquipment";
 import DashboardPlmProducts, { type PlmProduct } from "@/components/smartmach/DashboardPlmProducts";
+import DemoDataButton from "@/components/smartmach/DemoDataButton";
 import DashboardModules from "@/components/smartmach/DashboardModules";
 
 interface Props {
@@ -83,9 +84,12 @@ export default function DashboardHome({ onNavigate }: Props) {
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
 
       {/* Заголовок */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">СмартМаш</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Единая система управления производственным циклом</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">СмартМаш</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Единая система управления производственным циклом</p>
+        </div>
+        <DemoDataButton onChanged={() => window.location.reload()} />
       </div>
 
       {/* KPI карточки */}

@@ -33,23 +33,16 @@ import {
   trimSegment,
 } from '@/lib/cad/edit';
 
-let passed = 0;
-let failed = 0;
+import { describe, it, expect } from 'vitest';
 
 const eq = (a: number, b: number, tol = 1e-6) => Math.abs(a - b) < tol;
 
 function check(name: string, cond: boolean) {
-  if (cond) {
-    passed += 1;
-  } else {
-    failed += 1;
-    console.error(`  ПРОВАЛ: ${name}`);
-  }
+  it(name, () => expect(cond).toBe(true));
 }
 
 function suite(title: string, fn: () => void) {
-  console.log(`\n${title}`);
-  fn();
+  describe(title, fn);
 }
 
 /* ═══════════════ Пересечения ═══════════════ */
@@ -244,10 +237,3 @@ suite('Смещение, отражение, поворот', () => {
   const r = rotatePoint({ x: 10, y: 0 }, { x: 0, y: 0 }, Math.PI / 2);
   check('поворот на 90°', eq(r.x, 0, 1e-9) && eq(r.y, 10));
 });
-
-/* ═══════════════ Итог ═══════════════ */
-
-console.log(`\n${'─'.repeat(46)}`);
-console.log(`Пройдено: ${passed}   Провалено: ${failed}`);
-
-if (failed > 0) process.exit(1);

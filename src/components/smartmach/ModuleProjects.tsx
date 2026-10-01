@@ -47,6 +47,7 @@ export default function ModuleProjects() {
   const [showCreate, setShowCreate] = useState(false);
   const [filter,     setFilter]     = useState<ProjectStatus | "all">("all");
   const [search,     setSearch]     = useState("");
+  const [loadError,  setLoadError]  = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -56,9 +57,12 @@ export default function ModuleProjects() {
         projGet<Dashboard>({ resource: "dashboard" }),
         projGet<Employee[]>({ resource: "employees" }),
       ]);
-      setProjects(list);
+      setProjects(Array.isArray(list) ? list : []);
       setDashboard(dash);
-      setEmployees(emps);
+      setEmployees(Array.isArray(emps) ? emps : []);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Не удалось загрузить проекты");
     } finally {
       setLoading(false);
     }
@@ -180,6 +184,12 @@ export default function ModuleProjects() {
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Icon name="Loader" size={22} className="animate-spin mr-2" />Загрузка…
         </div>
+      ) : loadError ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive flex items-center gap-3">
+          <Icon name="AlertCircle" size={16} />
+          <span className="flex-1">{loadError}</span>
+          <button onClick={loadAll} className="underline">Повторить</button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
           <div className="w-16 h-16 rounded-2xl bg-secondary/40 flex items-center justify-center">
@@ -215,7 +225,7 @@ export default function ModuleProjects() {
       )}
 
       {/* Последние активные проекты в дашборде */}
-      {!loading && dashboard && dashboard.recent_projects.length > 0 && filter === "all" && !search && projects.length > 0 && (
+      {!loading && dashboard && (dashboard.recent_projects?.length ?? 0) > 0 && filter === "all" && !search && projects.length > 0 && (
         <div className="bg-secondary/20 border border-border rounded-xl p-4">
           <h3 className="text-sm font-semibold text-foreground mb-3">Недавняя активность</h3>
           <div className="space-y-2">

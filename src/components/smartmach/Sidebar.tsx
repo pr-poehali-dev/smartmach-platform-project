@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "assembly",  label: "Состав изделия",  icon: "Package",      color: "#e53935" },
   { id: "cad",       label: "Проектирование",  icon: "Box",          color: "#1e88e5" },
   { id: "cam",       label: "Программы ЧПУ",   icon: "Cpu",          color: "#8e24aa" },
+  { id: "techcards", label: "Техкарты",        icon: "ListOrdered",  color: "#5e35b1" },
   { id: "cae",       label: "Расчёты",         icon: "FlaskConical", color: "#00897b" },
   { id: "plm",       label: "Жизн. цикл",      icon: "GitBranch",    color: "#f4511e" },
   { id: "cnc",       label: "Оборудование",    icon: "Radio",        color: "#43a047" },

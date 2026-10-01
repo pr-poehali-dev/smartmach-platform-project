@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeModel, massKg, density, dimensions, totalLength } from "@/lib/aipart/model";
+import { normalizeModel, massKg, density, dimensions, totalLength, stdKeyB } from "@/lib/aipart/model";
 
 const shaft = (over: Record<string, unknown> = {}) => ({
   kind: "shaft", name: "Вал", designation: "СМ.01.001", material: "Сталь 45", ra_general: 6.3, requirements: ["Неуказанные отклонения H14."],
@@ -31,10 +31,17 @@ describe("Нормализация ответа ИИ-конструктора", 
     expect(warnings.join()).toMatch(/укорочен/);
   });
 
-  it("паз на несуществующей ступени убирается", () => {
-    const { model, warnings } = normalizeModel(shaft({ keyways: [{ section: 7, b: 12, l: 20, t1: 5, from: 2 }] }));
+  it("паз на несуществующей ступени без подходящей замены убирается", () => {
+    const { model, warnings } = normalizeModel(shaft({ keyways: [{ section: 7, b: 20, l: 20, t1: 5, from: 2 }] }));
     expect(model.shaft!.keyways).toHaveLength(0);
     expect(warnings.length).toBe(1);
+  });
+
+  it("паз с ошибочным индексом ступени переносится на подходящую по ГОСТ 23360", () => {
+    // ступени ∅40×50 и ∅50×100; паз 14 (для ∅44…50) длиной 70 указан на ступени 0
+    const { model, warnings } = normalizeModel(shaft({ keyways: [{ section: 0, b: 14, l: 70, t1: 5.5, from: 5 }] }));
+    expect(model.shaft!.keyways[0]).toMatchObject({ section: 1, l: 70 });
+    expect(warnings.join()).toMatch(/перенесён/);
   });
 
   it("отверстие больше вала убирается", () => {
@@ -91,5 +98,13 @@ describe("Масса и габариты", () => {
   it("габариты строкой", () => {
     expect(dimensions(normalizeModel(shaft()).model)).toBe("∅50×150");
     expect(dimensions(normalizeModel({ kind: "plate", plate: { L: 200, W: 120, H: 20 } }).model)).toBe("200×120×20");
+  });
+});
+
+describe("Шпонки ГОСТ 23360", () => {
+  it("ширина по диаметру вала", () => {
+    expect(stdKeyB(40)).toBe(12);
+    expect(stdKeyB(50)).toBe(14);
+    expect(stdKeyB(60)).toBe(18);
   });
 });

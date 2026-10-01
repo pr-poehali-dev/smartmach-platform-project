@@ -98,3 +98,18 @@ describe("Проверка плана ИИ-технолога", () => {
     expect(b).toMatch(/сквозное/);
   });
 });
+
+describe("Проверка операция ↔ станок", () => {
+  it("зубья на круглошлифовальном — привязка снята с предупреждением", () => {
+    const eq = [{ id: 7, name: "Круглошлифовальный станок", model: "3М151", type: "Шлифовальный" }];
+    const { plan, warnings } = normalizePlan({ ops: [{ op_no: "030", name: "Шлифовальная", equipment_id: 7, steps: [{ description: "Шлифование зубьев Ra 1,6", t_main: 5 }] }] }, eq);
+    expect(plan.ops[0].equipment_id).toBeNull();
+    expect(warnings.join()).toMatch(/не обрабатывает/);
+  });
+  it("шлифование шейки вала на круглошлифовальном — допустимо", () => {
+    const eq = [{ id: 7, name: "Круглошлифовальный станок", model: "3М151", type: "Шлифовальный" }];
+    const { plan, warnings } = normalizePlan({ ops: [{ op_no: "030", name: "Шлифовальная", equipment_id: 7, steps: [{ description: "Шлифовать шейку ∅45k6", t_main: 3 }] }] }, eq);
+    expect(plan.ops[0].equipment_id).toBe(7);
+    expect(warnings).toEqual([]);
+  });
+});

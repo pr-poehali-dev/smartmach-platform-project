@@ -5,6 +5,8 @@
  */
 import { Sheet, type Prim } from "@/lib/aipart/geom";
 import { type PartModel, type ShaftParams, type DiscParams, type PlateParams, fmt, totalLength } from "@/lib/aipart/model";
+import { type GearParams, gearGeometry } from "@/lib/aipart/gear";
+import { gearDrawing } from "@/lib/aipart/drawingGear";
 
 export interface DrawingResult {
   prims: Prim[];
@@ -32,6 +34,7 @@ export function buildDrawing(m: PartModel): DrawingResult {
   if (m.kind === "shaft" && m.shaft) return shaftDrawing(m, m.shaft);
   if (m.kind === "disc" && m.disc) return discDrawing(m, m.disc);
   if (m.kind === "plate" && m.plate) return plateDrawing(m, m.plate);
+  if (m.kind === "gear" && m.gear) return gearSheet(m, m.gear);
   throw new Error("Пустая модель детали");
 }
 
@@ -223,7 +226,8 @@ function shaftDrawing(m: PartModel, s: ShaftParams): DrawingResult {
     const xa = X(xs[kw.section] + kw.from);
     const sec = s.sections[kw.section];
     sh.hdim(xa, xa + kw.l * k, cy - (kw.b / 2) * k, cy - (kw.b / 2) * k, cy - R(Dmax) - 12, fmt(kw.l));
-    if (kw.from > 0) sh.hdim(X(xs[kw.section]), xa, cy - R(sec.d), cy - (kw.b / 2) * k, cy - R(Dmax) - 12, fmt(kw.from));
+    // привязка паза — уровнем выше длины паза, чтобы надписи не сливались
+    if (kw.from > 0) sh.hdim(X(xs[kw.section]), xa, cy - R(sec.d), cy - (kw.b / 2) * k, cy - R(Dmax) - 20, fmt(kw.from));
   });
 
   if (s.center_holes) sh.text(f.x0 + 4, reqTop - 2, "Центровые отверстия — по ГОСТ 14034, форма A.", "start", 3);
@@ -309,7 +313,7 @@ function discDrawing(m: PartModel, d: DiscParams): DrawingResult {
   sh.hdim(xL, xR, cy + rD, cy + rD, cy + rD + 8, fmt(d.H));
   if (d.hub) sh.hdim(xL, xHub, cy + rD, cy + rH, cy + rD + 16, fmt(d.hub.h));
   if (d.chamfer > 0) sh.leader(xL + c / 2, cy - rD + c / 2, -6, -8, `${fmt(d.chamfer)}×45°`);
-  if (rB > 0) sh.roughness(xL + c + 3, cy - rB, d.ra_bore);
+  if (rB > 0) sh.roughness(xL + c + 3, cy + rB, d.ra_bore);
 
   // ── вид слева ──
   const lx = Math.max(xHub + 50, f.x0 + (f.x1 - f.x0) * 0.55);
@@ -415,5 +419,36 @@ function plateDrawing(m: PartModel, p: PlateParams): DrawingResult {
   });
   if (p.chamfer > 0) sh.leader(x0 + c / 2, yFront + c / 2, -6, -8, `${fmt(p.chamfer)}×45°`);
 
+  return { prims: sh.prims, paper, scale: label, sheetW: W, sheetH: H };
+}
+
+/* ═══════════════════ ЗУБЧАТОЕ КОЛЕСО ═══════════════════ */
+
+function gearSheet(m: PartModel, g: GearParams): DrawingResult {
+  const geo = gearGeometry(g);
+  const Bt = Math.max(g.b, g.hub?.h ?? 0);
+  // ширина: размеры слева (30) + разрез + размеры справа (40) + вид слева (da) + зазоры + таблица 110
+  const needW = (k: number) => 30 + Bt * k + 40 + 45 + geo.da * k + 10 + 110;
+  const needH = (k: number) => geo.da * k + 40;
+  let paper: DrawingResult["paper"] = "A3 горизонт.";
+  let W = 420, H = 297, k = 0.1, label = "1:10";
+  search: for (const [pp, w, h] of [["A4 горизонт.", 297, 210], ["A3 горизонт.", 420, 297]] as const) {
+    for (const [kk, lb] of SCALES) {
+      // по высоте: вид должен уместиться над техтребованиями (~30 мм) и основной надписью
+      if (needW(kk) <= w - 25 && needH(kk) <= h - 10 - 55 - 32) {
+        if (pp === "A4 горизонт." && kk < 1) break;
+        paper = pp; W = w; H = h; k = kk; label = lb;
+        break search;
+      }
+    }
+  }
+  const f = field(W, H);
+  const sh = new Sheet();
+  generalRa(sh, { ...f, x1: f.x1 - 112 }, 6.3);
+  const reqTop = requirements(sh, f, m, [
+    ...(m.hardness ? [`${m.hardness}.`] : []),
+    `Предельные отклонения длины общей нормали — по ГОСТ 1643-81 для степени точности ${g.accuracy}.`,
+  ]);
+  gearDrawing(g, f, k, sh, reqTop);
   return { prims: sh.prims, paper, scale: label, sheetW: W, sheetH: H };
 }

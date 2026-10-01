@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
-import { type PartModel, type ShaftSection, num } from "@/lib/aipart/model";
+import { type PartModel, type ShaftSection, num, fmt } from "@/lib/aipart/model";
+import { gearGeometry, nearestModule } from "@/lib/aipart/gear";
 
 interface Props { model: PartModel; onChange: (m: PartModel) => void }
 
@@ -89,6 +90,31 @@ export default function AiModelEditor({ model, onChange }: Props) {
             {d.holes && f("Отверстий, шт", d.holes.n, (v) => set("disc", { ...d, holes: { ...d.holes!, n: Math.max(1, Math.round(v)) } }))}
             {d.holes && f("∅ отверстий", d.holes.d, (v) => set("disc", { ...d, holes: { ...d.holes!, d: v } }))}
             {d.holes && f("∅ расположения", d.holes.pcd, (v) => set("disc", { ...d, holes: { ...d.holes!, pcd: v } }))}
+          </div>
+        );
+      })()}
+
+      {model.gear && (() => {
+        const g = model.gear;
+        const f = (label: string, value: number, apply: (v: number) => void, testId?: string) => (
+          <label className="space-y-0.5"><span className="text-xs text-muted-foreground">{label}</span>
+            <Cell value={value} onChange={(v) => apply(numOrKeep(v, value))} w="w-20" testId={testId} /></label>
+        );
+        const geo = gearGeometry(g);
+        return (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-3">
+              {f("Модуль m", g.m, (v) => set("gear", { ...g, m: nearestModule(v) }), "gear-m")}
+              {f("Зубьев z", g.z, (v) => set("gear", { ...g, z: Math.max(8, Math.round(v)) }), "gear-z")}
+              {f("Угол β, °", g.beta, (v) => set("gear", { ...g, beta: Math.min(45, Math.max(0, v)), hand: v > 0 ? g.hand ?? "right" : null }))}
+              {f("Ширина b", g.b, (v) => set("gear", { ...g, b: v }))}
+              {f("Отверстие ∅", g.bore.d, (v) => set("gear", { ...g, bore: { ...g.bore, d: v } }))}
+              <label className="space-y-0.5"><span className="text-xs text-muted-foreground">Точность</span>
+                <Cell value={g.accuracy} onChange={(v) => set("gear", { ...g, accuracy: v.trim() || "8-B" })} w="w-20" /></label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              da = {fmt(geo.da)} · d = {fmt(geo.d)} · df = {fmt(geo.df)} · W = {fmt(geo.W)} (zw = {geo.zw})
+            </p>
           </div>
         );
       })()}

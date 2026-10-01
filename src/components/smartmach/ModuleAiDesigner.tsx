@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AiModelEditor from "@/components/smartmach/AiModelEditor";
+import SketchDrop from "@/components/smartmach/SketchDrop";
 import { useAiPartDesign, type AgentState } from "@/components/smartmach/useAiPartDesign";
 import { sheetSvg } from "@/lib/aipart/svg";
 import { massKg, fmt, KIND_LABEL } from "@/lib/aipart/model";
@@ -15,6 +16,7 @@ const EXAMPLES = [
   "Фланец переходной ∅180, толщина 25, ступица ∅90 высотой 50, отверстие ∅60H7 со шпоночным пазом, 8 отверстий под болты М12",
   "Плита опорная 200×120×20, четыре отверстия ∅11 по углам с отступом 20 мм, в центре резьба М12, сталь 3",
   "Втулка бронзовая ∅50×40, внутреннее отверстие ∅35H7, фаски 1×45°",
+  "Колесо зубчатое прямозубое m=2, z=78, в паре с шестернёй z=22, ширина венца 40, отверстие ∅50H7 со шпонкой, ступица, сталь 40Х",
 ];
 
 interface Props { onOpenTechCard?: (id: number) => void; onOpenCad?: () => void }
@@ -59,6 +61,7 @@ function AgentBadge({ title, role, state, error, icon }: { title: string; role: 
 export default function ModuleAiDesigner({ onOpenTechCard, onOpenCad }: Props) {
   const ai = useAiPartDesign();
   const [desc, setDesc] = useState("");
+  const [sketch, setSketch] = useState<string | null>(null);
   const [batch, setBatch] = useState("50");
   const [tab, setTab] = useState<"drawing" | "params">("drawing");
   const [saved, setSaved] = useState<{ techcardId: number } | null>(null);
@@ -76,9 +79,9 @@ export default function ModuleAiDesigner({ onOpenTechCard, onOpenCad }: Props) {
   const busy = ai.cState === "working" || ai.tState === "working";
 
   const start = () => {
-    if (desc.trim().length < 10) { toast.error("Опишите деталь подробнее: что это, основные размеры, материал"); return; }
+    if (!sketch && desc.trim().length < 10) { toast.error("Опишите деталь подробнее или загрузите эскиз"); return; }
     setSaved(null);
-    ai.design(desc.trim(), batchN);
+    ai.design(desc.trim(), batchN, sketch ?? undefined);
   };
 
   const save = async () => {
@@ -111,9 +114,10 @@ export default function ModuleAiDesigner({ onOpenTechCard, onOpenCad }: Props) {
       </div>
 
       <section className="rounded-xl border bg-card p-4 space-y-3">
+        <SketchDrop value={sketch} onChange={setSketch} disabled={busy} />
         <textarea data-testid="ai-desc"
           className="w-full min-h-[96px] rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="Например: вал редуктора, шейки под подшипники 6209, посадка колеса ∅50 со шпонкой, выходной конец ∅40, сталь 45"
+          placeholder={sketch ? "Уточнения к эскизу (необязательно): материал, посадки, что поправить" : "Например: вал редуктора, шейки под подшипники 6209, посадка колеса ∅50 со шпонкой, выходной конец ∅40, сталь 45"}
           value={desc} onChange={(e) => setDesc(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) start(); }} />
         <div className="flex flex-wrap gap-1.5">
@@ -139,7 +143,7 @@ export default function ModuleAiDesigner({ onOpenTechCard, onOpenCad }: Props) {
 
       {(ai.cState !== "idle" || ai.tState !== "idle") && (
         <div className="grid sm:grid-cols-2 gap-3">
-          <AgentBadge title="ИИ-конструктор" role="Размеры, допуски, шероховатость, требования" state={ai.cState} error={ai.cError} icon="PenTool" />
+          <AgentBadge title="ИИ-конструктор" role={sketch ? "Распознаёт эскиз: виды, размеры, надписи" : "Размеры, допуски, шероховатость, требования"} state={ai.cState} error={ai.cError} icon="PenTool" />
           <AgentBadge title="ИИ-технолог" role={ai.planStale ? "Модель изменена — пересчитайте техпроцесс" : "Маршрут, переходы, режимы резания, нормы"}
             state={ai.tState} error={ai.tError} icon="Wrench" />
         </div>
@@ -172,6 +176,7 @@ export default function ModuleAiDesigner({ onOpenTechCard, onOpenCad }: Props) {
             ) : (
               <div className="p-4"><AiModelEditor model={ai.model} onChange={ai.updateModel} /></div>
             )}
+            {ai.sketch && <SketchReportView r={ai.sketch} />}
             {ai.warnings.constructor.length > 0 && (
               <div className="border-t bg-amber-50 px-4 py-2 text-xs text-amber-800 space-y-0.5">
                 {ai.warnings.constructor.map((w) => <div key={w}>• {w}</div>)}
@@ -253,6 +258,18 @@ export default function ModuleAiDesigner({ onOpenTechCard, onOpenCad }: Props) {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function SketchReportView({ r }: { r: import("@/lib/aipart/agents").SketchReport }) {
+  const conf = { high: ["bg-green-50 text-green-800", "уверенно"], medium: ["bg-sky-50 text-sky-800", "с допущениями"], low: ["bg-red-50 text-red-800", "ненадёжно — проверьте размеры"] }[r.confidence];
+  return (
+    <div className={`border-t px-4 py-2.5 text-xs space-y-1 ${conf[0]}`} data-testid="sketch-report">
+      <div className="font-medium flex items-center gap-1.5"><Icon name="ScanLine" size={13} />Распознано {conf[1]}: {r.recognized}</div>
+      {r.dimensions.length > 0 && <div>Размеры с эскиза: {r.dimensions.join("; ")}</div>}
+      {r.assumed.length > 0 && <div>Принято без размера на эскизе: {r.assumed.join("; ")}</div>}
+      {r.issues.length > 0 && <div>Не удалось прочитать: {r.issues.join("; ")}</div>}
     </div>
   );
 }

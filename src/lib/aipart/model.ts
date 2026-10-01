@@ -4,7 +4,9 @@
  * геометрию чертежа строит программа — поэтому чертёж всегда точный и по ГОСТ.
  */
 
-export type PartKind = "shaft" | "disc" | "plate";
+import { type GearParams, nearestModule, gearGeometry } from "@/lib/aipart/gear";
+
+export type PartKind = "shaft" | "disc" | "plate" | "gear";
 
 export interface ShaftSection { d: number; l: number; tol: string | null; ra: number | null; thread: string | null; note?: string | null }
 export interface Keyway { section: number; b: number; l: number; t1: number; from: number }
@@ -41,6 +43,7 @@ export interface PartModel {
   shaft: ShaftParams | null;
   disc: DiscParams | null;
   plate: PlateParams | null;
+  gear?: GearParams | null;
 }
 
 export interface Normalized { model: PartModel; warnings: string[] }
@@ -63,6 +66,12 @@ const raNorm = (v: unknown, def: number): number => {
   const n = num(v, def);
   return RA_SERIES.reduce((best, r) => (Math.abs(r - n) < Math.abs(best - n) ? r : best), RA_SERIES[0]);
 };
+/** Ширина призматической шпонки по ГОСТ 23360 для диаметра вала */
+export function stdKeyB(d: number): number {
+  const t: [number, number][] = [[8, 2], [10, 3], [12, 4], [17, 5], [22, 6], [30, 8], [38, 10], [44, 12], [50, 14], [58, 16], [65, 18], [75, 20], [85, 22], [95, 25], [110, 28], [130, 32], [150, 36]];
+  return (t.find(([lim]) => d <= lim) ?? [0, 40])[1];
+}
+
 const round = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 
 /** Число в русском формате без лишних нулей: 1.6 → «1,6» */
@@ -74,8 +83,8 @@ export function normalizeModel(raw: unknown): Normalized {
   const w: string[] = [];
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   let kind = str(r.kind) as PartKind;
-  if (!["shaft", "disc", "plate"].includes(kind)) {
-    kind = r.shaft ? "shaft" : r.disc ? "disc" : r.plate ? "plate" : "shaft";
+  if (!["shaft", "disc", "plate", "gear"].includes(kind)) {
+    kind = r.gear ? "gear" : r.shaft ? "shaft" : r.disc ? "disc" : r.plate ? "plate" : "shaft";
     w.push(`Тип детали не распознан — принят «${KIND_LABEL[kind]}»`);
   }
 
@@ -87,7 +96,7 @@ export function normalizeModel(raw: unknown): Normalized {
     hardness: strOrNull(r.hardness),
     ra_general: raNorm(r.ra_general, 6.3),
     requirements: Array.isArray(r.requirements) ? r.requirements.map((x) => str(x)).filter(Boolean).slice(0, 10) : [],
-    shaft: null, disc: null, plate: null,
+    shaft: null, disc: null, plate: null, gear: null,
   };
 
   if (model.hardness) {
@@ -98,6 +107,7 @@ export function normalizeModel(raw: unknown): Normalized {
   if (kind === "shaft") model.shaft = normShaft(r.shaft, w);
   if (kind === "disc") model.disc = normDisc(r.disc, w);
   if (kind === "plate") model.plate = normPlate(r.plate, w);
+  if (kind === "gear") model.gear = normGear(r.gear, w);
 
   if (!model.requirements.length) {
     model.requirements = [
@@ -140,7 +150,17 @@ function normShaft(raw: unknown, w: string[]): ShaftParams {
   const keyways: Keyway[] = [];
   (Array.isArray(s.keyways) ? s.keyways : []).slice(0, 6).forEach((x) => {
     const o = (x ?? {}) as Record<string, unknown>;
-    const i = Math.round(num(o.section, -1));
+    let i = Math.round(num(o.section, -1));
+    const bReq = num(o.b, 0), lReq = num(o.l, 0);
+    // ИИ иногда ошибается с индексом ступени (особенно по эскизу): если паз не помещается,
+    // а на другой ступени он стандартен по ширине и помещается по длине — переносим
+    if (bReq > 0 && lReq > 0 && (!sections[i] || sections[i].l < lReq * 0.8 || stdKeyB(sections[i].d) !== bReq)) {
+      const better = sections.findIndex((x, j) => j !== i && stdKeyB(x.d) === bReq && x.l >= lReq * 0.8);
+      if (better >= 0) {
+        w.push(`Паз ${fmt(bReq)} перенесён на ступень ∅${fmt(sections[better].d)} — по ширине и длине он относится к ней`);
+        i = better;
+      }
+    }
     const sec = sections[i];
     if (!sec) { w.push("Шпоночный паз ссылается на несуществующую ступень — убран"); return; }
     const b = clamp(num(o.b, 6), 1, sec.d * 0.6);
@@ -222,6 +242,80 @@ function normPlate(raw: unknown, w: string[]): PlateParams {
   return { L, W, H, holes, chamfer: clamp(num(s.chamfer, 1), 0, 10), ra_faces: raNorm(s.ra_faces, 3.2) };
 }
 
+function normGear(raw: unknown, w: string[]): GearParams {
+  const s = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const m0 = clamp(num(s.m, 2), 0.5, 30);
+  const m = nearestModule(m0);
+  if (Math.abs(m - m0) > 1e-6) w.push(`Модуль ${fmt(m0)} заменён на ближайший стандартный ${fmt(m)} (ГОСТ 9563)`);
+  const z = Math.round(clamp(num(s.z, 40), 8, 400));
+  const beta = clamp(num(s.beta, 0), 0, 45);
+  let x = clamp(num(s.x, 0), -0.6, 1.2);
+  if (z < 17 && x < (17 - z) / 17) {
+    x = round((17 - z) / 17, 2);
+    w.push(`При z=${z} без смещения возникает подрезание ножки — принят x=${fmt(x)}`);
+  }
+  const geo = gearGeometry({ m, z, beta, x });
+  const b = clamp(num(s.b, geo.d * 0.3), 2, 1000);
+  const minRim = 2.5 * m;
+  const rimMax = geo.df - 2 * minRim;
+
+  const bo = (s.bore ?? {}) as Record<string, unknown>;
+  let bd = num(bo.d, 0);
+  if (bd <= 0 || bd > rimMax) {
+    const nb = round(Math.max(Math.min(geo.df * 0.35, rimMax * 0.8), 5), 0);
+    if (bd > 0) w.push(`Отверстие ∅${fmt(bd)} не оставляет обода под зубьями (нужно ≥ 2,5m) — принято ∅${fmt(nb)}`);
+    bd = nb;
+  }
+
+  let hub: GearParams["hub"] = null;
+  if (s.hub && typeof s.hub === "object") {
+    const h = s.hub as Record<string, unknown>;
+    const hd = num(h.d, 0), hh = num(h.h, 0);
+    if (hd > bd * 1.15 && hd < rimMax && hh >= b * 0.5) hub = { d: hd, h: hh };
+    else if (hd || hh) w.push("Ступица с некорректными размерами — убрана");
+  }
+
+  let web: GearParams["web"] = null;
+  if (s.web && typeof s.web === "object") {
+    const wb = s.web as Record<string, unknown>;
+    const t = num(wb.t, 0);
+    let dRim = num(wb.d_rim, 0);
+    if (dRim > rimMax && dRim <= geo.df) dRim = Math.floor(rimMax);
+    const inner = hub ? hub.d : bd * 1.6;
+    if (t > 0 && t < b && dRim > inner + 4 && dRim <= rimMax) {
+      let holes: { n: number; d: number; pcd: number } | null = null;
+      if (wb.holes && typeof wb.holes === "object") {
+        const ho = wb.holes as Record<string, unknown>;
+        const n = Math.round(num(ho.n, 0)), d = num(ho.d, 0);
+        let pcd = num(ho.pcd, (inner + dRim) / 2);
+        const lo = inner + d + 2, hi = dRim - d - 2;
+        if (n >= 3 && d > 0 && lo <= hi) {
+          if (pcd < lo || pcd > hi) pcd = round((lo + hi) / 2, 0);
+          holes = { n: Math.min(n, 12), d, pcd };
+        } else if (n > 0) w.push("Облегчающие отверстия не помещаются в диске — убраны");
+      }
+      web = { t, d_rim: dRim, holes };
+    } else if (t || dRim) w.push("Диск колеса с некорректными размерами — колесо выполнено сплошным");
+  }
+
+  let keyway: GearParams["keyway"] = null;
+  if (s.keyway && typeof s.keyway === "object") {
+    const k = s.keyway as Record<string, unknown>;
+    const kb = num(k.b, 0), t2 = num(k.t2, 0);
+    if (kb > 0 && t2 > 0 && kb < bd * 0.6) keyway = { b: kb, t2 };
+  }
+
+  const hand = beta > 0 ? (str(s.hand) === "left" ? "left" : "right") : null;
+  const mz = num(s.mate_z, 0);
+  return {
+    m, z, beta, hand, x, b, accuracy: str(s.accuracy, "8-B"),
+    mate_z: mz >= 8 ? Math.round(mz) : null, aw: num(s.aw, 0) > 0 ? num(s.aw, 0) : null,
+    bore: { d: bd, tol: strOrNull(bo.tol) ?? "H7" }, keyway, hub, web,
+    chamfer: clamp(num(s.chamfer, round(0.5 * m, 1)), 0, 10),
+    ra_teeth: raNorm(s.ra_teeth, 1.6), ra_bore: raNorm(s.ra_bore, 1.6),
+  };
+}
+
 /* ── масса и габариты ────────────────────────────────────────────── */
 
 /** Плотность материала, г/см³ */
@@ -260,6 +354,19 @@ export function volume(m: PartModel): number {
     if (d.holes) v -= d.holes.n * circ(d.holes.d) * d.H;
     return Math.max(v, 0);
   }
+  if (m.kind === "gear" && m.gear) {
+    const g = m.gear, geo = gearGeometry(g);
+    // тело до окружности впадин + зубья ≈ половина кольца между впадинами и вершинами
+    let v = circ(geo.df) * g.b + 0.5 * (circ(geo.da) - circ(geo.df)) * g.b;
+    if (g.web) {
+      const inner = g.hub ? g.hub.d : g.bore.d;
+      v -= (circ(g.web.d_rim) - circ(inner)) * (g.b - g.web.t);
+      if (g.web.holes) v -= g.web.holes.n * circ(g.web.holes.d) * g.web.t;
+    }
+    if (g.hub) v += circ(g.hub.d) * Math.max(g.hub.h - g.b, 0);
+    v -= circ(g.bore.d) * Math.max(g.b, g.hub?.h ?? 0);
+    return Math.max(v, 0);
+  }
   if (m.kind === "plate" && m.plate) {
     const p = m.plate;
     return Math.max(p.L * p.W * p.H - p.holes.reduce((a, h) => a + circ(h.d) * p.H, 0), 0);
@@ -276,9 +383,10 @@ export const totalLength = (s: ShaftParams) => s.sections.reduce((a, x) => a + x
 export function dimensions(m: PartModel): string {
   if (m.kind === "shaft" && m.shaft) return `∅${fmt(Math.max(...m.shaft.sections.map((x) => x.d)))}×${fmt(totalLength(m.shaft))}`;
   if (m.kind === "disc" && m.disc) return `∅${fmt(m.disc.D)}×${fmt(Math.max(m.disc.H, m.disc.hub?.h ?? 0))}`;
+  if (m.kind === "gear" && m.gear) return `∅${fmt(gearGeometry(m.gear).da)}×${fmt(Math.max(m.gear.b, m.gear.hub?.h ?? 0))}`;
   if (m.kind === "plate" && m.plate) return `${fmt(m.plate.L)}×${fmt(m.plate.W)}×${fmt(m.plate.H)}`;
   return "";
 }
 
-export const KIND_LABEL: Record<PartKind, string> = { shaft: "Тело вращения (вал, ось, втулка)", disc: "Диск, фланец, крышка", plate: "Плита, планка, пластина" };
-export const CATEGORY: Record<PartKind, string> = { shaft: "Валы", disc: "Фланцы и диски", plate: "Плиты" };
+export const KIND_LABEL: Record<PartKind, string> = { shaft: "Тело вращения (вал, ось, втулка)", disc: "Диск, фланец, крышка", plate: "Плита, планка, пластина", gear: "Колесо зубчатое цилиндрическое" };
+export const CATEGORY: Record<PartKind, string> = { shaft: "Валы", disc: "Фланцы и диски", plate: "Плиты", gear: "Зубчатые колёса" };

@@ -6,7 +6,7 @@
 import { useState, useCallback, useRef } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { runConstructor, runTechnologist, type TechPlan, type EquipmentRef } from "@/lib/aipart/agents";
+import { runConstructor, runTechnologist, type TechPlan, type EquipmentRef, type SketchReport } from "@/lib/aipart/agents";
 import { buildDrawing, type DrawingResult } from "@/lib/aipart/drawing";
 import { type PartModel, massKg, dimensions, fmt, CATEGORY } from "@/lib/aipart/model";
 import { renderToFabric } from "@/lib/aipart/fabric";
@@ -31,6 +31,7 @@ export function useAiPartDesign() {
   const [cError, setCError] = useState<string | null>(null);
   const [tError, setTError] = useState<string | null>(null);
   const [planStale, setPlanStale] = useState(false);
+  const [sketch, setSketch] = useState<SketchReport | null>(null);
   const [saving, setSaving] = useState(false);
   const equipmentRef = useRef<EquipmentRef[] | null>(null);
   const runId = useRef(0);
@@ -57,15 +58,16 @@ export function useAiPartDesign() {
     }
   }, [loadEquipment]);
 
-  const design = useCallback(async (description: string, batch: number) => {
+  const design = useCallback(async (description: string, batch: number, image?: string) => {
     const id = ++runId.current;
-    setModel(null); setDrawing(null); setPlan(null); setPlanStale(false);
+    setModel(null); setDrawing(null); setPlan(null); setPlanStale(false); setSketch(null);
     setWarnings({ constructor: [], technologist: [] });
     setCState("working"); setTState("idle"); setCError(null); setTError(null);
     loadEquipment();
     try {
-      const { model: m, warnings: w } = await runConstructor(description);
+      const { model: m, warnings: w, sketch: sk } = await runConstructor(description, { image });
       if (runId.current !== id) return;
+      setSketch(sk);
       setModel(m); setDrawing(buildDrawing(m));
       setWarnings((x) => ({ ...x, constructor: w })); setCState("done");
       void runTech(m, batch, id);
@@ -103,7 +105,7 @@ export function useAiPartDesign() {
         part: {
           code: model.designation, name: model.name, material: model.material, category: CATEGORY[model.kind],
           dimensions: dimensions(model), weight_kg: mass,
-          notes: "Создано ИИ-конструктором. Модель: " + JSON.stringify(model).slice(0, 3000),
+          notes: `Создано ИИ-конструктором${sketch ? " по эскизу" : ""}. Модель: ` + JSON.stringify(model).slice(0, 3000),
         },
         process: {
           name: `Техпроцесс механической обработки: ${model.name}`, code: `ТП-${model.designation}`,
@@ -122,14 +124,14 @@ export function useAiPartDesign() {
       });
       return { partId: imp.part_id, drawingId: dr.id, techcardId: imp.id };
     } finally { setSaving(false); }
-  }, [model, drawing, plan, user]);
+  }, [model, drawing, plan, user, sketch]);
 
   const reset = useCallback(() => {
     runId.current++;
     setModel(null); setDrawing(null); setPlan(null); setCState("idle"); setTState("idle");
-    setCError(null); setTError(null); setPlanStale(false); setWarnings({ constructor: [], technologist: [] });
+    setCError(null); setTError(null); setPlanStale(false); setWarnings({ constructor: [], technologist: [] }); setSketch(null);
   }, []);
 
-  return { model, drawing, plan, warnings, cState, tState, cError, tError, planStale, saving,
+  return { model, drawing, plan, warnings, sketch, cState, tState, cError, tError, planStale, saving,
     design, updateModel, rerunTech, save, reset };
 }

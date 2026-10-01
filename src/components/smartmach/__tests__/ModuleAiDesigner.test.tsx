@@ -8,6 +8,14 @@ const h = vi.hoisted(() => ({
 vi.mock("@/lib/aipart/agents", async (orig) => ({ ...(await orig<typeof import("@/lib/aipart/agents")>()), runConstructor: h.runConstructor, runTechnologist: h.runTechnologist }));
 vi.mock("@/lib/api", () => ({ apiGet: h.apiGet, apiPost: h.apiPost, URLS: {} }));
 vi.mock("@/lib/aipart/fabric", () => ({ renderToFabric: h.renderToFabric }));
+vi.mock("@/lib/aipart/sketch", async (orig) => ({
+  ...(await orig<typeof import("@/lib/aipart/sketch")>()),
+  prepareSketch: vi.fn(async (f: File) => {
+    const { validateSketchFile } = await orig<typeof import("@/lib/aipart/sketch")>();
+    validateSketchFile(f);
+    return { dataUrl: "data:image/jpeg;base64,SKETCH", width: 800, height: 600 };
+  }),
+}));
 vi.mock("@/context/AuthContext", () => ({ useAuth: () => ({ user: { name: "Иванов Иван Петрович", company_name: "Завод" } }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -53,7 +61,7 @@ describe("ИИ-конструктор: экран", () => {
   });
 
   it("чертёж показывается сразу, пока технолог ещё работает", async () => {
-    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [] });
+    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [], sketch: null });
     const tech = deferred<{ plan: typeof PLAN; warnings: string[] }>();
     h.runTechnologist.mockReturnValue(tech.p);
     await describeIt();
@@ -77,7 +85,7 @@ describe("ИИ-конструктор: экран", () => {
   });
 
   it("правка параметров перестраивает чертёж и требует пересчёта техпроцесса", async () => {
-    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [] });
+    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [], sketch: null });
     h.runTechnologist.mockResolvedValue({ plan: PLAN, warnings: [] });
     await describeIt();
     await screen.findByTestId("ai-plan");
@@ -96,7 +104,7 @@ describe("ИИ-конструктор: экран", () => {
   });
 
   it("сохраняет деталь с техкартой и чертёж с привязкой к детали", async () => {
-    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [] });
+    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [], sketch: null });
     h.runTechnologist.mockResolvedValue({ plan: PLAN, warnings: [] });
     h.apiPost.mockResolvedValueOnce({ id: 31, part_id: 77 }).mockResolvedValueOnce({ id: 12 });
     await describeIt();
@@ -121,5 +129,40 @@ describe("Оценка норм до сохранения", () => {
     const { tSht } = planTotals(PLAN as never, 50);
     // Отрезная: (2 + 1)·1,08 = 3,24; Токарная: То = 62/(1018,6·0,3) = 0,203; (0,203 + 2)·1,08 = 2,379
     expect(tSht).toBeCloseTo(3.24 + 2.379, 2);
+  });
+});
+
+describe("ИИ-конструктор: эскиз", () => {
+  const file = (name: string, type: string) => new File(["x"], name, { type });
+
+  it("эскиз без текста отправляется в ИИ вместе с изображением, отчёт распознавания показывается", async () => {
+    h.runConstructor.mockResolvedValue({ model: MODEL, warnings: [], sketch: { recognized: "вал ступенчатый", dimensions: ["∅40k6 L=60"], assumed: ["фаска 1 мм"], issues: [], confidence: "high" } });
+    h.runTechnologist.mockResolvedValue({ plan: PLAN, warnings: [] });
+    render(<ModuleAiDesigner />);
+    await userEvent.upload(screen.getByTestId("sketch-input"), file("vale.jpg", "image/jpeg"));
+    expect(await screen.findByTestId("sketch-preview")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Спроектировать/ }));
+
+    await waitFor(() => expect(h.runConstructor).toHaveBeenCalled());
+    expect(h.runConstructor).toHaveBeenCalledWith("", { image: "data:image/jpeg;base64,SKETCH" });
+    const rep = await screen.findByTestId("sketch-report");
+    expect(rep).toHaveTextContent("уверенно: вал ступенчатый");
+    expect(rep).toHaveTextContent("∅40k6 L=60");
+    expect(rep).toHaveTextContent("фаска 1 мм");
+  });
+
+  it("не-изображение отклоняется с понятным сообщением", async () => {
+    render(<ModuleAiDesigner />);
+    const input = screen.getByTestId("sketch-input");
+    fireEvent.change(input, { target: { files: [file("drawing.pdf", "application/pdf")] } });
+    expect(await screen.findByText(/PDF и DWG пока не поддерживаются/)).toBeInTheDocument();
+    expect(screen.queryByTestId("sketch-preview")).toBeNull();
+  });
+
+  it("эскиз можно убрать", async () => {
+    render(<ModuleAiDesigner />);
+    await userEvent.upload(screen.getByTestId("sketch-input"), file("a.png", "image/png"));
+    await userEvent.click(await screen.findByTitle("Убрать эскиз"));
+    expect(screen.getByTestId("sketch-drop")).toBeInTheDocument();
   });
 });
